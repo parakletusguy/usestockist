@@ -27,7 +27,17 @@ import { CalendarIcon, Plus, Trash2, Save } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 
-const TEAMS = ['Team 1', 'Team 2', 'Team 3', 'Team 4', 'Team 5', 'Team 6', 'Team 7', 'Team 8', 'Team 9', 'Team 10'];
+const TEAM_MEMBERS = [
+  'Nene Spiff',
+  'Roseline Ihuoma',
+  'Ruth Deekae',
+  'Chiamaka Akuwueze',
+  'Raphael Favour',
+  'Joy Chinenye',
+  'Priye',
+  'Chinasa',
+  'Mercy'
+];
 
 interface StockRow {
   id?: string;
@@ -192,13 +202,17 @@ const DailyStockSheet = () => {
               </Popover>
             </div>
             <div className="space-y-2">
-              <Label>Retail Team</Label>
-              <Input
-                value={team}
-                onChange={(e) => setTeam(e.target.value)}
-                placeholder="Enter team member name"
-                className="w-full sm:w-[240px]"
-              />
+              <Label>Team Member</Label>
+              <Select value={team} onValueChange={setTeam}>
+                <SelectTrigger className="w-full sm:w-[240px]">
+                  <SelectValue placeholder="Select team member" />
+                </SelectTrigger>
+                <SelectContent className="bg-background">
+                  {TEAM_MEMBERS.map(member => (
+                    <SelectItem key={member} value={member}>{member}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </CardContent>
