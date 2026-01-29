@@ -43,7 +43,7 @@ interface StockRow {
 
 const DailyStockSheet = () => {
   const [date, setDate] = useState<Date>(new Date());
-  const [team, setTeam] = useState<string>('Team 1');
+  const [team, setTeam] = useState<string>('');
   const [rows, setRows] = useState<StockRow[]>([]);
   
   const { data: items } = useItems();
@@ -193,16 +193,12 @@ const DailyStockSheet = () => {
             </div>
             <div className="space-y-2">
               <Label>Retail Team</Label>
-              <Select value={team} onValueChange={setTeam}>
-                <SelectTrigger className="w-full sm:w-[180px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-background">
-                  {TEAMS.map(t => (
-                    <SelectItem key={t} value={t}>{t}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Input
+                value={team}
+                onChange={(e) => setTeam(e.target.value)}
+                placeholder="Enter team member name"
+                className="w-full sm:w-[240px]"
+              />
             </div>
           </div>
         </CardContent>
