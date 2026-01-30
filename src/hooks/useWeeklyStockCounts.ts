@@ -24,9 +24,9 @@ export interface CreateWeeklyStockCountInput {
   notes?: string;
 }
 
-export function useWeeklyStockCounts(location?: string) {
+export function useWeeklyStockCounts(location?: string, startDate?: string, endDate?: string) {
   return useQuery({
-    queryKey: ['weekly_stock_counts', location],
+    queryKey: ['weekly_stock_counts', location, startDate, endDate],
     queryFn: async () => {
       let query = supabase
         .from('weekly_stock_counts')
@@ -35,6 +35,14 @@ export function useWeeklyStockCounts(location?: string) {
       
       if (location) {
         query = query.eq('location', location);
+      }
+      
+      if (startDate) {
+        query = query.gte('date', startDate);
+      }
+      
+      if (endDate) {
+        query = query.lte('date', endDate);
       }
       
       const { data, error } = await query;
@@ -61,6 +69,28 @@ export function useCreateWeeklyStockCount() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['weekly_stock_counts'] });
       toast({ title: 'Success', description: 'Stock count recorded' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
+export function useDeleteWeeklyStockCount() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('weekly_stock_counts')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['weekly_stock_counts'] });
+      toast({ title: 'Success', description: 'Stock count deleted' });
     },
     onError: (error: Error) => {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
