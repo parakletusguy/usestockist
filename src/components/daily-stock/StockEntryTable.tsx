@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { useItems } from '@/hooks/useItems';
 import { useDailyStockSheets, useCreateDailyStockSheet, useDeleteDailyStockSheet } from '@/hooks/useDailyStockSheets';
+import { useOfflineSync } from '@/hooks/useOfflineSync';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -50,6 +51,7 @@ const StockEntryTable = ({ date, teamMember }: StockEntryTableProps) => {
   );
   const createSheet = useCreateDailyStockSheet();
   const deleteSheet = useDeleteDailyStockSheet();
+  const { isOnline, addDailyToQueue } = useOfflineSync();
 
   useEffect(() => {
     if (existingSheets && existingSheets.length > 0) {
@@ -116,6 +118,26 @@ const StockEntryTable = ({ date, teamMember }: StockEntryTableProps) => {
       return;
     }
 
+    if (!isOnline) {
+      // Save each row to offline queue
+      for (const row of validRows) {
+        addDailyToQueue({
+          date: format(date, 'yyyy-MM-dd'),
+          retail_team_name: teamMember,
+          item_id: row.item_id,
+          open_qty: row.open_qty,
+          qty_in: row.qty_in,
+          close_qty: row.close_qty,
+          sales_qty: row.sales_qty,
+          reach: row.reach || undefined,
+          os_status: row.os_status || undefined,
+          remark: row.remark || undefined,
+        });
+      }
+      return;
+    }
+
+    // Online: delete existing then re-create
     if (existingSheets) {
       for (const sheet of existingSheets) {
         await deleteSheet.mutateAsync(sheet.id);
@@ -161,7 +183,7 @@ const StockEntryTable = ({ date, teamMember }: StockEntryTableProps) => {
           </Button>
           <Button size="sm" onClick={handleSave} disabled={createSheet.isPending}>
             <Save className="mr-2 h-4 w-4" />
-            Save
+            {isOnline ? 'Save' : 'Save Offline'}
           </Button>
         </div>
       </CardHeader>
