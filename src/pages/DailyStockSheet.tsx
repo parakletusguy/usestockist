@@ -31,7 +31,8 @@ const TEAM_MEMBERS = [
   'Joy Chinenye',
   'Priye',
   'Chinasa',
-  'Mercy'
+  'Mercy',
+  'Emilia'
 ];
 
 type DateRangePreset = 'today' | 'this_week' | 'this_month' | 'custom';
@@ -45,6 +46,7 @@ const DailyStockSheet = () => {
   const [exportFrom, setExportFrom] = useState<Date>(new Date());
   const [exportTo, setExportTo] = useState<Date>(new Date());
   const [isExporting, setIsExporting] = useState(false);
+  const [exportTeamMember, setExportTeamMember] = useState<string>('all');
 
   const getExportDateRange = (): { from: string; to: string } => {
     const now = new Date();
@@ -64,13 +66,19 @@ const DailyStockSheet = () => {
     setIsExporting(true);
     try {
       const { from, to } = getExportDateRange();
-      const { data, error } = await supabase
+      let query = supabase
         .from('daily_stock_sheets')
         .select('*, items(name, unit_of_measure)')
         .gte('date', from)
         .lte('date', to)
         .order('date', { ascending: true })
         .order('retail_team_name', { ascending: true });
+
+      if (exportTeamMember !== 'all') {
+        query = query.eq('retail_team_name', exportTeamMember);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 
@@ -200,6 +208,21 @@ const DailyStockSheet = () => {
                   <SelectItem value="this_week">This Week</SelectItem>
                   <SelectItem value="this_month">This Month</SelectItem>
                   <SelectItem value="custom">Custom Range</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Team Member</Label>
+              <Select value={exportTeamMember} onValueChange={setExportTeamMember}>
+                <SelectTrigger className="w-full sm:w-[180px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-background">
+                  <SelectItem value="all">All Members</SelectItem>
+                  {TEAM_MEMBERS.map(member => (
+                    <SelectItem key={member} value={member}>{member}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
