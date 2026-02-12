@@ -145,18 +145,24 @@ const StockEntryTable = ({ date, teamMember }: StockEntryTableProps) => {
 
     setIsSaving(true);
     try {
-      // Delete all existing entries for this date+team in one call
-      if (existingSheets && existingSheets.length > 0) {
-        const ids = existingSheets.map(s => s.id);
-        const { error: delError } = await supabase
-          .from('daily_stock_sheets')
-          .delete()
-          .in('id', ids);
-        if (delError) throw delError;
+      // Delete rows that were removed by the user
+      if (existingSheets) {
+        const currentIds = validRows.filter(r => r.id).map(r => r.id!);
+        const removedIds = existingSheets
+          .map(s => s.id)
+          .filter(id => !currentIds.includes(id));
+        if (removedIds.length > 0) {
+          const { error: delError } = await supabase
+            .from('daily_stock_sheets')
+            .delete()
+            .in('id', removedIds);
+          if (delError) throw delError;
+        }
       }
 
-      // Insert all rows in one call
-      const insertData = validRows.map(row => ({
+      // Upsert all rows in one call (updates existing, inserts new)
+      const upsertData = validRows.map(row => ({
+        ...(row.id ? { id: row.id } : {}),
         date: format(date, 'yyyy-MM-dd'),
         retail_team_name: teamMember,
         item_id: row.item_id,
@@ -164,17 +170,16 @@ const StockEntryTable = ({ date, teamMember }: StockEntryTableProps) => {
         qty_in: row.qty_in,
         close_qty: row.close_qty,
         sales_qty: row.sales_qty,
-        reach: row.reach || undefined,
-        os_status: row.os_status || undefined,
-        remark: row.remark || undefined,
+        reach: row.reach || null,
+        os_status: row.os_status || null,
+        remark: row.remark || null,
       }));
 
-      const { error: insError } = await supabase
+      const { error } = await supabase
         .from('daily_stock_sheets')
-        .insert(insertData);
-      if (insError) throw insError;
+        .upsert(upsertData);
+      if (error) throw error;
 
-      // Invalidate once after all operations complete
       queryClient.invalidateQueries({ queryKey: ['daily_stock_sheets'] });
       toast({ title: 'Success', description: 'Stock sheet entries saved' });
     } catch (error: any) {
