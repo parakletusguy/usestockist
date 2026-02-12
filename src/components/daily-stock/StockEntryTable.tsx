@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { useItems } from '@/hooks/useItems';
-import { useDailyStockSheets, useCreateDailyStockSheet, useDeleteDailyStockSheet } from '@/hooks/useDailyStockSheets';
+import { useDailyStockSheets } from '@/hooks/useDailyStockSheets';
+import { supabase } from '@/integrations/supabase/client';
 import { useOfflineSync } from '@/hooks/useOfflineSync';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -49,8 +51,7 @@ const StockEntryTable = ({ date, teamMember }: StockEntryTableProps) => {
     format(date, 'yyyy-MM-dd'),
     teamMember
   );
-  const createSheet = useCreateDailyStockSheet();
-  const deleteSheet = useDeleteDailyStockSheet();
+  const queryClient = useQueryClient();
   const { isOnline, addDailyToQueue } = useOfflineSync();
 
   useEffect(() => {
@@ -101,10 +102,16 @@ const StockEntryTable = ({ date, teamMember }: StockEntryTableProps) => {
   const removeRow = async (index: number) => {
     const row = rows[index];
     if (row.id) {
-      await deleteSheet.mutateAsync(row.id);
+      const { error } = await supabase.from('daily_stock_sheets').delete().eq('id', row.id);
+      if (error) {
+        toast({ title: 'Error', description: error.message, variant: 'destructive' });
+        return;
+      }
     }
     setRows(rows.filter((_, i) => i !== index));
   };
+
+  const [isSaving, setIsSaving] = useState(false);
 
   const handleSave = async () => {
     const validRows = rows.filter(row => row.item_id);
@@ -119,7 +126,6 @@ const StockEntryTable = ({ date, teamMember }: StockEntryTableProps) => {
     }
 
     if (!isOnline) {
-      // Save each row to offline queue
       for (const row of validRows) {
         addDailyToQueue({
           date: format(date, 'yyyy-MM-dd'),
@@ -137,15 +143,20 @@ const StockEntryTable = ({ date, teamMember }: StockEntryTableProps) => {
       return;
     }
 
-    // Online: delete existing then re-create
-    if (existingSheets) {
-      for (const sheet of existingSheets) {
-        await deleteSheet.mutateAsync(sheet.id);
+    setIsSaving(true);
+    try {
+      // Delete all existing entries for this date+team in one call
+      if (existingSheets && existingSheets.length > 0) {
+        const ids = existingSheets.map(s => s.id);
+        const { error: delError } = await supabase
+          .from('daily_stock_sheets')
+          .delete()
+          .in('id', ids);
+        if (delError) throw delError;
       }
-    }
 
-    for (const row of validRows) {
-      await createSheet.mutateAsync({
+      // Insert all rows in one call
+      const insertData = validRows.map(row => ({
         date: format(date, 'yyyy-MM-dd'),
         retail_team_name: teamMember,
         item_id: row.item_id,
@@ -156,7 +167,20 @@ const StockEntryTable = ({ date, teamMember }: StockEntryTableProps) => {
         reach: row.reach || undefined,
         os_status: row.os_status || undefined,
         remark: row.remark || undefined,
-      });
+      }));
+
+      const { error: insError } = await supabase
+        .from('daily_stock_sheets')
+        .insert(insertData);
+      if (insError) throw insError;
+
+      // Invalidate once after all operations complete
+      queryClient.invalidateQueries({ queryKey: ['daily_stock_sheets'] });
+      toast({ title: 'Success', description: 'Stock sheet entries saved' });
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -181,7 +205,7 @@ const StockEntryTable = ({ date, teamMember }: StockEntryTableProps) => {
             <Plus className="mr-2 h-4 w-4" />
             Add Row
           </Button>
-          <Button size="sm" onClick={handleSave} disabled={createSheet.isPending}>
+          <Button size="sm" onClick={handleSave} disabled={isSaving}>
             <Save className="mr-2 h-4 w-4" />
             {isOnline ? 'Save' : 'Save Offline'}
           </Button>
