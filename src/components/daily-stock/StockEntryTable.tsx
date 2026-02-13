@@ -161,24 +161,50 @@ const StockEntryTable = ({ date, teamMember }: StockEntryTableProps) => {
       }
 
       // Upsert all rows in one call (updates existing, inserts new)
-      const upsertData = validRows.map(row => ({
-        ...(row.id ? { id: row.id } : {}),
-        date: format(date, 'yyyy-MM-dd'),
-        retail_team_name: teamMember,
-        item_id: row.item_id,
-        open_qty: row.open_qty,
-        qty_in: row.qty_in,
-        close_qty: row.close_qty,
-        sales_qty: row.sales_qty,
-        reach: row.reach || null,
-        os_status: row.os_status || null,
-        remark: row.remark || null,
-      }));
+      const rowsToUpdate = validRows.filter(r => r.id);
+      const rowsToInsert = validRows.filter(r => !r.id);
 
-      const { error } = await supabase
-        .from('daily_stock_sheets')
-        .upsert(upsertData);
-      if (error) throw error;
+      // Update existing rows
+      if (rowsToUpdate.length > 0) {
+        const updateData = rowsToUpdate.map(row => ({
+          id: row.id!,
+          date: format(date, 'yyyy-MM-dd'),
+          retail_team_name: teamMember,
+          item_id: row.item_id,
+          open_qty: row.open_qty,
+          qty_in: row.qty_in,
+          close_qty: row.close_qty,
+          sales_qty: row.sales_qty,
+          reach: row.reach || null,
+          os_status: row.os_status || null,
+          remark: row.remark || null,
+        }));
+        const { error: updateError } = await supabase
+          .from('daily_stock_sheets')
+          .upsert(updateData);
+        if (updateError) throw updateError;
+      }
+
+      // Insert new rows (let DB generate id)
+      if (rowsToInsert.length > 0) {
+        const insertData = rowsToInsert.map(row => ({
+          date: format(date, 'yyyy-MM-dd'),
+          retail_team_name: teamMember,
+          item_id: row.item_id,
+          open_qty: row.open_qty,
+          qty_in: row.qty_in,
+          close_qty: row.close_qty,
+          sales_qty: row.sales_qty,
+          reach: row.reach || null,
+          os_status: row.os_status || null,
+          remark: row.remark || null,
+        }));
+        const { error: insertError } = await supabase
+          .from('daily_stock_sheets')
+          .insert(insertData);
+        if (insertError) throw insertError;
+      }
+      
 
       queryClient.invalidateQueries({ queryKey: ['daily_stock_sheets'] });
       toast({ title: 'Success', description: 'Stock sheet entries saved' });
