@@ -16,6 +16,7 @@ import Transfers from "./pages/Transfers";
 import Received from "./pages/Received";
 import Insights from "./pages/Insights";
 import NotFound from "./pages/NotFound";
+import Install from "./pages/Install";
 
 const queryClient = new QueryClient();
 
@@ -29,6 +30,7 @@ const App = () => (
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
+            <Route path="/install" element={<Install />} />
             <Route element={<AppLayout />}>
               <Route path="/" element={<Dashboard />} />
               <Route path="/items" element={<ItemManager />} />
