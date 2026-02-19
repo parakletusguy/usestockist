@@ -5,7 +5,8 @@ import {
   Calendar, 
   Send, 
   ArrowLeftRight, 
-  PackageCheck 
+  PackageCheck,
+  BrainCircuit,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import {
@@ -28,6 +29,7 @@ const menuItems = [
   { title: 'Issuance', url: '/issuance', icon: Send },
   { title: 'Transfers', url: '/transfers', icon: ArrowLeftRight },
   { title: 'Received', url: '/received', icon: PackageCheck },
+  { title: 'AI Insights', url: '/insights', icon: BrainCircuit },
 ];
 
 export function AppSidebar() {
