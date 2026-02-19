@@ -1,4 +1,5 @@
-import { Package, LogOut, Menu } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Package, LogOut, Menu, Download } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { SidebarTrigger } from '@/components/ui/sidebar';
@@ -10,8 +11,30 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
+interface BeforeInstallPromptEvent extends Event {
+  prompt(): Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+}
+
 export function AppHeader() {
   const { user, signOut } = useAuth();
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e as BeforeInstallPromptEvent);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstall = async () => {
+    if (!deferredPrompt) return;
+    await deferredPrompt.prompt();
+    await deferredPrompt.userChoice;
+    setDeferredPrompt(null);
+  };
 
   const getInitials = (email: string) => {
     return email.substring(0, 2).toUpperCase();
@@ -29,6 +52,17 @@ export function AppHeader() {
       </div>
 
       <div className="ml-auto flex items-center gap-2">
+        {deferredPrompt && (
+          <Button variant="outline" size="sm" onClick={handleInstall} className="hidden sm:inline-flex">
+            <Download className="mr-1.5 h-4 w-4" />
+            Install App
+          </Button>
+        )}
+        {deferredPrompt && (
+          <Button variant="outline" size="icon" onClick={handleInstall} className="sm:hidden h-8 w-8">
+            <Download className="h-4 w-4" />
+          </Button>
+        )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-8 w-8 rounded-full">
