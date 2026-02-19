@@ -14,6 +14,7 @@ import WeeklyCount from "./pages/WeeklyCount";
 import Issuance from "./pages/Issuance";
 import Transfers from "./pages/Transfers";
 import Received from "./pages/Received";
+import Insights from "./pages/Insights";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -36,6 +37,7 @@ const App = () => (
               <Route path="/issuance" element={<Issuance />} />
               <Route path="/transfers" element={<Transfers />} />
               <Route path="/received" element={<Received />} />
+              <Route path="/insights" element={<Insights />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
