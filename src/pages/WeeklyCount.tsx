@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import { useItems } from '@/hooks/useItems';
-import { useWeeklyStockCounts, useCreateWeeklyStockCount, useDeleteWeeklyStockCount } from '@/hooks/useWeeklyStockCounts';
+import { useWeeklyStockCounts, useCreateWeeklyStockCount, useUpdateWeeklyStockCount, useDeleteWeeklyStockCount, WeeklyStockCount } from '@/hooks/useWeeklyStockCounts';
 import { useOfflineSync } from '@/hooks/useOfflineSync';
 import { exportToCSV } from '@/lib/export';
 import { Button } from '@/components/ui/button';
@@ -10,35 +10,17 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { CalendarIcon, Plus, Trash2, Download, Wifi, WifiOff, CloudOff } from 'lucide-react';
+import { CalendarIcon, Plus, Download, Wifi, WifiOff, CloudOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { EditDeleteActions } from '@/components/ledger/EditDeleteActions';
 
 const LOCATIONS = ['Main Store', '24hr Store', 'Cube'];
 
@@ -47,20 +29,25 @@ type DateRangeType = 'all' | 'day' | 'week' | 'month' | 'custom';
 const WeeklyCount = () => {
   const [date, setDate] = useState<Date>(new Date());
   const [location, setLocation] = useState<string>('Main Store');
-  const [selectedItem, setSelectedItem] = useState<string>('');
-  const [physicalCount, setPhysicalCount] = useState<string>('');
-  const [notes, setNotes] = useState<string>('');
-  const [filterLocation, setFilterLocation] = useState<string>('all');
-  
-  // Date range for export/filter
+  const [selectedItem, setSelectedItem] = useState('');
+  const [physicalCount, setPhysicalCount] = useState('');
+  const [notes, setNotes] = useState('');
+  const [filterLocation, setFilterLocation] = useState('all');
   const [dateRangeType, setDateRangeType] = useState<DateRangeType>('all');
   const [customStartDate, setCustomStartDate] = useState<Date | undefined>();
   const [customEndDate, setCustomEndDate] = useState<Date | undefined>();
 
+  // Edit state
+  const [editingEntry, setEditingEntry] = useState<WeeklyStockCount | null>(null);
+  const [editDate, setEditDate] = useState<Date>(new Date());
+  const [editLocation, setEditLocation] = useState('');
+  const [editItem, setEditItem] = useState('');
+  const [editCount, setEditCount] = useState('');
+  const [editNotes, setEditNotes] = useState('');
+
   const { data: items } = useItems();
   const { isOnline, isSyncing, pendingCount, addToQueue } = useOfflineSync();
-  
-  // Calculate date range based on selection
+
   const getDateRange = () => {
     const today = new Date();
     switch (dateRangeType) {
@@ -88,20 +75,17 @@ const WeeklyCount = () => {
   };
 
   const { startDate, endDate } = getDateRange();
-  
+
   const { data: stockCounts, isLoading } = useWeeklyStockCounts(
-    filterLocation === 'all' ? undefined : filterLocation,
-    startDate,
-    endDate
+    filterLocation === 'all' ? undefined : filterLocation, startDate, endDate
   );
   const createCount = useCreateWeeklyStockCount();
+  const updateCount = useUpdateWeeklyStockCount();
   const deleteCount = useDeleteWeeklyStockCount();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (!selectedItem || !physicalCount) return;
-
     const entryData = {
       date: format(date, 'yyyy-MM-dd'),
       location,
@@ -109,27 +93,40 @@ const WeeklyCount = () => {
       physical_count: Number(physicalCount),
       notes: notes || undefined,
     };
-
     if (!isOnline) {
-      // Save to offline queue
       addToQueue(entryData);
     } else {
       await createCount.mutateAsync(entryData);
     }
-
-    // Reset form
     setSelectedItem('');
     setPhysicalCount('');
     setNotes('');
   };
 
-  const handleDelete = async (id: string) => {
-    await deleteCount.mutateAsync(id);
+  const openEdit = (entry: WeeklyStockCount) => {
+    setEditingEntry(entry);
+    setEditDate(new Date(entry.date));
+    setEditLocation(entry.location);
+    setEditItem(entry.item_id);
+    setEditCount(String(entry.physical_count));
+    setEditNotes(entry.notes || '');
+  };
+
+  const handleEditSave = async () => {
+    if (!editingEntry) return;
+    await updateCount.mutateAsync({
+      id: editingEntry.id,
+      date: format(editDate, 'yyyy-MM-dd'),
+      location: editLocation,
+      item_id: editItem,
+      physical_count: Number(editCount),
+      notes: editNotes || undefined,
+    });
+    setEditingEntry(null);
   };
 
   const handleExport = () => {
     if (!stockCounts || stockCounts.length === 0) return;
-
     const exportData = stockCounts.map(count => ({
       date: format(new Date(count.date), 'yyyy-MM-dd'),
       location: count.location,
@@ -138,11 +135,8 @@ const WeeklyCount = () => {
       unit: count.items?.unit_of_measure || '',
       notes: count.notes || '',
     }));
-
-    const rangeLabel = dateRangeType === 'all' ? 'all' : 
-      dateRangeType === 'custom' ? `${startDate}_to_${endDate}` :
-      dateRangeType;
-
+    const rangeLabel = dateRangeType === 'all' ? 'all' :
+      dateRangeType === 'custom' ? `${startDate}_to_${endDate}` : dateRangeType;
     exportToCSV(exportData, `weekly_stock_counts_${rangeLabel}`, [
       { key: 'date', header: 'Date' },
       { key: 'location', header: 'Location' },
@@ -171,25 +165,21 @@ const WeeklyCount = () => {
         <div className="flex items-center gap-2">
           {pendingCount > 0 && (
             <div className="flex items-center gap-1 text-sm text-muted-foreground">
-              <CloudOff className="h-4 w-4" />
-              <span>{pendingCount} pending</span>
+              <CloudOff className="h-4 w-4" /><span>{pendingCount} pending</span>
             </div>
           )}
           {isOnline ? (
             <div className="flex items-center gap-1 text-sm text-green-600">
-              <Wifi className="h-4 w-4" />
-              <span className="hidden sm:inline">Online</span>
+              <Wifi className="h-4 w-4" /><span className="hidden sm:inline">Online</span>
             </div>
           ) : (
             <div className="flex items-center gap-1 text-sm text-destructive">
-              <WifiOff className="h-4 w-4" />
-              <span className="hidden sm:inline">Offline</span>
+              <WifiOff className="h-4 w-4" /><span className="hidden sm:inline">Offline</span>
             </div>
           )}
         </div>
       </div>
 
-      {/* Entry Form */}
       <Card>
         <CardHeader>
           <CardTitle>New Stock Count</CardTitle>
@@ -206,83 +196,48 @@ const WeeklyCount = () => {
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button variant="outline" className={cn("w-full justify-start text-left font-normal")}>
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {format(date, 'PPP')}
+                      <CalendarIcon className="mr-2 h-4 w-4" />{format(date, 'PPP')}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={date}
-                      onSelect={(d) => d && setDate(d)}
-                      initialFocus
-                      className="pointer-events-auto"
-                    />
+                    <Calendar mode="single" selected={date} onSelect={(d) => d && setDate(d)} initialFocus className="pointer-events-auto" />
                   </PopoverContent>
                 </Popover>
               </div>
-
               <div className="space-y-2">
                 <Label>Location</Label>
                 <Select value={location} onValueChange={setLocation}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent className="bg-background">
-                    {LOCATIONS.map(loc => (
-                      <SelectItem key={loc} value={loc}>{loc}</SelectItem>
-                    ))}
+                    {LOCATIONS.map(loc => <SelectItem key={loc} value={loc}>{loc}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
-
               <div className="space-y-2">
                 <Label>Item</Label>
                 <Select value={selectedItem} onValueChange={setSelectedItem}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select item" />
-                  </SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Select item" /></SelectTrigger>
                   <SelectContent className="bg-background">
-                    {items?.map(item => (
-                      <SelectItem key={item.id} value={item.id}>
-                        {item.name}
-                      </SelectItem>
-                    ))}
+                    {items?.map(item => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
-
               <div className="space-y-2">
                 <Label>Physical Count</Label>
-                <Input
-                  type="number"
-                  value={physicalCount}
-                  onChange={(e) => setPhysicalCount(e.target.value)}
-                  placeholder="0"
-                  required
-                />
+                <Input type="number" value={physicalCount} onChange={(e) => setPhysicalCount(e.target.value)} placeholder="0" required />
               </div>
             </div>
-
             <div className="space-y-2">
               <Label>Notes (Optional)</Label>
-              <Textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Any observations or notes..."
-                rows={2}
-              />
+              <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Any observations or notes..." rows={2} />
             </div>
-
             <Button type="submit" disabled={createCount.isPending || isSyncing || !selectedItem}>
-              <Plus className="mr-2 h-4 w-4" />
-              Record Count
+              <Plus className="mr-2 h-4 w-4" />Record Count
             </Button>
           </form>
         </CardContent>
       </Card>
 
-      {/* History Table */}
       <Card>
         <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -290,11 +245,8 @@ const WeeklyCount = () => {
             <CardDescription>Previous physical counts</CardDescription>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {/* Date Range Filter */}
             <Select value={dateRangeType} onValueChange={(v) => setDateRangeType(v as DateRangeType)}>
-              <SelectTrigger className="w-[130px]">
-                <SelectValue />
-              </SelectTrigger>
+              <SelectTrigger className="w-[130px]"><SelectValue /></SelectTrigger>
               <SelectContent className="bg-background">
                 <SelectItem value="all">All Time</SelectItem>
                 <SelectItem value="day">Today</SelectItem>
@@ -303,69 +255,40 @@ const WeeklyCount = () => {
                 <SelectItem value="custom">Custom</SelectItem>
               </SelectContent>
             </Select>
-
             {dateRangeType === 'custom' && (
               <div className="flex items-center gap-2">
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button variant="outline" size="sm" className="w-[110px]">
-                      <CalendarIcon className="mr-1 h-3 w-3" />
-                      {customStartDate ? format(customStartDate, 'MMM d') : 'Start'}
+                      <CalendarIcon className="mr-1 h-3 w-3" />{customStartDate ? format(customStartDate, 'MMM d') : 'Start'}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={customStartDate}
-                      onSelect={setCustomStartDate}
-                      initialFocus
-                      className="pointer-events-auto"
-                    />
+                    <Calendar mode="single" selected={customStartDate} onSelect={setCustomStartDate} initialFocus className="pointer-events-auto" />
                   </PopoverContent>
                 </Popover>
                 <span className="text-muted-foreground">to</span>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button variant="outline" size="sm" className="w-[110px]">
-                      <CalendarIcon className="mr-1 h-3 w-3" />
-                      {customEndDate ? format(customEndDate, 'MMM d') : 'End'}
+                      <CalendarIcon className="mr-1 h-3 w-3" />{customEndDate ? format(customEndDate, 'MMM d') : 'End'}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={customEndDate}
-                      onSelect={setCustomEndDate}
-                      initialFocus
-                      className="pointer-events-auto"
-                    />
+                    <Calendar mode="single" selected={customEndDate} onSelect={setCustomEndDate} initialFocus className="pointer-events-auto" />
                   </PopoverContent>
                 </Popover>
               </div>
             )}
-
-            {/* Location Filter */}
             <Select value={filterLocation} onValueChange={setFilterLocation}>
-              <SelectTrigger className="w-[150px]">
-                <SelectValue />
-              </SelectTrigger>
+              <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
               <SelectContent className="bg-background">
                 <SelectItem value="all">All Locations</SelectItem>
-                {LOCATIONS.map(loc => (
-                  <SelectItem key={loc} value={loc}>{loc}</SelectItem>
-                ))}
+                {LOCATIONS.map(loc => <SelectItem key={loc} value={loc}>{loc}</SelectItem>)}
               </SelectContent>
             </Select>
-
-            {/* Export Button */}
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleExport}
-              disabled={!stockCounts || stockCounts.length === 0}
-            >
-              <Download className="mr-2 h-4 w-4" />
-              Export
+            <Button variant="outline" size="sm" onClick={handleExport} disabled={!stockCounts || stockCounts.length === 0}>
+              <Download className="mr-2 h-4 w-4" />Export
             </Button>
           </div>
         </CardHeader>
@@ -378,15 +301,13 @@ const WeeklyCount = () => {
                 <TableHead>Item</TableHead>
                 <TableHead>Count</TableHead>
                 <TableHead>Notes</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
+                <TableHead className="w-[80px]">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {stockCounts?.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                    No counts recorded yet
-                  </TableCell>
+                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">No counts recorded yet</TableCell>
                 </TableRow>
               ) : (
                 stockCounts?.map(count => (
@@ -397,30 +318,11 @@ const WeeklyCount = () => {
                     <TableCell>{count.physical_count} {count.items?.unit_of_measure}</TableCell>
                     <TableCell className="max-w-xs truncate">{count.notes || '-'}</TableCell>
                     <TableCell>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Delete this entry?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This will permanently delete this stock count entry. This action cannot be undone.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => handleDelete(count.id)}
-                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                            >
-                              Delete
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                      <EditDeleteActions
+                        onEdit={() => openEdit(count)}
+                        onDelete={() => deleteCount.mutate(count.id)}
+                        isDeleting={deleteCount.isPending}
+                      />
                     </TableCell>
                   </TableRow>
                 ))
@@ -429,6 +331,57 @@ const WeeklyCount = () => {
           </Table>
         </CardContent>
       </Card>
+
+      <Dialog open={!!editingEntry} onOpenChange={(open) => !open && setEditingEntry(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Edit Stock Count</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-start text-left font-normal">
+                    <CalendarIcon className="mr-2 h-4 w-4" />{format(editDate, 'PPP')}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={editDate} onSelect={(d) => d && setEditDate(d)} initialFocus className="pointer-events-auto" />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="space-y-2">
+              <Label>Location</Label>
+              <Select value={editLocation} onValueChange={setEditLocation}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent className="bg-background">
+                  {LOCATIONS.map(loc => <SelectItem key={loc} value={loc}>{loc}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Item</Label>
+              <Select value={editItem} onValueChange={setEditItem}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent className="bg-background">
+                  {items?.map(item => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Physical Count</Label>
+              <Input type="number" value={editCount} onChange={(e) => setEditCount(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Notes</Label>
+              <Textarea value={editNotes} onChange={(e) => setEditNotes(e.target.value)} rows={2} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingEntry(null)}>Cancel</Button>
+            <Button onClick={handleEditSave} disabled={updateCount.isPending}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -1,52 +1,128 @@
 
 
-## Plan: Add Edit and Delete to All Ledger Pages
+# Stockist App - Implementation Plan
 
-### Current State
-| Page | Edit | Delete |
-|------|------|--------|
-| Daily Stock Sheet | Inline editing + save | Row remove + save |
-| Weekly Count | None | Yes (with confirm dialog) |
-| Issuance | None | None |
-| Received | None | None |
-| Transfers | None | None |
+## Overview
+A responsive inventory management web application for tracking stock across multiple locations, managing daily stock sheets for retail teams, and maintaining ledgers for issuance, transfers, and receiving.
 
-### What to Build
+---
 
-**1. Add missing mutation hooks**
+## 1. Authentication & User Setup
+- **Basic login/signup** using Supabase Auth (email/password)
+- All authenticated users have the same access level
+- Session management to keep users logged in
+- Simple profile display showing logged-in user info
 
-- `useLedgers.ts`: Add `useUpdateIssuance`, `useDeleteIssuance`, `useUpdateTransfer`, `useDeleteTransfer`, `useUpdateReceived`, `useDeleteReceived` mutations
-- `useWeeklyStockCounts.ts`: Add `useUpdateWeeklyStockCount` mutation
+---
 
-**2. Update each page with Edit and Delete actions**
+## 2. Database Structure (Supabase)
 
-Add an "Actions" column to the history table on each page with:
-- **Edit button** (Pencil icon): Opens a dialog pre-filled with the entry's current values. User edits and saves.
-- **Delete button** (Trash icon): Opens an AlertDialog confirmation before deleting.
+### Master Data
+- **items** - Product catalog with name, category, and unit of measure
 
-Pages to update:
-- `src/pages/Issuance.tsx` -- add edit dialog + delete confirm
-- `src/pages/Received.tsx` -- add edit dialog + delete confirm
-- `src/pages/Transfers.tsx` -- add edit dialog + delete confirm
-- `src/pages/WeeklyCount.tsx` -- add edit dialog (delete already exists)
+### Transaction Tables (all with timestamps)
+- **daily_stock_sheets** - Daily stock tracking per retail team (Team 1-10)
+- **weekly_stock_counts** - Physical counts by location (Main Store, 24hr Store)
+- **issuance_ledger** - Items issued to groups (Retail, Housekeeping, Managers, Cube, Bar)
+- **transfer_ledger** - Transfers to sister branches/businesses
+- **received_ledger** - Items received from suppliers with invoice tracking
 
-**3. UI Pattern**
+---
 
-Each page will use a consistent pattern:
-- State for `editingEntry` (the entry being edited, or null)
-- A `<Dialog>` component with a form matching the entry fields
-- An `<AlertDialog>` wrapping the delete button for confirmation
-- Both edit and delete buttons rendered in the last column of each table row
+## 3. Navigation & Layout
+- **Collapsible sidebar** on the left with icons and labels
+- Menu items: Dashboard, Item Manager, Daily Stock Sheet, Weekly Count, Issuance, Transfers, Received
+- Mobile-responsive design with hamburger menu on smaller screens
+- Clean header showing app name and user info/logout
 
-**4. RLS Note**
+---
 
-Delete is already restricted to admins via existing RLS policies. No database changes needed -- all tables already allow authenticated users to update.
+## 4. Dashboard
+A comprehensive overview page featuring:
 
-### Files to Change
-- `src/hooks/useLedgers.ts` -- add 6 new mutation hooks
-- `src/hooks/useWeeklyStockCounts.ts` -- add 1 update mutation
-- `src/pages/Issuance.tsx` -- add Actions column with edit/delete
-- `src/pages/Received.tsx` -- add Actions column with edit/delete
-- `src/pages/Transfers.tsx` -- add Actions column with edit/delete
-- `src/pages/WeeklyCount.tsx` -- add edit dialog
+### Metrics Cards
+- Total items in catalog
+- Low stock alerts (items below threshold)
+- Recent transactions count
+- Today's sales summary
+
+### Charts & Analytics
+- Stock level trends over time
+- Sales patterns by retail team
+- Top moving items visualization
+
+### Quick Actions
+- Add new issuance
+- Record received stock
+- Create transfer
+- Start daily stock sheet
+
+---
+
+## 5. Item Manager
+- **Table view** of all inventory items
+- **Add/Edit form** with fields: name, category, unit of measure
+- **Search and filter** by category
+- **Delete** functionality with confirmation dialog
+- Categories: Beverages, Food, Supplies, etc. (customizable)
+
+---
+
+## 6. Daily Stock Sheet
+- **Date and Team selector** at the top (Team 1-10)
+- **Data grid** with columns:
+  - Item (dropdown from items catalog)
+  - Opening Qty
+  - Qty In
+  - Closing Qty
+  - **Sales Qty** (auto-calculated: Opening + Qty In - Closing)
+  - Reach
+  - OS Status
+  - Remark
+- **Add row** button to add new items to the sheet
+- **Save** button to persist all entries
+- Manual entry for all values (no carry-forward)
+
+---
+
+## 7. Weekly Stock Count
+- **Date and Location selector** (Main Store, 24hr Store)
+- **Form to record** physical counts per item
+- **Notes field** for observations
+- **History table** showing past counts filtered by location
+
+---
+
+## 8. Ledger Pages (Issuance, Transfer, Received)
+
+### Issuance Ledger
+- Form: Date, Recipient Group dropdown (Retail, Housekeeping, Managers, Cube, Bar), Item, Quantity, Issued By (auto-filled with logged-in user)
+- History table with filtering by date range and recipient
+
+### Transfer Ledger
+- Form: Date, Destination (Sister Branch/Business), Item, Quantity, Reason
+- History table with filtering
+
+### Received Ledger
+- Form: Date, Supplier, Item, Quantity, Invoice Number
+- History table with filtering
+
+---
+
+## 9. Export Functionality
+- **Export to CSV/Excel** button on each ledger page
+- Export filtered data based on current view
+- Include all relevant columns with proper formatting
+- Date range selection for exports
+
+---
+
+## 10. Design & UX
+- Clean, modern dashboard aesthetic
+- Shadcn UI components throughout
+- Tailwind CSS for styling
+- Consistent color scheme and typography
+- Loading states and error handling
+- Toast notifications for actions (save, delete, etc.)
+- Responsive tables with horizontal scroll on mobile
 

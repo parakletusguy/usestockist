@@ -65,6 +65,48 @@ export function useCreateIssuance() {
   });
 }
 
+export function useUpdateIssuance() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...input }: Partial<CreateIssuanceInput> & { id: string }) => {
+      const { data, error } = await supabase
+        .from('issuance_ledger')
+        .update(input)
+        .eq('id', id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['issuance_ledger'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      toast({ title: 'Success', description: 'Issuance updated' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
+export function useDeleteIssuance() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('issuance_ledger').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['issuance_ledger'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      toast({ title: 'Success', description: 'Issuance deleted' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
 // Transfer Ledger
 export interface TransferLedger {
   id: string;
@@ -128,6 +170,48 @@ export function useCreateTransfer() {
   });
 }
 
+export function useUpdateTransfer() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...input }: Partial<CreateTransferInput> & { id: string }) => {
+      const { data, error } = await supabase
+        .from('transfer_ledger')
+        .update(input)
+        .eq('id', id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['transfer_ledger'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      toast({ title: 'Success', description: 'Transfer updated' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
+export function useDeleteTransfer() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('transfer_ledger').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['transfer_ledger'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      toast({ title: 'Success', description: 'Transfer deleted' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
 // Received Ledger
 export interface ReceivedLedger {
   id: string;
@@ -184,6 +268,48 @@ export function useCreateReceived() {
       queryClient.invalidateQueries({ queryKey: ['received_ledger'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       toast({ title: 'Success', description: 'Receipt recorded' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
+export function useUpdateReceived() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...input }: Partial<CreateReceivedInput> & { id: string }) => {
+      const { data, error } = await supabase
+        .from('received_ledger')
+        .update(input)
+        .eq('id', id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['received_ledger'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      toast({ title: 'Success', description: 'Receipt updated' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
+export function useDeleteReceived() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('received_ledger').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['received_ledger'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      toast({ title: 'Success', description: 'Receipt deleted' });
     },
     onError: (error: Error) => {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });

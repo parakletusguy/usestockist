@@ -33,17 +33,9 @@ export function useWeeklyStockCounts(location?: string, startDate?: string, endD
         .select('*, items(name, unit_of_measure)')
         .order('date', { ascending: false });
       
-      if (location) {
-        query = query.eq('location', location);
-      }
-      
-      if (startDate) {
-        query = query.gte('date', startDate);
-      }
-      
-      if (endDate) {
-        query = query.lte('date', endDate);
-      }
+      if (location) query = query.eq('location', location);
+      if (startDate) query = query.gte('date', startDate);
+      if (endDate) query = query.lte('date', endDate);
       
       const { data, error } = await query;
       if (error) throw error;
@@ -62,7 +54,6 @@ export function useCreateWeeklyStockCount() {
         .insert(input)
         .select()
         .single();
-      
       if (error) throw error;
       return data;
     },
@@ -76,16 +67,35 @@ export function useCreateWeeklyStockCount() {
   });
 }
 
+export function useUpdateWeeklyStockCount() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...input }: Partial<CreateWeeklyStockCountInput> & { id: string }) => {
+      const { data, error } = await supabase
+        .from('weekly_stock_counts')
+        .update(input)
+        .eq('id', id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['weekly_stock_counts'] });
+      toast({ title: 'Success', description: 'Stock count updated' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
 export function useDeleteWeeklyStockCount() {
   const queryClient = useQueryClient();
   
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('weekly_stock_counts')
-        .delete()
-        .eq('id', id);
-      
+      const { error } = await supabase.from('weekly_stock_counts').delete().eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
