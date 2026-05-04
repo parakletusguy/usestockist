@@ -14,12 +14,12 @@ function useDashboardData() {
     queryFn: async () => {
       const today = new Date().toISOString().split('T')[0];
       
-      const [itemsRes, issuanceRes, transfersRes, receivedRes, dailyStockRes] = await Promise.all([
+      const [itemsRes, issuanceRes, transfersRes, receivedRes, todaysTransRes] = await Promise.all([
         supabase.from('items').select('id, category', { count: 'exact' }),
-        supabase.from('issuance_ledger').select('*, items(name)').order('date', { ascending: false }).limit(10),
-        supabase.from('transfer_ledger').select('id', { count: 'exact' }),
-        supabase.from('received_ledger').select('id', { count: 'exact' }),
-        supabase.from('daily_stock_sheets').select('sales_qty, retail_team_name').eq('date', today),
+        supabase.from('inventory_transactions').select('*, items(name)').eq('type', 'issuance').order('transaction_date', { ascending: false }).limit(10),
+        supabase.from('inventory_transactions').select('id', { count: 'exact' }).eq('type', 'transfer'),
+        supabase.from('inventory_transactions').select('id', { count: 'exact' }).eq('type', 'receive'),
+        supabase.from('inventory_transactions').select('quantity').eq('transaction_date', today).in('type', ['issuance', 'sale']),
       ]);
 
       // Calculate category distribution
@@ -29,23 +29,15 @@ function useDashboardData() {
       });
       const categoryData = Object.entries(categoryCount).map(([name, value]) => ({ name, value }));
 
-      // Calculate sales by team
-      const teamSales: Record<string, number> = {};
-      (dailyStockRes.data || []).forEach(sheet => {
-        teamSales[sheet.retail_team_name] = (teamSales[sheet.retail_team_name] || 0) + Number(sheet.sales_qty);
-      });
-      const salesByTeam = Object.entries(teamSales).map(([team, sales]) => ({ team, sales }));
-
-      // Calculate today's total sales
-      const todaysSales = (dailyStockRes.data || []).reduce((sum, sheet) => sum + Number(sheet.sales_qty), 0);
+      // Calculate today's total outward quantity
+      const todaysOutward = (todaysTransRes.data || []).reduce((sum, trans) => sum + Number(trans.quantity), 0);
 
       return {
         totalItems: itemsRes.count || 0,
         totalTransactions: (issuanceRes.data?.length || 0) + (transfersRes.count || 0) + (receivedRes.count || 0),
-        todaysSales,
+        todaysSales: todaysOutward,
         recentIssuances: issuanceRes.data || [],
         categoryData,
-        salesByTeam,
       };
     },
   });
@@ -84,12 +76,12 @@ const Dashboard = () => {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Today's Sales</CardTitle>
+            <CardTitle className="text-sm font-medium">Today's Issuance</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{data?.todaysSales || 0}</div>
-            <p className="text-xs text-muted-foreground">Units sold today</p>
+            <p className="text-xs text-muted-foreground">Units issued today</p>
           </CardContent>
         </Card>
 
@@ -120,23 +112,27 @@ const Dashboard = () => {
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Sales by Team</CardTitle>
-            <CardDescription>Today's sales distribution by retail team</CardDescription>
+            <CardTitle>Recent Issuances</CardTitle>
+            <CardDescription>Latest outward stock movements</CardDescription>
           </CardHeader>
           <CardContent>
-            {data?.salesByTeam && data.salesByTeam.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={data.salesByTeam}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis dataKey="team" className="text-xs" />
-                  <YAxis className="text-xs" />
-                  <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }} />
-                  <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+            {data?.recentIssuances && data.recentIssuances.length > 0 ? (
+              <div className="space-y-4">
+                {data.recentIssuances.map((issuance: any) => (
+                  <div key={issuance.id} className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium">{issuance.items?.name}</p>
+                      <p className="text-xs text-muted-foreground">To: {issuance.metadata?.recipient_group || 'Unknown'}</p>
+                    </div>
+                    <div className="font-medium text-destructive">
+                      -{issuance.quantity}
+                    </div>
+                  </div>
+                ))}
+              </div>
             ) : (
               <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-                No sales data for today
+                No recent issuances
               </div>
             )}
           </CardContent>
@@ -204,9 +200,9 @@ const Dashboard = () => {
               </Link>
             </Button>
             <Button asChild variant="outline" className="h-auto py-4 flex flex-col gap-2">
-              <Link to="/daily-stock">
+              <Link to="/reports">
                 <ClipboardList className="h-5 w-5" />
-                <span>Daily Stock Sheet</span>
+                <span>Reports</span>
               </Link>
             </Button>
           </div>

@@ -2,6 +2,26 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
+// Helper to map inventory_transactions to legacy format
+const mapTransactionToLegacy = (row: any, legacyFields: string[]) => {
+  const mapped = {
+    id: row.id,
+    date: row.transaction_date,
+    item_id: row.item_id,
+    quantity: row.quantity,
+    created_at: row.created_at,
+    items: row.items,
+  };
+  
+  if (row.metadata) {
+    legacyFields.forEach(field => {
+      (mapped as any)[field] = row.metadata[field] || '';
+    });
+  }
+  
+  return mapped;
+};
+
 // Issuance Ledger
 export interface IssuanceLedger {
   id: string;
@@ -30,12 +50,13 @@ export function useIssuanceLedger() {
     queryKey: ['issuance_ledger'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('issuance_ledger')
+        .from('inventory_transactions')
         .select('*, items(name, unit_of_measure)')
-        .order('date', { ascending: false });
+        .eq('type', 'issuance')
+        .order('transaction_date', { ascending: false });
       
       if (error) throw error;
-      return data as IssuanceLedger[];
+      return data.map(row => mapTransactionToLegacy(row, ['recipient_group', 'issued_by'])) as IssuanceLedger[];
     },
   });
 }
@@ -45,9 +66,16 @@ export function useCreateIssuance() {
   
   return useMutation({
     mutationFn: async (input: CreateIssuanceInput) => {
+      const dbInput = {
+        item_id: input.item_id,
+        type: 'issuance',
+        quantity: input.quantity,
+        transaction_date: input.date,
+        metadata: { recipient_group: input.recipient_group, issued_by: input.issued_by }
+      };
       const { data, error } = await supabase
-        .from('issuance_ledger')
-        .insert(input)
+        .from('inventory_transactions')
+        .insert(dbInput)
         .select()
         .single();
       
@@ -69,9 +97,20 @@ export function useUpdateIssuance() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, ...input }: Partial<CreateIssuanceInput> & { id: string }) => {
+      const dbInput: any = {};
+      if (input.item_id) dbInput.item_id = input.item_id;
+      if (input.quantity) dbInput.quantity = input.quantity;
+      if (input.date) dbInput.transaction_date = input.date;
+      if (input.recipient_group || input.issued_by) {
+        dbInput.metadata = {
+          recipient_group: input.recipient_group,
+          issued_by: input.issued_by
+        };
+      }
+
       const { data, error } = await supabase
-        .from('issuance_ledger')
-        .update(input)
+        .from('inventory_transactions')
+        .update(dbInput)
         .eq('id', id)
         .select()
         .single();
@@ -93,7 +132,7 @@ export function useDeleteIssuance() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('issuance_ledger').delete().eq('id', id);
+      const { error } = await supabase.from('inventory_transactions').delete().eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -135,12 +174,13 @@ export function useTransferLedger() {
     queryKey: ['transfer_ledger'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('transfer_ledger')
+        .from('inventory_transactions')
         .select('*, items(name, unit_of_measure)')
-        .order('date', { ascending: false });
+        .eq('type', 'transfer')
+        .order('transaction_date', { ascending: false });
       
       if (error) throw error;
-      return data as TransferLedger[];
+      return data.map(row => mapTransactionToLegacy(row, ['destination', 'reason'])) as TransferLedger[];
     },
   });
 }
@@ -150,9 +190,16 @@ export function useCreateTransfer() {
   
   return useMutation({
     mutationFn: async (input: CreateTransferInput) => {
+      const dbInput = {
+        item_id: input.item_id,
+        type: 'transfer',
+        quantity: input.quantity,
+        transaction_date: input.date,
+        metadata: { destination: input.destination, reason: input.reason }
+      };
       const { data, error } = await supabase
-        .from('transfer_ledger')
-        .insert(input)
+        .from('inventory_transactions')
+        .insert(dbInput)
         .select()
         .single();
       
@@ -174,9 +221,19 @@ export function useUpdateTransfer() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, ...input }: Partial<CreateTransferInput> & { id: string }) => {
+      const dbInput: any = {};
+      if (input.item_id) dbInput.item_id = input.item_id;
+      if (input.quantity) dbInput.quantity = input.quantity;
+      if (input.date) dbInput.transaction_date = input.date;
+      if (input.destination || input.reason) {
+        dbInput.metadata = {
+          destination: input.destination,
+          reason: input.reason
+        };
+      }
       const { data, error } = await supabase
-        .from('transfer_ledger')
-        .update(input)
+        .from('inventory_transactions')
+        .update(dbInput)
         .eq('id', id)
         .select()
         .single();
@@ -198,7 +255,7 @@ export function useDeleteTransfer() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('transfer_ledger').delete().eq('id', id);
+      const { error } = await supabase.from('inventory_transactions').delete().eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -240,12 +297,13 @@ export function useReceivedLedger() {
     queryKey: ['received_ledger'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('received_ledger')
+        .from('inventory_transactions')
         .select('*, items(name, unit_of_measure)')
-        .order('date', { ascending: false });
+        .eq('type', 'receive')
+        .order('transaction_date', { ascending: false });
       
       if (error) throw error;
-      return data as ReceivedLedger[];
+      return data.map(row => mapTransactionToLegacy(row, ['supplier', 'invoice_number'])) as ReceivedLedger[];
     },
   });
 }
@@ -255,9 +313,16 @@ export function useCreateReceived() {
   
   return useMutation({
     mutationFn: async (input: CreateReceivedInput) => {
+      const dbInput = {
+        item_id: input.item_id,
+        type: 'receive',
+        quantity: input.quantity,
+        transaction_date: input.date,
+        metadata: { supplier: input.supplier, invoice_number: input.invoice_number }
+      };
       const { data, error } = await supabase
-        .from('received_ledger')
-        .insert(input)
+        .from('inventory_transactions')
+        .insert(dbInput)
         .select()
         .single();
       
@@ -279,9 +344,19 @@ export function useUpdateReceived() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, ...input }: Partial<CreateReceivedInput> & { id: string }) => {
+      const dbInput: any = {};
+      if (input.item_id) dbInput.item_id = input.item_id;
+      if (input.quantity) dbInput.quantity = input.quantity;
+      if (input.date) dbInput.transaction_date = input.date;
+      if (input.supplier || input.invoice_number) {
+        dbInput.metadata = {
+          supplier: input.supplier,
+          invoice_number: input.invoice_number
+        };
+      }
       const { data, error } = await supabase
-        .from('received_ledger')
-        .update(input)
+        .from('inventory_transactions')
+        .update(dbInput)
         .eq('id', id)
         .select()
         .single();
@@ -303,7 +378,7 @@ export function useDeleteReceived() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('received_ledger').delete().eq('id', id);
+      const { error } = await supabase.from('inventory_transactions').delete().eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {

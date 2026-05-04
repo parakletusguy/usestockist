@@ -1,12 +1,11 @@
 import { useState } from 'react';
 import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
-import { exportToCSV } from '@/lib/export';
+
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -20,25 +19,10 @@ import { CalendarIcon, Wifi, WifiOff, RefreshCw, Download } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { useOfflineSync } from '@/hooks/useOfflineSync';
-import StockEntryTable from '@/components/daily-stock/StockEntryTable';
-
-const TEAM_MEMBERS = [
-  'Nene Spiff',
-  'Roseline Ihuoma',
-  'Ruth Deekae',
-  'Chiamaka Akuwueze',
-  'Raphael Favour',
-  'Joy Chinenye',
-  'Priye',
-  'Chinasa',
-  'Mercy',
-  'Emilia'
-];
 
 type DateRangePreset = 'today' | 'this_week' | 'this_month' | 'custom';
 
-const DailyStockSheet = () => {
-  const [date, setDate] = useState<Date>(new Date());
+const Reports = () => {
   const { isOnline, isSyncing, pendingCount, syncPendingEntries } = useOfflineSync();
 
   // Export state
@@ -46,7 +30,6 @@ const DailyStockSheet = () => {
   const [exportFrom, setExportFrom] = useState<Date>(new Date());
   const [exportTo, setExportTo] = useState<Date>(new Date());
   const [isExporting, setIsExporting] = useState(false);
-  const [exportTeamMember, setExportTeamMember] = useState<string>('all');
 
   const getExportDateRange = (): { from: string; to: string } => {
     const now = new Date();
@@ -66,58 +49,31 @@ const DailyStockSheet = () => {
     setIsExporting(true);
     try {
       const { from, to } = getExportDateRange();
-      let query = supabase
-        .from('daily_stock_sheets')
-        .select('*, items(name, unit_of_measure)')
-        .gte('date', from)
-        .lte('date', to)
-        .order('date', { ascending: true })
-        .order('retail_team_name', { ascending: true });
-
-      if (exportTeamMember !== 'all') {
-        query = query.eq('retail_team_name', exportTeamMember);
-      }
-
-      const { data, error } = await query;
+      
+      const { data, error } = await supabase.functions.invoke('generate-inventory-report', {
+        body: { startDate: from, endDate: to }
+      });
 
       if (error) throw error;
 
-      if (!data || data.length === 0) {
-        toast({ title: 'No data', description: 'No entries found for the selected date range' });
-        return;
+      if (!data) {
+        throw new Error('No data received from export function');
       }
 
-      const exportData = data.map(row => ({
-        date: row.date,
-        team_member: row.retail_team_name,
-        item: (row.items as any)?.name || '',
-        unit: (row.items as any)?.unit_of_measure || '',
-        open_qty: row.open_qty,
-        qty_in: row.qty_in,
-        close_qty: row.close_qty,
-        sales_qty: row.sales_qty,
-        reach: row.reach || '',
-        os_status: row.os_status || '',
-        remark: row.remark || '',
-      }));
+      // Create a download link for the blob returned by the Edge Function
+      const url = window.URL.createObjectURL(data as Blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Inventory_Report_${from}_to_${to}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
 
-      exportToCSV(exportData, `daily_stock_${from}_to_${to}`, [
-        { key: 'date', header: 'Date' },
-        { key: 'team_member', header: 'Team Member' },
-        { key: 'item', header: 'Item' },
-        { key: 'unit', header: 'Unit' },
-        { key: 'open_qty', header: 'Open Qty' },
-        { key: 'qty_in', header: 'Qty In' },
-        { key: 'close_qty', header: 'Close Qty' },
-        { key: 'sales_qty', header: 'Sales Qty' },
-        { key: 'reach', header: 'Reach' },
-        { key: 'os_status', header: 'OS Status' },
-        { key: 'remark', header: 'Remark' },
-      ]);
-
-      toast({ title: 'Exported', description: `${data.length} entries exported` });
+      toast({ title: 'Exported', description: `Inventory report exported successfully` });
     } catch (err: any) {
-      toast({ title: 'Export failed', description: err.message, variant: 'destructive' });
+      console.error('Export error:', err);
+      toast({ title: 'Export failed', description: err.message || 'An error occurred during export', variant: 'destructive' });
     } finally {
       setIsExporting(false);
     }
@@ -127,8 +83,8 @@ const DailyStockSheet = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Daily Stock Sheet</h1>
-          <p className="text-muted-foreground">Record daily stock movements by retail team member</p>
+          <h1 className="text-3xl font-bold">Reports & Analytics</h1>
+          <p className="text-muted-foreground">Generate and export inventory ledgers and reports</p>
         </div>
         <div className="flex items-center gap-2">
           {isOnline ? (
@@ -161,39 +117,9 @@ const DailyStockSheet = () => {
         </div>
       </div>
 
-      {/* Date Selector */}
       <Card>
         <CardHeader>
-          <CardTitle>Select Date</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            <Label>Date</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className={cn("w-full sm:w-[240px] justify-start text-left font-normal")}>
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {format(date, 'PPP')}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={date}
-                  onSelect={(d) => d && setDate(d)}
-                  initialFocus
-                  className="p-3 pointer-events-auto"
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Export Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Export</CardTitle>
+          <CardTitle>Export Inventory Ledger</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4">
@@ -208,21 +134,6 @@ const DailyStockSheet = () => {
                   <SelectItem value="this_week">This Week</SelectItem>
                   <SelectItem value="this_month">This Month</SelectItem>
                   <SelectItem value="custom">Custom Range</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Team Member</Label>
-              <Select value={exportTeamMember} onValueChange={setExportTeamMember}>
-                <SelectTrigger className="w-full sm:w-[180px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-background">
-                  <SelectItem value="all">All Members</SelectItem>
-                  {TEAM_MEMBERS.map(member => (
-                    <SelectItem key={member} value={member}>{member}</SelectItem>
-                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -272,31 +183,15 @@ const DailyStockSheet = () => {
               </>
             )}
 
-            <Button onClick={handleExport} disabled={isExporting || !isOnline}>
+            <Button onClick={handleExport} disabled={isExporting || !isOnline} className="w-full sm:w-auto">
               <Download className="mr-2 h-4 w-4" />
-              {isExporting ? 'Exporting...' : 'Export CSV'}
+              {isExporting ? 'Generating Report...' : 'Download Excel Report'}
             </Button>
           </div>
         </CardContent>
       </Card>
-
-      {/* Team Member Tabs */}
-      <Tabs defaultValue={TEAM_MEMBERS[0]} className="w-full">
-        <TabsList className="flex flex-wrap h-auto gap-1 bg-muted p-1">
-          {TEAM_MEMBERS.map(member => (
-            <TabsTrigger key={member} value={member} className="text-xs sm:text-sm">
-              {member.split(' ')[0]}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-        {TEAM_MEMBERS.map(member => (
-          <TabsContent key={member} value={member}>
-            <StockEntryTable date={date} teamMember={member} />
-          </TabsContent>
-        ))}
-      </Tabs>
     </div>
   );
 };
 
-export default DailyStockSheet;
+export default Reports;

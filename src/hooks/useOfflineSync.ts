@@ -3,7 +3,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
 
-// Generic offline entry with a type discriminator
 export interface OfflineWeeklyEntry {
   type: 'weekly_stock_count';
   id: string;
@@ -15,40 +14,9 @@ export interface OfflineWeeklyEntry {
   created_at: string;
 }
 
-export interface OfflineDailyEntry {
-  type: 'daily_stock_sheet';
-  id: string;
-  date: string;
-  retail_team_name: string;
-  item_id: string;
-  open_qty: number;
-  qty_in: number;
-  close_qty: number;
-  sales_qty: number;
-  reach?: string;
-  os_status?: string;
-  remark?: string;
-  created_at: string;
-}
+export type OfflineEntry = OfflineWeeklyEntry;
 
-export type OfflineEntry = OfflineWeeklyEntry | OfflineDailyEntry;
-
-// Keep legacy key for backward compat, but store all types together
 const OFFLINE_QUEUE_KEY = 'stockist_offline_queue';
-const LEGACY_QUEUE_KEY = 'weekly_stock_counts_offline_queue';
-
-function migrateLegacyQueue(): OfflineEntry[] {
-  try {
-    const legacy = localStorage.getItem(LEGACY_QUEUE_KEY);
-    if (legacy) {
-      const entries = JSON.parse(legacy) as Array<Omit<OfflineWeeklyEntry, 'type'>>;
-      const migrated: OfflineEntry[] = entries.map(e => ({ ...e, type: 'weekly_stock_count' as const }));
-      localStorage.removeItem(LEGACY_QUEUE_KEY);
-      return migrated;
-    }
-  } catch { /* ignore */ }
-  return [];
-}
 
 export function useOfflineSync() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -58,16 +26,8 @@ export function useOfflineSync() {
 
   const getPendingEntries = useCallback((): OfflineEntry[] => {
     try {
-      // Migrate legacy entries on first read
-      const migrated = migrateLegacyQueue();
       const stored = localStorage.getItem(OFFLINE_QUEUE_KEY);
-      const current: OfflineEntry[] = stored ? JSON.parse(stored) : [];
-      if (migrated.length > 0) {
-        const combined = [...current, ...migrated];
-        localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(combined));
-        return combined;
-      }
-      return current;
+      return stored ? JSON.parse(stored) : [];
     } catch {
       return [];
     }
@@ -78,7 +38,6 @@ export function useOfflineSync() {
     setPendingCount(entries.length);
   }, []);
 
-  // Add a weekly stock count entry
   const addWeeklyToQueue = useCallback((entry: Omit<OfflineWeeklyEntry, 'id' | 'created_at' | 'type'>) => {
     const entries = getPendingEntries();
     const newEntry: OfflineWeeklyEntry = {
@@ -93,24 +52,6 @@ export function useOfflineSync() {
     return newEntry;
   }, [getPendingEntries, savePendingEntries]);
 
-  // Add a daily stock sheet entry
-  const addDailyToQueue = useCallback((entry: Omit<OfflineDailyEntry, 'id' | 'created_at' | 'type'>) => {
-    const entries = getPendingEntries();
-    const newEntry: OfflineDailyEntry = {
-      ...entry,
-      type: 'daily_stock_sheet',
-      id: crypto.randomUUID(),
-      created_at: new Date().toISOString(),
-    };
-    entries.push(newEntry);
-    savePendingEntries(entries);
-    toast({ title: 'Saved offline', description: 'Will sync when connected' });
-    return newEntry;
-  }, [getPendingEntries, savePendingEntries]);
-
-  // Legacy alias
-  const addToQueue = addWeeklyToQueue;
-
   const syncPendingEntries = useCallback(async () => {
     const entries = getPendingEntries();
     if (entries.length === 0) return;
@@ -122,31 +63,35 @@ export function useOfflineSync() {
     for (const entry of entries) {
       try {
         if (entry.type === 'weekly_stock_count') {
-          const { error } = await supabase
-            .from('weekly_stock_counts')
-            .insert({
-              date: entry.date,
-              location: entry.location,
-              item_id: entry.item_id,
-              physical_count: entry.physical_count,
+          // Calculate theoretical stock
+          const { data: reportData, error: reportError } = await supabase.rpc('get_daily_inventory_report', {
+            p_start_date: '1970-01-01T00:00:00Z',
+            p_end_date: `${entry.date}T23:59:59Z`
+          });
+
+          if (reportError) throw reportError;
+
+          const itemReport = reportData?.find((item: any) => item.item_id === entry.item_id);
+          const theoreticalStock = itemReport ? Number(itemReport.calculated_closing_stock) : 0;
+          const adjustmentQuantity = entry.physical_count - theoreticalStock;
+
+          const dbInput = {
+            item_id: entry.item_id,
+            type: 'adjustment',
+            quantity: adjustmentQuantity,
+            transaction_date: entry.date,
+            metadata: { 
+              location: entry.location, 
               notes: entry.notes,
-            });
-          if (error) { failedEntries.push(entry); } else { successCount++; }
-        } else if (entry.type === 'daily_stock_sheet') {
+              physical_count: entry.physical_count,
+              theoretical_stock: theoreticalStock
+            }
+          };
+
           const { error } = await supabase
-            .from('daily_stock_sheets')
-            .insert({
-              date: entry.date,
-              retail_team_name: entry.retail_team_name,
-              item_id: entry.item_id,
-              open_qty: entry.open_qty,
-              qty_in: entry.qty_in,
-              close_qty: entry.close_qty,
-              sales_qty: entry.sales_qty,
-              reach: entry.reach,
-              os_status: entry.os_status,
-              remark: entry.remark,
-            });
+            .from('inventory_transactions')
+            .insert(dbInput);
+            
           if (error) { failedEntries.push(entry); } else { successCount++; }
         }
       } catch {
@@ -159,7 +104,6 @@ export function useOfflineSync() {
 
     if (successCount > 0) {
       queryClient.invalidateQueries({ queryKey: ['weekly_stock_counts'] });
-      queryClient.invalidateQueries({ queryKey: ['daily_stock_sheets'] });
       toast({
         title: 'Synced',
         description: `${successCount} offline ${successCount === 1 ? 'entry' : 'entries'} synced`,
@@ -210,9 +154,7 @@ export function useOfflineSync() {
     isOnline,
     isSyncing,
     pendingCount,
-    addToQueue,
     addWeeklyToQueue,
-    addDailyToQueue,
     getPendingEntries,
     syncPendingEntries,
   };
