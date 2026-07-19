@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, Navigate } from 'react-router-dom';
+import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,8 +8,17 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { toast } from '@/hooks/use-toast';
 import { Package } from 'lucide-react';
 
+// Only accept same-origin relative paths as `next`, to prevent open redirects.
+function safeNext(next: string | null): string {
+  if (!next) return '/';
+  if (!next.startsWith('/') || next.startsWith('//')) return '/';
+  return next;
+}
+
 const Login = () => {
   const { user, signIn, loading } = useAuth();
+  const [params] = useSearchParams();
+  const nextPath = safeNext(params.get('next'));
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -23,7 +32,7 @@ const Login = () => {
   }
 
   if (user) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={nextPath} replace />;
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -39,6 +48,7 @@ const Login = () => {
         variant: 'destructive',
       });
     }
+    // On success, the `user` guard above handles the redirect to nextPath on next render.
 
     setIsLoading(false);
   };
@@ -86,7 +96,10 @@ const Login = () => {
             </Button>
             <p className="text-sm text-muted-foreground">
               Don't have an account?{' '}
-              <Link to="/signup" className="text-primary hover:underline">
+              <Link
+                to={nextPath !== '/' ? `/signup?next=${encodeURIComponent(nextPath)}` : '/signup'}
+                className="text-primary hover:underline"
+              >
                 Sign up
               </Link>
             </p>
