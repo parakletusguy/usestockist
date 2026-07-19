@@ -46,7 +46,7 @@ const WeeklyCount = () => {
   const [editNotes, setEditNotes] = useState('');
 
   const { data: items } = useItems();
-  const { isOnline, isSyncing, pendingCount, addToQueue } = useOfflineSync();
+  const { isOnline, isSyncing, pendingCount, addWeeklyToQueue } = useOfflineSync();
 
   const getDateRange = () => {
     const today = new Date();
@@ -94,7 +94,7 @@ const WeeklyCount = () => {
       notes: notes || undefined,
     };
     if (!isOnline) {
-      addToQueue(entryData);
+      addWeeklyToQueue(entryData);
     } else {
       await createCount.mutateAsync(entryData);
     }
