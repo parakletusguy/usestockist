@@ -14,12 +14,12 @@ function useDashboardData() {
     queryFn: async () => {
       const today = new Date().toISOString().split('T')[0];
       
-      const [itemsRes, issuanceRes, transfersRes, receivedRes, todaysTransRes] = await Promise.all([
+      const [itemsRes, issuanceRes, transfersRes, receivedRes, todaysIssRes] = await Promise.all([
         supabase.from('items').select('id, category', { count: 'exact' }),
-        supabase.from('inventory_transactions').select('*, items(name)').eq('type', 'issuance').order('transaction_date', { ascending: false }).limit(10),
-        supabase.from('inventory_transactions').select('id', { count: 'exact' }).eq('type', 'transfer'),
-        supabase.from('inventory_transactions').select('id', { count: 'exact' }).eq('type', 'receive'),
-        supabase.from('inventory_transactions').select('quantity').eq('transaction_date', today).in('type', ['issuance', 'sale']),
+        supabase.from('issuance_ledger').select('*, items(name)').order('date', { ascending: false }).limit(10),
+        supabase.from('transfer_ledger').select('id', { count: 'exact', head: true }),
+        supabase.from('received_ledger').select('id', { count: 'exact', head: true }),
+        supabase.from('issuance_ledger').select('quantity').eq('date', today),
       ]);
 
       // Calculate category distribution
@@ -29,8 +29,8 @@ function useDashboardData() {
       });
       const categoryData = Object.entries(categoryCount).map(([name, value]) => ({ name, value }));
 
-      // Calculate today's total outward quantity
-      const todaysOutward = (todaysTransRes.data || []).reduce((sum, trans) => sum + Number(trans.quantity), 0);
+      // Calculate today's total issued quantity
+      const todaysOutward = (todaysIssRes.data || []).reduce((sum, r: any) => sum + Number(r.quantity), 0);
 
       return {
         totalItems: itemsRes.count || 0,
@@ -42,6 +42,7 @@ function useDashboardData() {
     },
   });
 }
+
 
 const Dashboard = () => {
   const { data, isLoading } = useDashboardData();
@@ -122,7 +123,7 @@ const Dashboard = () => {
                   <div key={issuance.id} className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium">{issuance.items?.name}</p>
-                      <p className="text-xs text-muted-foreground">To: {issuance.metadata?.recipient_group || 'Unknown'}</p>
+                      <p className="text-xs text-muted-foreground">To: {issuance.recipient_group || 'Unknown'}</p>
                     </div>
                     <div className="font-medium text-destructive">
                       -{issuance.quantity}

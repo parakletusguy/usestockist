@@ -63,41 +63,20 @@ export function useOfflineSync() {
     for (const entry of entries) {
       try {
         if (entry.type === 'weekly_stock_count') {
-          // Calculate theoretical stock
-          const { data: reportData, error: reportError } = await supabase.rpc('get_daily_inventory_report', {
-            p_start_date: '1970-01-01T00:00:00Z',
-            p_end_date: `${entry.date}T23:59:59Z`
-          });
-
-          if (reportError) throw reportError;
-
-          const itemReport = reportData?.find((item: any) => item.item_id === entry.item_id);
-          const theoreticalStock = itemReport ? Number(itemReport.calculated_closing_stock) : 0;
-          const adjustmentQuantity = entry.physical_count - theoreticalStock;
-
-          const dbInput = {
+          const { error } = await supabase.from('weekly_stock_counts').insert({
+            date: entry.date,
+            location: entry.location,
             item_id: entry.item_id,
-            type: 'adjustment',
-            quantity: adjustmentQuantity,
-            transaction_date: entry.date,
-            metadata: { 
-              location: entry.location, 
-              notes: entry.notes,
-              physical_count: entry.physical_count,
-              theoretical_stock: theoreticalStock
-            }
-          };
-
-          const { error } = await supabase
-            .from('inventory_transactions')
-            .insert(dbInput);
-            
+            physical_count: entry.physical_count,
+            notes: entry.notes ?? null,
+          });
           if (error) { failedEntries.push(entry); } else { successCount++; }
         }
       } catch {
         failedEntries.push(entry);
       }
     }
+
 
     savePendingEntries(failedEntries);
     setIsSyncing(false);
