@@ -9,6 +9,8 @@ export interface Item {
   name: string;
   category: string;
   unit_of_measure: string;
+  low_stock_threshold: number;
+  unit_cost: number;
   created_at: string;
   updated_at: string;
 }
@@ -17,6 +19,8 @@ export interface CreateItemInput {
   name: string;
   category: string;
   unit_of_measure: string;
+  low_stock_threshold: number;
+  unit_cost: number;
 }
 
 export function useItems() {

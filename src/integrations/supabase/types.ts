@@ -113,7 +113,9 @@ export type Database = {
           category: string
           created_at: string
           id: string
+          low_stock_threshold: number
           name: string
+          unit_cost: number
           unit_of_measure: string
           updated_at: string
         }
@@ -121,7 +123,9 @@ export type Database = {
           category: string
           created_at?: string
           id?: string
+          low_stock_threshold?: number
           name: string
+          unit_cost?: number
           unit_of_measure: string
           updated_at?: string
         }
@@ -129,11 +133,54 @@ export type Database = {
           category?: string
           created_at?: string
           id?: string
+          low_stock_threshold?: number
           name?: string
+          unit_cost?: number
           unit_of_measure?: string
           updated_at?: string
         }
         Relationships: []
+      }
+      inventory_transactions: {
+        Row: {
+          created_at: string
+          id: string
+          item_id: string
+          metadata: Json | null
+          notes: string | null
+          quantity: number
+          transaction_date: string
+          type: Database["public"]["Enums"]["inventory_transaction_type"]
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          item_id: string
+          metadata?: Json | null
+          notes?: string | null
+          quantity: number
+          transaction_date?: string
+          type: Database["public"]["Enums"]["inventory_transaction_type"]
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          item_id?: string
+          metadata?: Json | null
+          notes?: string | null
+          quantity?: number
+          transaction_date?: string
+          type?: Database["public"]["Enums"]["inventory_transaction_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_transactions_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       received_ledger: {
         Row: {
@@ -293,10 +340,55 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_daily_inventory_report: {
+        Args: {
+          p_start_date: string
+          p_end_date: string
+          p_include_zero_activity?: boolean
+        }
+        Returns: {
+          item_id: string
+          item_name: string
+          unit_of_measure: string
+          category: string
+          unit_cost: number
+          low_stock_threshold: number
+          opening_stock: number
+          qty_received: number
+          qty_sold: number
+          qty_issued: number
+          qty_transferred: number
+          damages: number
+          calculated_closing_stock: number
+          physical_count: number
+          variance: number
+          variance_value: number
+          comment: string | null
+        }[]
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_authenticated: { Args: never; Returns: boolean }
+      user_belongs_to_team: {
+        Args: { _team_name: string; _user_id: string }
+        Returns: boolean
+      }
+>>>>>>> claude/codebase-review-0wmhg0
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
+      inventory_transaction_type:
+        | "receive"
+        | "sale"
+        | "damage"
+        | "adjustment"
+        | "issuance"
+        | "transfer"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -425,6 +517,14 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "moderator", "user"],
+      inventory_transaction_type: [
+        "receive",
+        "sale",
+        "damage",
+        "adjustment",
+        "issuance",
+        "transfer",
+      ],
     },
   },
 } as const

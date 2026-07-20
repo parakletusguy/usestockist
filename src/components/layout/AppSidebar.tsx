@@ -25,7 +25,7 @@ const menuItems = [
   { title: 'Dashboard', url: '/', icon: LayoutDashboard },
   { title: 'Item Manager', url: '/items', icon: Package },
   { title: 'Reports & Analytics', url: '/reports', icon: ClipboardList },
-  { title: 'Weekly Count', url: '/weekly-count', icon: Calendar },
+  { title: 'Daily Stock Count', url: '/daily-stock-count', icon: Calendar },
   { title: 'Issuance', url: '/issuance', icon: Send },
   { title: 'Transfers', url: '/transfers', icon: ArrowLeftRight },
   { title: 'Received', url: '/received', icon: PackageCheck },
