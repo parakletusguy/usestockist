@@ -58,6 +58,8 @@ const ItemManager = () => {
     name: '',
     category: '',
     unit_of_measure: '',
+    low_stock_threshold: 0,
+    unit_cost: 0,
   });
 
   const filteredItems = items?.filter(item => {
@@ -73,10 +75,12 @@ const ItemManager = () => {
         name: item.name,
         category: item.category,
         unit_of_measure: item.unit_of_measure,
+        low_stock_threshold: item.low_stock_threshold,
+        unit_cost: item.unit_cost,
       });
     } else {
       setEditingItem(null);
-      setFormData({ name: '', category: '', unit_of_measure: '' });
+      setFormData({ name: '', category: '', unit_of_measure: '', low_stock_threshold: 0, unit_cost: 0 });
     }
     setIsFormOpen(true);
   };
@@ -152,13 +156,15 @@ const ItemManager = () => {
               <TableHead>Name</TableHead>
               <TableHead>Category</TableHead>
               <TableHead>Unit</TableHead>
+              <TableHead className="text-right">Low Stock Threshold</TableHead>
+              <TableHead className="text-right">Unit Cost</TableHead>
               <TableHead className="w-24">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredItems?.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                   No items found. Add your first item to get started.
                 </TableCell>
               </TableRow>
@@ -168,6 +174,8 @@ const ItemManager = () => {
                   <TableCell className="font-medium">{item.name}</TableCell>
                   <TableCell>{item.category}</TableCell>
                   <TableCell>{item.unit_of_measure}</TableCell>
+                  <TableCell className="text-right">{item.low_stock_threshold}</TableCell>
+                  <TableCell className="text-right">{item.unit_cost}</TableCell>
                   <TableCell>
                     <div className="flex gap-2">
                       <Button
@@ -250,6 +258,29 @@ const ItemManager = () => {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="low_stock_threshold">Low Stock Threshold</Label>
+                <Input
+                  id="low_stock_threshold"
+                  type="number"
+                  min="0"
+                  value={formData.low_stock_threshold}
+                  onChange={(e) => setFormData({ ...formData, low_stock_threshold: Number(e.target.value) })}
+                  placeholder="0"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="unit_cost">Unit Cost</Label>
+                <Input
+                  id="unit_cost"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={formData.unit_cost}
+                  onChange={(e) => setFormData({ ...formData, unit_cost: Number(e.target.value) })}
+                  placeholder="0"
+                />
               </div>
             </div>
             <DialogFooter>

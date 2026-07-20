@@ -1,0 +1,15 @@
+Replace Weekly Stock Count with a Daily Stock Count + low-stock flagging
+
+Adds a site-wide daily reconciliation grid (all catalog items grouped by
+category, matching the manager's sample sheet) with inline Qty Sold,
+Damages, Phy. Count and Comment entry, and automated red/amber/green
+low/out-of-stock flags driven by a new per-item low_stock_threshold.
+
+- New migration adds items.low_stock_threshold/unit_cost and extends
+  get_daily_inventory_report with an "include zero activity" flag plus
+  unit_cost/threshold/variance_value/comment columns.
+- New useDailyStockCount hook + shared saveDailyStockEntries used by both
+  the online save and the offline sync queue (previously duplicated).
+- Item Manager now configures threshold/unit cost; Dashboard gets a Low
+  Stock Alerts card; fixed supabase/types.ts, which was missing the
+  inventory_transactions table entirely since the ledger migration.

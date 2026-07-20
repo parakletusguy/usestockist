@@ -10,7 +10,7 @@ import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
 import ItemManager from "./pages/ItemManager";
 import Reports from "./pages/Reports";
-import WeeklyCount from "./pages/WeeklyCount";
+import DailyStockCount from "./pages/DailyStockCount";
 import Issuance from "./pages/Issuance";
 import Transfers from "./pages/Transfers";
 import Received from "./pages/Received";
@@ -35,7 +35,7 @@ const App = () => (
               <Route path="/" element={<Dashboard />} />
               <Route path="/items" element={<ItemManager />} />
               <Route path="/reports" element={<Reports />} />
-              <Route path="/weekly-count" element={<WeeklyCount />} />
+              <Route path="/daily-stock-count" element={<DailyStockCount />} />
               <Route path="/issuance" element={<Issuance />} />
               <Route path="/transfers" element={<Transfers />} />
               <Route path="/received" element={<Received />} />

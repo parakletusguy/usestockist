@@ -1,20 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
+import { saveDailyStockEntries, DailyStockEntryInput } from '@/hooks/useDailyStockCount';
 
-export interface OfflineWeeklyEntry {
-  type: 'weekly_stock_count';
+export interface OfflineDailyStockEntry extends DailyStockEntryInput {
   id: string;
-  date: string;
-  location: string;
-  item_id: string;
-  physical_count: number;
-  notes?: string;
   created_at: string;
 }
 
-export type OfflineEntry = OfflineWeeklyEntry;
+export type OfflineEntry = OfflineDailyStockEntry;
 
 const OFFLINE_QUEUE_KEY = 'stockist_offline_queue';
 
@@ -38,11 +32,10 @@ export function useOfflineSync() {
     setPendingCount(entries.length);
   }, []);
 
-  const addWeeklyToQueue = useCallback((entry: Omit<OfflineWeeklyEntry, 'id' | 'created_at' | 'type'>) => {
+  const addToQueue = useCallback((entry: DailyStockEntryInput) => {
     const entries = getPendingEntries();
-    const newEntry: OfflineWeeklyEntry = {
+    const newEntry: OfflineDailyStockEntry = {
       ...entry,
-      type: 'weekly_stock_count',
       id: crypto.randomUUID(),
       created_at: new Date().toISOString(),
     };
@@ -62,38 +55,8 @@ export function useOfflineSync() {
 
     for (const entry of entries) {
       try {
-        if (entry.type === 'weekly_stock_count') {
-          // Calculate theoretical stock
-          const { data: reportData, error: reportError } = await supabase.rpc('get_daily_inventory_report', {
-            p_start_date: '1970-01-01T00:00:00Z',
-            p_end_date: `${entry.date}T23:59:59Z`
-          });
-
-          if (reportError) throw reportError;
-
-          const itemReport = reportData?.find((item: any) => item.item_id === entry.item_id);
-          const theoreticalStock = itemReport ? Number(itemReport.calculated_closing_stock) : 0;
-          const adjustmentQuantity = entry.physical_count - theoreticalStock;
-
-          const dbInput = {
-            item_id: entry.item_id,
-            type: 'adjustment',
-            quantity: adjustmentQuantity,
-            transaction_date: entry.date,
-            metadata: { 
-              location: entry.location, 
-              notes: entry.notes,
-              physical_count: entry.physical_count,
-              theoretical_stock: theoreticalStock
-            }
-          };
-
-          const { error } = await supabase
-            .from('inventory_transactions')
-            .insert(dbInput);
-            
-          if (error) { failedEntries.push(entry); } else { successCount++; }
-        }
+        await saveDailyStockEntries([entry]);
+        successCount++;
       } catch {
         failedEntries.push(entry);
       }
@@ -103,7 +66,8 @@ export function useOfflineSync() {
     setIsSyncing(false);
 
     if (successCount > 0) {
-      queryClient.invalidateQueries({ queryKey: ['weekly_stock_counts'] });
+      queryClient.invalidateQueries({ queryKey: ['daily_stock_count'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       toast({
         title: 'Synced',
         description: `${successCount} offline ${successCount === 1 ? 'entry' : 'entries'} synced`,
@@ -154,7 +118,7 @@ export function useOfflineSync() {
     isOnline,
     isSyncing,
     pendingCount,
-    addWeeklyToQueue,
+    addToQueue,
     getPendingEntries,
     syncPendingEntries,
   };

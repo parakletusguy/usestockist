@@ -68,7 +68,7 @@ export function useCreateIssuance() {
     mutationFn: async (input: CreateIssuanceInput) => {
       const dbInput = {
         item_id: input.item_id,
-        type: 'issuance',
+        type: 'issuance' as const,
         quantity: input.quantity,
         transaction_date: input.date,
         metadata: { recipient_group: input.recipient_group, issued_by: input.issued_by }
@@ -192,7 +192,7 @@ export function useCreateTransfer() {
     mutationFn: async (input: CreateTransferInput) => {
       const dbInput = {
         item_id: input.item_id,
-        type: 'transfer',
+        type: 'transfer' as const,
         quantity: input.quantity,
         transaction_date: input.date,
         metadata: { destination: input.destination, reason: input.reason }
@@ -315,7 +315,7 @@ export function useCreateReceived() {
     mutationFn: async (input: CreateReceivedInput) => {
       const dbInput = {
         item_id: input.item_id,
-        type: 'receive',
+        type: 'receive' as const,
         quantity: input.quantity,
         transaction_date: input.date,
         metadata: { supplier: input.supplier, invoice_number: input.invoice_number }

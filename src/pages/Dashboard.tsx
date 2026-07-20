@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Package, TrendingUp, ArrowRightLeft, PackageCheck, Send, ClipboardList, Plus } from 'lucide-react';
+import { Package, TrendingUp, ArrowRightLeft, PackageCheck, Send, ClipboardList, Plus, AlertTriangle } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 const COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
@@ -13,13 +13,18 @@ function useDashboardData() {
     queryKey: ['dashboard'],
     queryFn: async () => {
       const today = new Date().toISOString().split('T')[0];
-      
-      const [itemsRes, issuanceRes, transfersRes, receivedRes, todaysTransRes] = await Promise.all([
+
+      const [itemsRes, issuanceRes, transfersRes, receivedRes, todaysTransRes, stockStatusRes] = await Promise.all([
         supabase.from('items').select('id, category', { count: 'exact' }),
         supabase.from('inventory_transactions').select('*, items(name)').eq('type', 'issuance').order('transaction_date', { ascending: false }).limit(10),
         supabase.from('inventory_transactions').select('id', { count: 'exact' }).eq('type', 'transfer'),
         supabase.from('inventory_transactions').select('id', { count: 'exact' }).eq('type', 'receive'),
         supabase.from('inventory_transactions').select('quantity').eq('transaction_date', today).in('type', ['issuance', 'sale']),
+        supabase.rpc('get_daily_inventory_report', {
+          p_start_date: `${today}T00:00:00Z`,
+          p_end_date: `${today}T23:59:59.999Z`,
+          p_include_zero_activity: true,
+        }),
       ]);
 
       // Calculate category distribution
@@ -32,12 +37,24 @@ function useDashboardData() {
       // Calculate today's total outward quantity
       const todaysOutward = (todaysTransRes.data || []).reduce((sum, trans) => sum + Number(trans.quantity), 0);
 
+      // Low/out-of-stock counts for today
+      let outOfStock = 0;
+      let lowStock = 0;
+      (stockStatusRes.data || []).forEach((row) => {
+        const balance = Number(row.calculated_closing_stock) || 0;
+        const threshold = Number(row.low_stock_threshold) || 0;
+        if (balance <= 0) outOfStock++;
+        else if (balance <= threshold) lowStock++;
+      });
+
       return {
         totalItems: itemsRes.count || 0,
         totalTransactions: (issuanceRes.data?.length || 0) + (transfersRes.count || 0) + (receivedRes.count || 0),
         todaysSales: todaysOutward,
         recentIssuances: issuanceRes.data || [],
         categoryData,
+        outOfStock,
+        lowStock,
       };
     },
   });
@@ -62,7 +79,27 @@ const Dashboard = () => {
       </div>
 
       {/* Metrics Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Low Stock Alerts</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {(data?.outOfStock || 0) + (data?.lowStock || 0)}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              <span className="text-destructive">{data?.outOfStock || 0} out</span>
+              {' · '}
+              <span className="text-amber-600 dark:text-amber-500">{data?.lowStock || 0} low</span>
+            </p>
+            <Button asChild variant="link" size="sm" className="h-auto p-0 mt-1">
+              <Link to="/daily-stock-count?filter=flagged">View flagged items</Link>
+            </Button>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Items</CardTitle>
