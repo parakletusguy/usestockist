@@ -106,7 +106,11 @@ const Signup = () => {
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
+              <p className="text-xs text-muted-foreground">
+                Min 12 characters with uppercase, lowercase, number, and symbol.
+              </p>
             </div>
+
             <div className="space-y-2">
               <Label htmlFor="confirmPassword">Confirm Password</Label>
               <Input
