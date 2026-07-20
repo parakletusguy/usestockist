@@ -8,6 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from '@/hooks/use-toast';
 import { Package } from 'lucide-react';
+import { PasswordSchema, firstError } from '@/lib/validation';
+
 
 function safeNext(next: string | null): string {
   if (!next) return '/';
@@ -43,10 +45,12 @@ const Signup = () => {
       toast({ title: 'Error', description: 'Passwords do not match', variant: 'destructive' });
       return;
     }
-    if (password.length < 6) {
-      toast({ title: 'Error', description: 'Password must be at least 6 characters', variant: 'destructive' });
+    const pwResult = PasswordSchema.safeParse(password);
+    if (!pwResult.success) {
+      toast({ title: 'Weak password', description: firstError(pwResult.error), variant: 'destructive' });
       return;
     }
+
 
     setIsLoading(true);
 
@@ -102,7 +106,11 @@ const Signup = () => {
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
+              <p className="text-xs text-muted-foreground">
+                Min 12 characters with uppercase, lowercase, number, and symbol.
+              </p>
             </div>
+
             <div className="space-y-2">
               <Label htmlFor="confirmPassword">Confirm Password</Label>
               <Input

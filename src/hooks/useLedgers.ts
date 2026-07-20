@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { IssuanceSchema, TransferSchema, ReceivedSchema } from '@/lib/validation';
+
 
 // ---------- Issuance ----------
 export interface IssuanceLedger {
@@ -40,10 +42,12 @@ export function useCreateIssuance() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: CreateIssuanceInput) => {
-      const { data, error } = await supabase.from('issuance_ledger').insert(input).select().single();
+      const validated = IssuanceSchema.parse(input);
+      const { data, error } = await supabase.from('issuance_ledger').insert(validated).select().single();
       if (error) throw error;
       return data;
     },
+
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['issuance_ledger'] });
       qc.invalidateQueries({ queryKey: ['dashboard'] });
@@ -57,10 +61,12 @@ export function useUpdateIssuance() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, ...input }: Partial<CreateIssuanceInput> & { id: string }) => {
-      const { data, error } = await supabase.from('issuance_ledger').update(input).eq('id', id).select().single();
+      const validated = IssuanceSchema.partial().parse(input);
+      const { data, error } = await supabase.from('issuance_ledger').update(validated).eq('id', id).select().single();
       if (error) throw error;
       return data;
     },
+
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['issuance_ledger'] });
       qc.invalidateQueries({ queryKey: ['dashboard'] });
@@ -124,10 +130,12 @@ export function useCreateTransfer() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: CreateTransferInput) => {
-      const { data, error } = await supabase.from('transfer_ledger').insert(input).select().single();
+      const validated = TransferSchema.parse(input);
+      const { data, error } = await supabase.from('transfer_ledger').insert(validated).select().single();
       if (error) throw error;
       return data;
     },
+
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['transfer_ledger'] });
       qc.invalidateQueries({ queryKey: ['dashboard'] });
@@ -141,10 +149,12 @@ export function useUpdateTransfer() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, ...input }: Partial<CreateTransferInput> & { id: string }) => {
-      const { data, error } = await supabase.from('transfer_ledger').update(input).eq('id', id).select().single();
+      const validated = TransferSchema.partial().parse(input);
+      const { data, error } = await supabase.from('transfer_ledger').update(validated).eq('id', id).select().single();
       if (error) throw error;
       return data;
     },
+
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['transfer_ledger'] });
       qc.invalidateQueries({ queryKey: ['dashboard'] });
@@ -208,10 +218,12 @@ export function useCreateReceived() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: CreateReceivedInput) => {
-      const { data, error } = await supabase.from('received_ledger').insert(input).select().single();
+      const validated = ReceivedSchema.parse(input);
+      const { data, error } = await supabase.from('received_ledger').insert(validated).select().single();
       if (error) throw error;
       return data;
     },
+
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['received_ledger'] });
       qc.invalidateQueries({ queryKey: ['dashboard'] });
@@ -225,10 +237,12 @@ export function useUpdateReceived() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, ...input }: Partial<CreateReceivedInput> & { id: string }) => {
-      const { data, error } = await supabase.from('received_ledger').update(input).eq('id', id).select().single();
+      const validated = ReceivedSchema.partial().parse(input);
+      const { data, error } = await supabase.from('received_ledger').update(validated).eq('id', id).select().single();
       if (error) throw error;
       return data;
     },
+
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['received_ledger'] });
       qc.invalidateQueries({ queryKey: ['dashboard'] });
