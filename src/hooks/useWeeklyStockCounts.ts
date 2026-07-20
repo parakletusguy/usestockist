@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { WeeklyStockCountSchema } from '@/lib/validation';
+
 
 export interface WeeklyStockCount {
   id: string;
@@ -43,10 +45,12 @@ export function useCreateWeeklyStockCount() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: CreateWeeklyStockCountInput) => {
-      const { data, error } = await supabase.from('weekly_stock_counts').insert(input).select().single();
+      const validated = WeeklyStockCountSchema.parse(input);
+      const { data, error } = await supabase.from('weekly_stock_counts').insert(validated).select().single();
       if (error) throw error;
       return data;
     },
+
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['weekly_stock_counts'] });
       toast({ title: 'Success', description: 'Stock count recorded' });
@@ -59,10 +63,12 @@ export function useUpdateWeeklyStockCount() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, ...input }: Partial<CreateWeeklyStockCountInput> & { id: string }) => {
-      const { data, error } = await supabase.from('weekly_stock_counts').update(input).eq('id', id).select().single();
+      const validated = WeeklyStockCountSchema.partial().parse(input);
+      const { data, error } = await supabase.from('weekly_stock_counts').update(validated).eq('id', id).select().single();
       if (error) throw error;
       return data;
     },
+
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['weekly_stock_counts'] });
       toast({ title: 'Success', description: 'Stock count updated' });

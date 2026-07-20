@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { ItemSchema } from '@/lib/validation';
+
 
 export interface Item {
   id: string;
@@ -37,15 +39,17 @@ export function useCreateItem() {
   
   return useMutation({
     mutationFn: async (input: CreateItemInput) => {
+      const validated = ItemSchema.parse(input);
       const { data, error } = await supabase
         .from('items')
-        .insert(input)
+        .insert(validated)
         .select()
         .single();
-      
+
       if (error) throw error;
       return data;
     },
+
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['items'] });
       toast({ title: 'Success', description: 'Item created successfully' });
@@ -61,16 +65,18 @@ export function useUpdateItem() {
   
   return useMutation({
     mutationFn: async ({ id, ...input }: CreateItemInput & { id: string }) => {
+      const validated = ItemSchema.parse(input);
       const { data, error } = await supabase
         .from('items')
-        .update(input)
+        .update(validated)
         .eq('id', id)
         .select()
         .single();
-      
+
       if (error) throw error;
       return data;
     },
+
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['items'] });
       toast({ title: 'Success', description: 'Item updated successfully' });
