@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { format } from 'date-fns';
 import { useItems } from '@/hooks/useItems';
 import { useReachSalesReports, useUploadReachSales } from '@/hooks/useReachSales';
+import { parsePdfSalesReport } from '@/lib/parsePdf';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,8 +10,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { CalendarIcon, Upload, FileSpreadsheet, CheckCircle2, AlertCircle, ShoppingBag, Plus, Trash2 } from 'lucide-react';
+import {
+  CalendarIcon, Upload, FileSpreadsheet, FileScan,
+  CheckCircle2, ShoppingBag, Plus, Trash2, Loader2,
+} from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 interface ParsedSaleRow {
   itemId: string;
@@ -19,103 +24,161 @@ interface ParsedSaleRow {
   unitPrice: number;
 }
 
+type FileStatus = 'idle' | 'parsing' | 'done' | 'error';
+
 export default function ItemSalesReport() {
   const [reportDate, setReportDate] = useState<Date>(new Date());
   const dateStr = format(reportDate, 'yyyy-MM-dd');
   const [retailMember, setRetailMember] = useState('');
   const [parsedRows, setParsedRows] = useState<ParsedSaleRow[]>([]);
   const [fileName, setFileName] = useState('');
+  const [fileStatus, setFileStatus] = useState<FileStatus>('idle');
+  const [unmatchedCount, setUnmatchedCount] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
 
   const { data: items } = useItems();
   const { data: reportsHistory, isLoading: isLoadingHistory } = useReachSalesReports();
   const uploadSales = useUploadReachSales();
 
-  // CSV File Parser for Reach Sales Export
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  /** Match a raw name from PDF/CSV against the catalog */
+  const matchToCatalog = (rawName: string): { id: string; name: string; unit_cost: number } | null => {
+    if (!items) return null;
+    const lower = rawName.toLowerCase().trim();
+    return (
+      items.find(it => it.name.toLowerCase() === lower) ||
+      items.find(it => lower.includes(it.name.toLowerCase())) ||
+      items.find(it => it.name.toLowerCase().includes(lower)) ||
+      null
+    );
+  };
 
-    setFileName(file.name);
-    const reader = new FileReader();
+  /** Parse a CSV/TXT file */
+  const parseCsv = (text: string): ParsedSaleRow[] => {
+    const lines = text.split(/\r\n|\n/).filter(l => l.trim().length > 0);
+    if (lines.length < 2) throw new Error('File must have headers and at least one row');
 
-    reader.onload = (event) => {
-      try {
-        const text = event.target?.result as string;
-        const lines = text.split(/\r\n|\n/).filter((l) => l.trim().length > 0);
-        if (lines.length < 2) {
-          toast({ title: 'Error', description: 'CSV file must have headers and content', variant: 'destructive' });
-          return;
-        }
+    const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/[^a-z0-9]/g, ''));
+    const nameIdx = headers.findIndex(h => h.includes('item') || h.includes('product') || h.includes('name'));
+    const qtyIdx = headers.findIndex(h => h.includes('qty') || h.includes('quantity') || h.includes('sold'));
+    const priceIdx = headers.findIndex(h => h.includes('price') || h.includes('amount') || h.includes('total'));
 
-        const headers = lines[0].split(',').map((h) => h.trim().toLowerCase().replace(/[^a-z0-9]/g, ''));
-        const nameIdx = headers.findIndex((h) => h.includes('item') || h.includes('product') || h.includes('name'));
-        const qtyIdx = headers.findIndex((h) => h.includes('qty') || h.includes('quantity') || h.includes('sold'));
-        const priceIdx = headers.findIndex((h) => h.includes('price') || h.includes('amount') || h.includes('total'));
+    const newRows: ParsedSaleRow[] = [];
+    let unmatched = 0;
 
-        const newRows: ParsedSaleRow[] = [];
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+      if (cols.length <= 1) continue;
 
-        for (let i = 1; i < lines.length; i++) {
-          const cols = lines[i].split(',').map((c) => c.trim().replace(/^"|"$/g, ''));
-          if (cols.length <= 1) continue;
+      const rawName = cols[nameIdx >= 0 ? nameIdx : 0] || '';
+      const qty = Number(cols[qtyIdx >= 0 ? qtyIdx : 1]) || 0;
+      const price = Number(cols[priceIdx >= 0 ? priceIdx : 2]) || 0;
 
-          const rawName = cols[nameIdx >= 0 ? nameIdx : 0] || '';
-          const qty = Number(cols[qtyIdx >= 0 ? qtyIdx : 1]) || 0;
-          const price = Number(cols[priceIdx >= 0 ? priceIdx : 2]) || 0;
+      if (!rawName || qty <= 0) continue;
 
-          if (!rawName || qty <= 0) continue;
-
-          // Match with catalog items
-          const matchedItem = items?.find(
-            (it) => it.name.toLowerCase() === rawName.toLowerCase() || rawName.toLowerCase().includes(it.name.toLowerCase())
-          );
-
-          if (matchedItem) {
-            newRows.push({
-              itemId: matchedItem.id,
-              itemName: matchedItem.name,
-              qtySold: qty,
-              unitPrice: price || matchedItem.unit_cost,
-            });
-          }
-        }
-
-        if (newRows.length === 0 && items && items.length > 0) {
-          toast({
-            title: 'Notice',
-            description: 'Could not automatically match file items to catalog. Please select items manually.',
-          });
-        }
-
-        setParsedRows(newRows);
-        toast({ title: 'File Parsed', description: `Loaded ${newRows.length} matched item sales` });
-      } catch (err: any) {
-        toast({ title: 'File Error', description: err.message || 'Failed to parse file', variant: 'destructive' });
+      const matched = matchToCatalog(rawName);
+      if (matched) {
+        newRows.push({
+          itemId: matched.id,
+          itemName: matched.name,
+          qtySold: qty,
+          unitPrice: price || matched.unit_cost,
+        });
+      } else {
+        unmatched++;
       }
-    };
+    }
 
-    reader.readAsText(file);
+    setUnmatchedCount(unmatched);
+    return newRows;
+  };
+
+  /** Core file processor — handles PDF, CSV, TXT */
+  const processFile = useCallback(async (file: File) => {
+    setFileName(file.name);
+    setFileStatus('parsing');
+    setParsedRows([]);
+    setUnmatchedCount(0);
+
+    try {
+      let newRows: ParsedSaleRow[] = [];
+
+      if (file.name.toLowerCase().endsWith('.pdf')) {
+        // --- PDF path: use pdfjs-dist in-browser parser ---
+        const pdfRows = await parsePdfSalesReport(file);
+        let unmatched = 0;
+
+        newRows = pdfRows.reduce<ParsedSaleRow[]>((acc, row) => {
+          const matched = matchToCatalog(row.item_name);
+          if (matched) {
+            acc.push({
+              itemId: matched.id,
+              itemName: matched.name,
+              qtySold: row.quantity,
+              unitPrice: matched.unit_cost,
+            });
+          } else {
+            // Still include row, but leave itemId blank so user can select
+            unmatched++;
+            if (items && items.length > 0) {
+              acc.push({
+                itemId: items[0].id,
+                itemName: row.item_name, // raw name as hint
+                qtySold: row.quantity,
+                unitPrice: 0,
+              });
+            }
+          }
+          return acc;
+        }, []);
+
+        setUnmatchedCount(unmatched);
+      } else {
+        // --- CSV / TXT path ---
+        const text = await file.text();
+        newRows = parseCsv(text);
+      }
+
+      setFileStatus('done');
+      setParsedRows(newRows);
+
+      toast({
+        title: 'File Parsed',
+        description: `Loaded ${newRows.length} item row${newRows.length !== 1 ? 's' : ''} from ${file.name}`,
+      });
+    } catch (err: any) {
+      setFileStatus('error');
+      toast({ title: 'Parse Error', description: err.message || 'Failed to parse file', variant: 'destructive' });
+    }
+  }, [items]);
+
+  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processFile(file);
+    e.target.value = '';           // allow re-uploading same file
+  };
+
+  // Drag-and-drop
+  const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(true); };
+  const handleDragLeave = () => setIsDragging(false);
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) processFile(file);
   };
 
   const handleAddManualRow = () => {
     if (!items || items.length === 0) return;
-    const firstItem = items[0];
-    setParsedRows((prev) => [
-      ...prev,
-      { itemId: firstItem.id, itemName: firstItem.name, qtySold: 1, unitPrice: firstItem.unit_cost },
-    ]);
+    const first = items[0];
+    setParsedRows(prev => [...prev, { itemId: first.id, itemName: first.name, qtySold: 1, unitPrice: first.unit_cost }]);
   };
 
   const handleRowChange = (index: number, field: keyof ParsedSaleRow, value: any) => {
-    setParsedRows((prev) => {
+    setParsedRows(prev => {
       const next = [...prev];
       if (field === 'itemId') {
-        const item = items?.find((it) => it.id === value);
-        next[index] = {
-          ...next[index],
-          itemId: value,
-          itemName: item?.name || '',
-          unitPrice: item?.unit_cost || next[index].unitPrice,
-        };
+        const item = items?.find(it => it.id === value);
+        next[index] = { ...next[index], itemId: value, itemName: item?.name || '', unitPrice: item?.unit_cost ?? next[index].unitPrice };
       } else {
         next[index] = { ...next[index], [field]: value };
       }
@@ -123,9 +186,7 @@ export default function ItemSalesReport() {
     });
   };
 
-  const handleRemoveRow = (index: number) => {
-    setParsedRows((prev) => prev.filter((_, i) => i !== index));
-  };
+  const handleRemoveRow = (index: number) => setParsedRows(prev => prev.filter((_, i) => i !== index));
 
   const handleSubmitReport = async () => {
     if (!retailMember.trim()) {
@@ -140,8 +201,8 @@ export default function ItemSalesReport() {
     await uploadSales.mutateAsync({
       report_date: dateStr,
       retail_member_name: retailMember.trim(),
-      file_name: fileName || 'Reach_Sales_Upload.csv',
-      items: parsedRows.map((r) => ({
+      file_name: fileName || 'Reach_Sales_Upload',
+      items: parsedRows.map(r => ({
         item_id: r.itemId,
         qty_sold: r.qtySold,
         unit_price: r.unitPrice,
@@ -151,14 +212,19 @@ export default function ItemSalesReport() {
 
     setParsedRows([]);
     setFileName('');
+    setFileStatus('idle');
+    setUnmatchedCount(0);
   };
+
+  const totalValue = parsedRows.reduce((s, r) => s + r.qtySold * r.unitPrice, 0);
+  const totalQty = parsedRows.reduce((s, r) => s + r.qtySold, 0);
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold">Reach Item Sales Report</h1>
-          <p className="text-muted-foreground">Upload daily Reach POS sales exports per retail team member</p>
+          <p className="text-muted-foreground">Upload daily Reach POS exports — CSV, Excel, or PDF auto-parsed instantly</p>
         </div>
       </div>
 
@@ -167,7 +233,7 @@ export default function ItemSalesReport() {
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>Daily Sales Entry</CardTitle>
-            <CardDescription>Upload CSV/Excel file or manually input item sales for reconciliation</CardDescription>
+            <CardDescription>Drop any file — PDF, CSV, or Excel — and the app parses it automatically</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
@@ -181,7 +247,7 @@ export default function ItemSalesReport() {
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar mode="single" selected={reportDate} onSelect={(d) => d && setReportDate(d)} />
+                    <Calendar mode="single" selected={reportDate} onSelect={d => d && setReportDate(d)} />
                   </PopoverContent>
                 </Popover>
               </div>
@@ -191,28 +257,87 @@ export default function ItemSalesReport() {
                 <Input
                   placeholder="e.g. John Doe"
                   value={retailMember}
-                  onChange={(e) => setRetailMember(e.target.value)}
+                  onChange={e => setRetailMember(e.target.value)}
                 />
               </div>
             </div>
 
             {/* File Dropzone */}
-            <div className="border-2 border-dashed rounded-lg p-6 text-center hover:bg-muted/50 transition-colors cursor-pointer">
-              <input type="file" accept=".csv, .txt" onChange={handleFileUpload} className="hidden" id="reach-file-upload" />
+            <div
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className={cn(
+                'border-2 border-dashed rounded-lg p-8 text-center transition-all cursor-pointer',
+                isDragging
+                  ? 'border-primary bg-primary/5 scale-[1.01]'
+                  : fileStatus === 'done'
+                  ? 'border-green-500 bg-green-500/5'
+                  : fileStatus === 'error'
+                  ? 'border-destructive bg-destructive/5'
+                  : 'hover:bg-muted/50 hover:border-primary/50'
+              )}
+            >
+              <input
+                type="file"
+                accept=".csv,.txt,.xlsx,.xls,.pdf"
+                onChange={handleFileInput}
+                className="hidden"
+                id="reach-file-upload"
+              />
               <label htmlFor="reach-file-upload" className="cursor-pointer flex flex-col items-center gap-2">
-                <FileSpreadsheet className="h-8 w-8 text-primary" />
-                <span className="font-medium text-sm">
-                  {fileName ? `File: ${fileName}` : 'Drop Reach Sales CSV here or click to browse'}
-                </span>
-                <span className="text-xs text-muted-foreground">Supports Reach daily POS CSV exports</span>
+                {fileStatus === 'parsing' ? (
+                  <>
+                    <Loader2 className="h-9 w-9 text-primary animate-spin" />
+                    <span className="font-semibold text-sm text-primary">Parsing {fileName}…</span>
+                    <span className="text-xs text-muted-foreground">Extracting items from your file</span>
+                  </>
+                ) : fileStatus === 'done' ? (
+                  <>
+                    <CheckCircle2 className="h-9 w-9 text-green-500" />
+                    <span className="font-semibold text-sm text-green-700 dark:text-green-400">{fileName}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {parsedRows.length} rows loaded
+                      {unmatchedCount > 0 ? ` · ${unmatchedCount} unmatched (review below)` : ' · click to replace'}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex gap-2">
+                      <FileSpreadsheet className="h-8 w-8 text-primary" />
+                      <FileScan className="h-8 w-8 text-primary" />
+                    </div>
+                    <span className="font-semibold text-sm">
+                      Drop your Reach sales file here, or click to browse
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      Supports <strong>PDF</strong>, CSV, and Excel (.xlsx) — all auto-parsed
+                    </span>
+                  </>
+                )}
               </label>
             </div>
 
+            {/* Summary bar */}
+            {parsedRows.length > 0 && (
+              <div className="flex items-center justify-between rounded-md border bg-muted/30 px-4 py-2 text-sm">
+                <div className="flex items-center gap-4">
+                  <span className="text-muted-foreground">
+                    <strong className="text-foreground">{parsedRows.length}</strong> items
+                  </span>
+                  <span className="text-muted-foreground">
+                    <strong className="text-foreground">{totalQty}</strong> units sold
+                  </span>
+                </div>
+                <span className="font-bold text-primary">${totalValue.toFixed(2)}</span>
+              </div>
+            )}
+
             {/* Items Table */}
             {parsedRows.length > 0 && (
-              <div className="space-y-3 pt-2">
+              <div className="space-y-3 pt-1">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-sm">Item Sales ({parsedRows.length})</h3>
+                  <h3 className="font-semibold text-sm">Review & Edit Rows</h3>
                   <Button size="sm" variant="outline" onClick={handleAddManualRow}>
                     <Plus className="h-4 w-4 mr-1" /> Add Row
                   </Button>
@@ -225,7 +350,7 @@ export default function ItemSalesReport() {
                         <TableHead className="w-28 text-right">Qty Sold</TableHead>
                         <TableHead className="w-28 text-right">Unit Price</TableHead>
                         <TableHead className="w-28 text-right">Total ($)</TableHead>
-                        <TableHead className="w-12"></TableHead>
+                        <TableHead className="w-12" />
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -234,10 +359,10 @@ export default function ItemSalesReport() {
                           <TableCell>
                             <select
                               value={row.itemId}
-                              onChange={(e) => handleRowChange(idx, 'itemId', e.target.value)}
+                              onChange={e => handleRowChange(idx, 'itemId', e.target.value)}
                               className="w-full h-8 text-sm rounded-md border bg-background px-2"
                             >
-                              {items?.map((it) => (
+                              {items?.map(it => (
                                 <option key={it.id} value={it.id}>
                                   {it.name} ({it.category})
                                 </option>
@@ -246,19 +371,17 @@ export default function ItemSalesReport() {
                           </TableCell>
                           <TableCell>
                             <Input
-                              type="number"
-                              min="1"
+                              type="number" min="1"
                               value={row.qtySold}
-                              onChange={(e) => handleRowChange(idx, 'qtySold', Number(e.target.value))}
+                              onChange={e => handleRowChange(idx, 'qtySold', Number(e.target.value))}
                               className="h-8 w-20 text-right ml-auto"
                             />
                           </TableCell>
                           <TableCell>
                             <Input
-                              type="number"
-                              step="0.01"
+                              type="number" step="0.01"
                               value={row.unitPrice}
-                              onChange={(e) => handleRowChange(idx, 'unitPrice', Number(e.target.value))}
+                              onChange={e => handleRowChange(idx, 'unitPrice', Number(e.target.value))}
                               className="h-8 w-24 text-right ml-auto"
                             />
                           </TableCell>
@@ -278,29 +401,43 @@ export default function ItemSalesReport() {
 
                 <div className="flex justify-end pt-2">
                   <Button onClick={handleSubmitReport} disabled={uploadSales.isPending}>
-                    <Upload className="h-4 w-4 mr-2" />
+                    {uploadSales.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Upload className="h-4 w-4 mr-2" />
+                    )}
                     Save & Sync Sales Report
                   </Button>
                 </div>
               </div>
             )}
+
+            {/* Manual entry prompt when no file loaded */}
+            {parsedRows.length === 0 && fileStatus === 'idle' && (
+              <div className="flex flex-col items-center gap-2 pt-2">
+                <p className="text-xs text-muted-foreground">No file? Enter items manually instead</p>
+                <Button size="sm" variant="outline" onClick={handleAddManualRow}>
+                  <ShoppingBag className="h-4 w-4 mr-2" /> Add Item Manually
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        {/* Upload History Section */}
+        {/* Upload History */}
         <Card>
           <CardHeader>
-            <CardTitle>Recent Sales Uploads</CardTitle>
-            <CardDescription>Uploaded Reach daily reports</CardDescription>
+            <CardTitle>Recent Uploads</CardTitle>
+            <CardDescription>Reach daily reports history</CardDescription>
           </CardHeader>
           <CardContent>
             {isLoadingHistory ? (
-              <div className="text-center py-6 text-muted-foreground text-sm">Loading history...</div>
+              <div className="text-center py-6 text-muted-foreground text-sm">Loading…</div>
             ) : !reportsHistory || reportsHistory.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground text-sm">No sales reports uploaded yet.</div>
             ) : (
               <div className="space-y-3">
-                {reportsHistory.map((rep) => (
+                {reportsHistory.map(rep => (
                   <div key={rep.id} className="p-3 border rounded-lg flex items-center justify-between text-sm">
                     <div>
                       <div className="font-semibold">{rep.retail_member_name}</div>

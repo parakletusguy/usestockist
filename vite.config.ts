@@ -5,6 +5,7 @@ import { componentTagger } from "lovable-tagger";
 import { VitePWA } from "vite-plugin-pwa";
 import { mcpPlugin } from "@lovable.dev/mcp-js/stacks/supabase/vite";
 
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   server: {
@@ -13,6 +14,13 @@ export default defineConfig(({ mode }) => ({
     hmr: {
       overlay: false,
     },
+  },
+  optimizeDeps: {
+    // pdfjs-dist ships its own worker — don't let Vite pre-bundle it
+    exclude: ['pdfjs-dist'],
+  },
+  worker: {
+    format: 'es',
   },
   plugins: [
     react(),
