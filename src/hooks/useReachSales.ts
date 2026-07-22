@@ -28,7 +28,7 @@ export function useReachSalesReports() {
   return useQuery({
     queryKey: ['reach_sales_reports'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('reach_sales_reports')
         .select('*')
         .order('report_date', { ascending: false });
@@ -48,7 +48,7 @@ export function useUploadReachSales() {
       const totalValue = input.items.reduce((sum, i) => sum + (i.qty_sold * (i.unit_price || 0)), 0);
 
       // 1. Record report metadata
-      const { data: reportData, error: reportError } = await supabase
+      const { data: reportData, error: reportError } = await (supabase as any)
         .from('reach_sales_reports')
         .insert({
           report_date: input.report_date,
@@ -63,7 +63,7 @@ export function useUploadReachSales() {
       if (reportError) throw reportError;
 
       // 2. Delete any existing sale transactions for this date & member to allow clean re-upload
-      const { error: deleteError } = await supabase
+      const { error: deleteError } = await (supabase as any)
         .from('inventory_transactions')
         .delete()
         .eq('transaction_date', input.report_date)
@@ -89,7 +89,7 @@ export function useUploadReachSales() {
         }));
 
       if (rows.length > 0) {
-        const { error: insertError } = await supabase
+        const { error: insertError } = await (supabase as any)
           .from('inventory_transactions')
           .insert(rows);
 

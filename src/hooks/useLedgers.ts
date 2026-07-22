@@ -49,7 +49,7 @@ export function useIssuanceLedger() {
   return useQuery({
     queryKey: ['issuance_ledger'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('inventory_transactions')
         .select('*, items(name, unit_of_measure)')
         .eq('type', 'issuance')
@@ -73,7 +73,7 @@ export function useCreateIssuance() {
         transaction_date: input.date,
         metadata: { recipient_group: input.recipient_group, issued_by: input.issued_by }
       };
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('inventory_transactions')
         .insert(dbInput)
         .select()
@@ -108,7 +108,7 @@ export function useUpdateIssuance() {
         };
       }
 
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('inventory_transactions')
         .update(dbInput)
         .eq('id', id)
@@ -173,7 +173,7 @@ export function useTransferLedger() {
   return useQuery({
     queryKey: ['transfer_ledger'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('inventory_transactions')
         .select('*, items(name, unit_of_measure)')
         .eq('type', 'transfer')
@@ -197,7 +197,7 @@ export function useCreateTransfer() {
         transaction_date: input.date,
         metadata: { destination: input.destination, reason: input.reason }
       };
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('inventory_transactions')
         .insert(dbInput)
         .select()
@@ -231,7 +231,7 @@ export function useUpdateTransfer() {
           reason: input.reason
         };
       }
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('inventory_transactions')
         .update(dbInput)
         .eq('id', id)
@@ -296,7 +296,7 @@ export function useReceivedLedger() {
   return useQuery({
     queryKey: ['received_ledger'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('inventory_transactions')
         .select('*, items(name, unit_of_measure)')
         .eq('type', 'receive')
@@ -320,7 +320,7 @@ export function useCreateReceived() {
         transaction_date: input.date,
         metadata: { supplier: input.supplier, invoice_number: input.invoice_number }
       };
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('inventory_transactions')
         .insert(dbInput)
         .select()
@@ -354,7 +354,7 @@ export function useUpdateReceived() {
           invoice_number: input.invoice_number
         };
       }
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('inventory_transactions')
         .update(dbInput)
         .eq('id', id)

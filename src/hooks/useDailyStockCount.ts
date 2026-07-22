@@ -45,7 +45,7 @@ export function useDailyStockCount(startDate: string, endDate?: string, departme
           p_include_zero_activity: true,
           p_department: deptParam,
         }),
-        supabase
+        (supabase as any)
           .from('inventory_transactions')
           .select('item_id, type, quantity, metadata')
           .in('type', ['sale', 'damage', 'adjustment'])
@@ -112,7 +112,7 @@ export async function saveDailyStockEntries(entries: DailyStockEntryInput[]) {
     const endIso = `${date}T23:59:59.999Z`;
     const itemIds = dayEntries.map((e) => e.item_id);
 
-    const { error: deleteError } = await supabase
+    const { error: deleteError } = await (supabase as any)
       .from('inventory_transactions')
       .delete()
       .in('item_id', itemIds)
