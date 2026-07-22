@@ -216,8 +216,8 @@ export default function ItemSalesReport() {
     setUnmatchedCount(0);
   };
 
-  const totalValue = parsedRows.reduce((s, r) => s + r.qtySold * r.unitPrice, 0);
-  const totalQty = parsedRows.reduce((s, r) => s + r.qtySold, 0);
+  const totalValue = parsedRows.reduce((s, r) => s + (Number(r.qtySold) || 0) * (Number(r.unitPrice) || 0), 0);
+  const totalQty = parsedRows.reduce((s, r) => s + (Number(r.qtySold) || 0), 0);
 
   return (
     <div className="space-y-6">
@@ -386,7 +386,7 @@ export default function ItemSalesReport() {
                             />
                           </TableCell>
                           <TableCell className="text-right font-medium">
-                            {(row.qtySold * row.unitPrice).toFixed(2)}
+                            {((Number(row.qtySold) || 0) * (Number(row.unitPrice) || 0)).toFixed(2)}
                           </TableCell>
                           <TableCell>
                             <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handleRemoveRow(idx)}>
