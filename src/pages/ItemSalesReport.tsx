@@ -168,9 +168,20 @@ export default function ItemSalesReport() {
   };
 
   const handleAddManualRow = () => {
-    if (!items || items.length === 0) return;
+    if (!items || items.length === 0) {
+      toast({
+        title: 'No Catalog Items Found',
+        description: 'Please add items in the Items Manager first before adding manual sales rows.',
+        variant: 'destructive',
+      });
+      return;
+    }
     const first = items[0];
-    setParsedRows(prev => [...prev, { itemId: first.id, itemName: first.name, qtySold: 1, unitPrice: first.unit_cost }]);
+    setParsedRows(prev => [
+      ...prev,
+      { itemId: first.id, itemName: first.name, qtySold: 1, unitPrice: first.unit_cost },
+    ]);
+    toast({ title: 'Manual Row Added', description: `Added ${first.name} to sales entry table.` });
   };
 
   const handleRowChange = (index: number, field: keyof ParsedSaleRow, value: any) => {

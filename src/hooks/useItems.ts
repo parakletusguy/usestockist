@@ -30,19 +30,13 @@ export function useItems(departmentFilter?: string) {
   return useQuery({
     queryKey: ['items', departmentFilter || 'all'],
     queryFn: async () => {
-      // Fetch items with their department assignments
-      const { data: itemData, error: itemError } = await supabase
-        .from('items')
-        .select('*')
-        .order('name');
+      // Execute both queries concurrently for maximum speed
+      const [{ data: itemData, error: itemError }, { data: deptData, error: deptError }] = await Promise.all([
+        supabase.from('items').select('*').order('name'),
+        (supabase as any).from('item_departments').select('item_id, department'),
+      ]);
 
       if (itemError) throw itemError;
-
-      // Fetch all item_departments
-      const { data: deptData, error: deptError } = await (supabase as any)
-        .from('item_departments')
-        .select('item_id, department');
-
       if (deptError) throw deptError;
 
       // Build a map of item_id -> departments[]
@@ -67,6 +61,7 @@ export function useItems(departmentFilter?: string) {
 
       return items;
     },
+    staleTime: 1000 * 60 * 5, // Cache for 5 minutes for instant navigation
   });
 }
 
