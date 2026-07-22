@@ -6,6 +6,7 @@ export interface DailyStockCountRow {
   item_id: string;
   item_name: string;
   category: string;
+  department: string;
   unit_of_measure: string;
   unit_cost: number;
   low_stock_threshold: number;
@@ -26,23 +27,23 @@ export interface DailyStockEntryInput {
   damages?: number;
   phy_count?: number | null;
   comment?: string;
+  department?: string;
 }
 
-function dayRange(date: string) {
-  return { startIso: `${date}T00:00:00Z`, endIso: `${date}T23:59:59.999Z` };
-}
+export function useDailyStockCount(startDate: string, endDate?: string, department?: string) {
+  const startIso = `${startDate}T00:00:00Z`;
+  const endIso = `${endDate || startDate}T23:59:59.999Z`;
+  const deptParam = department && department !== 'all' ? department : undefined;
 
-export function useDailyStockCount(date: string) {
   return useQuery({
-    queryKey: ['daily_stock_count', date],
+    queryKey: ['stock_count', startDate, endDate || startDate, deptParam || 'all'],
     queryFn: async () => {
-      const { startIso, endIso } = dayRange(date);
-
       const [{ data: reportData, error: reportError }, { data: txData, error: txError }] = await Promise.all([
         supabase.rpc('get_daily_inventory_report', {
           p_start_date: startIso,
           p_end_date: endIso,
           p_include_zero_activity: true,
+          p_department: deptParam,
         }),
         supabase
           .from('inventory_transactions')
@@ -77,6 +78,7 @@ export function useDailyStockCount(date: string) {
             item_id: row.item_id,
             item_name: row.item_name,
             category: row.category,
+            department: row.department || 'Retail',
             unit_of_measure: row.unit_of_measure,
             unit_cost: Number(row.unit_cost) || 0,
             low_stock_threshold: Number(row.low_stock_threshold) || 0,
@@ -84,8 +86,8 @@ export function useDailyStockCount(date: string) {
             qty_received: Number(row.qty_received) || 0,
             qty_issued: Number(row.qty_issued) || 0,
             qty_transferred: Number(row.qty_transferred) || 0,
-            qty_sold: extra?.qty_sold ?? 0,
-            damages: extra?.damages ?? 0,
+            qty_sold: Number(row.qty_sold) || (extra?.qty_sold ?? 0),
+            damages: Number(row.damages) || (extra?.damages ?? 0),
             phy_count: extra?.phy_count ?? null,
             comment: extra?.comment ?? '',
           };
@@ -95,11 +97,6 @@ export function useDailyStockCount(date: string) {
   });
 }
 
-/**
- * Replaces a day's sale/damage/adjustment transactions for the given items.
- * Shared by the online save mutation and the offline sync queue so the two
- * paths can't drift out of sync with each other.
- */
 export async function saveDailyStockEntries(entries: DailyStockEntryInput[]) {
   if (entries.length === 0) return;
 
@@ -111,16 +108,18 @@ export async function saveDailyStockEntries(entries: DailyStockEntryInput[]) {
   });
 
   for (const [date, dayEntries] of byDate) {
-    const { startIso, endIso } = dayRange(date);
+    const startIso = `${date}T00:00:00Z`;
+    const endIso = `${date}T23:59:59.999Z`;
     const itemIds = dayEntries.map((e) => e.item_id);
 
     const { error: deleteError } = await supabase
       .from('inventory_transactions')
       .delete()
       .in('item_id', itemIds)
-      .in('type', ['sale', 'damage', 'adjustment'])
+      .in('type', ['damage', 'adjustment'])
       .gte('transaction_date', startIso)
       .lte('transaction_date', endIso);
+
     if (deleteError) throw deleteError;
 
     const { data: reportData, error: reportError } = await supabase.rpc('get_daily_inventory_report', {
@@ -133,9 +132,10 @@ export async function saveDailyStockEntries(entries: DailyStockEntryInput[]) {
 
     const rows: {
       item_id: string;
-      type: 'sale' | 'damage' | 'adjustment';
+      type: 'damage' | 'adjustment';
       quantity: number;
       transaction_date: string;
+      department?: string;
       metadata?: { physical_count: number | null; comment: string };
     }[] = [];
 
@@ -145,14 +145,17 @@ export async function saveDailyStockEntries(entries: DailyStockEntryInput[]) {
       const received = Number(report?.qty_received) || 0;
       const issued = Number(report?.qty_issued) || 0;
       const transferred = Number(report?.qty_transferred) || 0;
-      const sold = entry.qty_sold || 0;
+      const sold = Number(report?.qty_sold) || 0;
       const damaged = entry.damages || 0;
 
-      if (sold > 0) {
-        rows.push({ item_id: entry.item_id, type: 'sale', quantity: sold, transaction_date: date });
-      }
       if (damaged > 0) {
-        rows.push({ item_id: entry.item_id, type: 'damage', quantity: damaged, transaction_date: date });
+        rows.push({ 
+          item_id: entry.item_id, 
+          type: 'damage', 
+          quantity: damaged, 
+          transaction_date: date,
+          department: entry.department || 'Retail',
+        });
       }
 
       const hasCount = entry.phy_count !== null && entry.phy_count !== undefined;
@@ -165,6 +168,7 @@ export async function saveDailyStockEntries(entries: DailyStockEntryInput[]) {
           type: 'adjustment',
           quantity: delta,
           transaction_date: date,
+          department: entry.department || 'Retail',
           metadata: { physical_count: hasCount ? (entry.phy_count as number) : null, comment },
         });
       }
@@ -183,9 +187,10 @@ export function useSaveDailyStockCount(date: string) {
   return useMutation({
     mutationFn: (entries: DailyStockEntryInput[]) => saveDailyStockEntries(entries),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['daily_stock_count', date] });
+      queryClient.invalidateQueries({ queryKey: ['stock_count'] });
+      queryClient.invalidateQueries({ queryKey: ['daily_stock_count'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      toast({ title: 'Success', description: 'Daily stock count saved' });
+      toast({ title: 'Success', description: 'Stock count saved successfully' });
     },
     onError: (error: Error) => {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });

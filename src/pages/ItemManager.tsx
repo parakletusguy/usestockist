@@ -1,48 +1,21 @@
 import { useState } from 'react';
 import { useItems, useCreateItem, useUpdateItem, useDeleteItem, Item, CreateItemInput } from '@/hooks/useItems';
+import { DEPARTMENTS } from '@/lib/validation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Plus, Pencil, Trash2, Search } from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Plus, Pencil, Trash2, Search, Building2 } from 'lucide-react';
 
 const CATEGORIES = ['Beverages', 'Food', 'Supplies', 'Cleaning', 'Equipment', 'Other'];
 const UNITS = ['pcs', 'kg', 'ltr', 'box', 'pack', 'bottle', 'can', 'roll'];
 
 const ItemManager = () => {
-  const { data: items, isLoading } = useItems();
+  const [departmentFilter, setDepartmentFilter] = useState<string>('all');
+  const { data: items, isLoading } = useItems(departmentFilter);
   const createItem = useCreateItem();
   const updateItem = useUpdateItem();
   const deleteItem = useDeleteItem();
@@ -57,6 +30,7 @@ const ItemManager = () => {
   const [formData, setFormData] = useState<CreateItemInput>({
     name: '',
     category: '',
+    department: 'Retail',
     unit_of_measure: '',
     low_stock_threshold: 0,
     unit_cost: 0,
@@ -74,13 +48,14 @@ const ItemManager = () => {
       setFormData({
         name: item.name,
         category: item.category,
+        department: item.department || 'Retail',
         unit_of_measure: item.unit_of_measure,
         low_stock_threshold: item.low_stock_threshold,
         unit_cost: item.unit_cost,
       });
     } else {
       setEditingItem(null);
-      setFormData({ name: '', category: '', unit_of_measure: '', low_stock_threshold: 0, unit_cost: 0 });
+      setFormData({ name: '', category: '', department: 'Retail', unit_of_measure: '', low_stock_threshold: 0, unit_cost: 0 });
     }
     setIsFormOpen(true);
   };
@@ -115,8 +90,8 @@ const ItemManager = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Item Manager</h1>
-          <p className="text-muted-foreground">Manage your inventory catalog</p>
+          <h1 className="text-3xl font-bold">Items Manager</h1>
+          <p className="text-muted-foreground">Manage your master inventory catalog across all departments</p>
         </div>
         <Button onClick={() => handleOpenForm()}>
           <Plus className="mr-2 h-4 w-4" />
@@ -135,6 +110,18 @@ const ItemManager = () => {
             className="pl-9"
           />
         </div>
+        <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+          <SelectTrigger className="w-full sm:w-48">
+            <Building2 className="mr-2 h-4 w-4 text-muted-foreground" />
+            <SelectValue placeholder="All Departments" />
+          </SelectTrigger>
+          <SelectContent className="bg-background">
+            <SelectItem value="all">All Departments</SelectItem>
+            {DEPARTMENTS.map(dept => (
+              <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Select value={categoryFilter} onValueChange={setCategoryFilter}>
           <SelectTrigger className="w-full sm:w-48">
             <SelectValue placeholder="All Categories" />
@@ -155,16 +142,17 @@ const ItemManager = () => {
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Category</TableHead>
+              <TableHead>Department</TableHead>
               <TableHead>Unit</TableHead>
               <TableHead className="text-right">Low Stock Threshold</TableHead>
-              <TableHead className="text-right">Unit Cost</TableHead>
+              <TableHead className="text-right">Unit Cost ($)</TableHead>
               <TableHead className="w-24">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredItems?.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                   No items found. Add your first item to get started.
                 </TableCell>
               </TableRow>
@@ -173,16 +161,13 @@ const ItemManager = () => {
                 <TableRow key={item.id}>
                   <TableCell className="font-medium">{item.name}</TableCell>
                   <TableCell>{item.category}</TableCell>
+                  <TableCell><span className="text-xs bg-muted px-2 py-1 rounded-md">{item.department || 'Retail'}</span></TableCell>
                   <TableCell>{item.unit_of_measure}</TableCell>
                   <TableCell className="text-right">{item.low_stock_threshold}</TableCell>
-                  <TableCell className="text-right">{item.unit_cost}</TableCell>
+                  <TableCell className="text-right">${item.unit_cost.toFixed(2)}</TableCell>
                   <TableCell>
                     <div className="flex gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleOpenForm(item)}
-                      >
+                      <Button variant="ghost" size="icon" onClick={() => handleOpenForm(item)}>
                         <Pencil className="h-4 w-4" />
                       </Button>
                       <Button
@@ -193,7 +178,7 @@ const ItemManager = () => {
                           setIsDeleteOpen(true);
                         }}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     </div>
                   </TableCell>
@@ -225,22 +210,41 @@ const ItemManager = () => {
                   required
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="category">Category</Label>
-                <Select
-                  value={formData.category}
-                  onValueChange={(value) => setFormData({ ...formData, category: value })}
-                  required
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background">
-                    {CATEGORIES.map(cat => (
-                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="category">Category</Label>
+                  <Select
+                    value={formData.category}
+                    onValueChange={(value) => setFormData({ ...formData, category: value })}
+                    required
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background">
+                      {CATEGORIES.map(cat => (
+                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="department">Department</Label>
+                  <Select
+                    value={formData.department}
+                    onValueChange={(value) => setFormData({ ...formData, department: value })}
+                    required
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select department" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background">
+                      {DEPARTMENTS.map(dept => (
+                        <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="unit">Unit of Measure</Label>
@@ -259,28 +263,30 @@ const ItemManager = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="low_stock_threshold">Low Stock Threshold</Label>
-                <Input
-                  id="low_stock_threshold"
-                  type="number"
-                  min="0"
-                  value={formData.low_stock_threshold}
-                  onChange={(e) => setFormData({ ...formData, low_stock_threshold: Number(e.target.value) })}
-                  placeholder="0"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="unit_cost">Unit Cost</Label>
-                <Input
-                  id="unit_cost"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={formData.unit_cost}
-                  onChange={(e) => setFormData({ ...formData, unit_cost: Number(e.target.value) })}
-                  placeholder="0"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="low_stock_threshold">Low Stock Threshold</Label>
+                  <Input
+                    id="low_stock_threshold"
+                    type="number"
+                    min="0"
+                    value={formData.low_stock_threshold}
+                    onChange={(e) => setFormData({ ...formData, low_stock_threshold: Number(e.target.value) })}
+                    placeholder="0"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="unit_cost">Unit Cost ($)</Label>
+                  <Input
+                    id="unit_cost"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formData.unit_cost}
+                    onChange={(e) => setFormData({ ...formData, unit_cost: Number(e.target.value) })}
+                    placeholder="0.00"
+                  />
+                </div>
               </div>
             </div>
             <DialogFooter>
@@ -301,8 +307,7 @@ const ItemManager = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Item</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete "{deletingItem?.name}"? This action cannot be undone
-              and will remove all related stock records.
+              Are you sure you want to delete "{deletingItem?.name}"? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

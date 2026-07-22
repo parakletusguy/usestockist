@@ -112,6 +112,7 @@ export type Database = {
         Row: {
           category: string
           created_at: string
+          department: string
           id: string
           low_stock_threshold: number
           name: string
@@ -122,6 +123,7 @@ export type Database = {
         Insert: {
           category: string
           created_at?: string
+          department?: string
           id?: string
           low_stock_threshold?: number
           name: string
@@ -132,6 +134,7 @@ export type Database = {
         Update: {
           category?: string
           created_at?: string
+          department?: string
           id?: string
           low_stock_threshold?: number
           name?: string
@@ -144,6 +147,7 @@ export type Database = {
       inventory_transactions: {
         Row: {
           created_at: string
+          department: string
           id: string
           item_id: string
           metadata: Json | null
@@ -154,6 +158,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          department?: string
           id?: string
           item_id: string
           metadata?: Json | null
@@ -164,6 +169,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          department?: string
           id?: string
           item_id?: string
           metadata?: Json | null
@@ -219,6 +225,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      reach_sales_reports: {
+        Row: {
+          file_name: string | null
+          id: string
+          report_date: string
+          retail_member_name: string
+          total_items_sold: number | null
+          total_sales_value: number | null
+          uploaded_at: string
+        }
+        Insert: {
+          file_name?: string | null
+          id?: string
+          report_date: string
+          retail_member_name: string
+          total_items_sold?: number | null
+          total_sales_value?: number | null
+          uploaded_at?: string
+        }
+        Update: {
+          file_name?: string | null
+          id?: string
+          report_date?: string
+          retail_member_name?: string
+          total_items_sold?: number | null
+          total_sales_value?: number | null
+          uploaded_at?: string
+        }
+        Relationships: []
       }
       transfer_ledger: {
         Row: {
@@ -345,12 +381,14 @@ export type Database = {
           p_start_date: string
           p_end_date: string
           p_include_zero_activity?: boolean
+          p_department?: string
         }
         Returns: {
           item_id: string
           item_name: string
           unit_of_measure: string
           category: string
+          department: string
           unit_cost: number
           low_stock_threshold: number
           opening_stock: number

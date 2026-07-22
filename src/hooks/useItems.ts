@@ -3,11 +3,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { ItemSchema } from '@/lib/validation';
 
-
 export interface Item {
   id: string;
   name: string;
   category: string;
+  department: string;
   unit_of_measure: string;
   low_stock_threshold: number;
   unit_cost: number;
@@ -18,20 +18,21 @@ export interface Item {
 export interface CreateItemInput {
   name: string;
   category: string;
+  department?: string;
   unit_of_measure: string;
   low_stock_threshold: number;
   unit_cost: number;
 }
 
-export function useItems() {
+export function useItems(departmentFilter?: string) {
   return useQuery({
-    queryKey: ['items'],
+    queryKey: ['items', departmentFilter || 'all'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('items')
-        .select('*')
-        .order('name');
-      
+      let query = supabase.from('items').select('*').order('name');
+      if (departmentFilter && departmentFilter !== 'all') {
+        query = query.eq('department', departmentFilter);
+      }
+      const { data, error } = await query;
       if (error) throw error;
       return data as Item[];
     },
@@ -46,7 +47,7 @@ export function useCreateItem() {
       const validated = ItemSchema.parse(input);
       const { data, error } = await supabase
         .from('items')
-        .insert(validated)
+        .insert(validated as any)
         .select()
         .single();
 
@@ -72,7 +73,7 @@ export function useUpdateItem() {
       const validated = ItemSchema.parse(input);
       const { data, error } = await supabase
         .from('items')
-        .update(validated)
+        .update(validated as any)
         .eq('id', id)
         .select()
         .single();

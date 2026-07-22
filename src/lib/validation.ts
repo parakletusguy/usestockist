@@ -1,5 +1,16 @@
 import { z } from 'zod';
 
+export const DEPARTMENTS = [
+  'Retail',
+  'Cube',
+  'Bar',
+  'Nox',
+  'Housekeeping',
+  'Kitchen (Nox)',
+] as const;
+
+export type DepartmentType = typeof DEPARTMENTS[number];
+
 const dateStr = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date (YYYY-MM-DD)');
 const uuid = z.string().uuid('Invalid ID');
 const qty = z.coerce.number().finite().min(0, 'Must be >= 0').max(9_999_999, 'Too large');
@@ -10,14 +21,18 @@ export const ItemSchema = z.object({
   name: shortText(100),
   category: shortText(50),
   unit_of_measure: shortText(20),
+  department: z.string().default('Retail'),
+  low_stock_threshold: qty.default(0),
+  unit_cost: qty.default(0),
 });
 
 export const IssuanceSchema = z.object({
   date: dateStr,
-  recipient_group: z.enum(['Retail', 'Housekeeping', 'Managers', 'Cube', 'Bar']),
+  recipient_group: z.string().min(1, 'Required'),
   item_id: uuid,
   quantity: qty.refine((v) => v > 0, 'Quantity must be > 0'),
   issued_by: shortText(100),
+  department: z.string().optional(),
 });
 
 export const TransferSchema = z.object({
@@ -26,6 +41,7 @@ export const TransferSchema = z.object({
   item_id: uuid,
   quantity: qty.refine((v) => v > 0, 'Quantity must be > 0'),
   reason: optText(500),
+  department: z.string().optional(),
 });
 
 export const ReceivedSchema = z.object({
@@ -34,24 +50,8 @@ export const ReceivedSchema = z.object({
   item_id: uuid,
   quantity: qty.refine((v) => v > 0, 'Quantity must be > 0'),
   invoice_number: optText(100),
+  department: z.string().optional(),
 });
-
-export const WeeklyStockCountSchema = z.object({
-  date: dateStr,
-  location: shortText(50),
-  item_id: uuid,
-  physical_count: qty,
-  notes: optText(500),
-});
-
-export const PasswordSchema = z
-  .string()
-  .min(12, 'Password must be at least 12 characters')
-  .max(128, 'Password too long')
-  .refine((p) => /[a-z]/.test(p), 'Must include a lowercase letter')
-  .refine((p) => /[A-Z]/.test(p), 'Must include an uppercase letter')
-  .refine((p) => /[0-9]/.test(p), 'Must include a number')
-  .refine((p) => /[^A-Za-z0-9]/.test(p), 'Must include a symbol');
 
 export function firstError(err: unknown): string {
   if (err && typeof err === 'object' && 'issues' in err) {
