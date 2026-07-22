@@ -1,19 +1,14 @@
 /**
  * parsePdfSalesReport
  *
- * Extracts item rows from a Reach POS PDF report using PDF.js (pdfjs-dist).
- * Works entirely in the browser — no backend needed.
- *
- * Strategy:
- *  1. Load all pages and extract raw text items with their x/y positions.
- *  2. Cluster text items into logical lines by y-coordinate proximity.
- *  3. Scan each line for a pattern: item name (text) + quantity (number).
- *  4. Return an array of { item_name, quantity } rows for user review.
+ * Browser-side parser for Reach POS PDF reports (Cash Reconciliation Report).
+ * Uses pdfjs-dist with dynamic line clustering (Y-coordinate proximity) to handle
+ * table columns and layout accurately.
  */
 
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Point the worker at the bundled worker file
+// Point the worker at bundled worker file
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.mjs',
   import.meta.url
@@ -22,21 +17,24 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
 export interface ParsedPdfRow {
   item_name: string;
   quantity: number;
+  unit_price: number;
   raw_line: string;
+}
+
+export interface ParsedPdfResult {
+  rows: ParsedPdfRow[];
+  retailMember?: string;
+  reportDate?: string;
 }
 
 interface TextItem {
   str: string;
   x: number;
   y: number;
+  page: number;
 }
 
-/** Round y to nearest 2pt bucket so items on the same line cluster together */
-const bucket = (y: number) => Math.round(y / 2) * 2;
-
-/**
- * Extract all text items with their approximate page coordinates.
- */
+/** Extract raw text items with x, y, page from PDF buffer */
 async function extractTextItems(pdfData: ArrayBuffer): Promise<TextItem[]> {
   const pdf = await pdfjsLib.getDocument({ data: pdfData }).promise;
   const allItems: TextItem[] = [];
@@ -50,119 +48,222 @@ async function extractTextItems(pdfData: ArrayBuffer): Promise<TextItem[]> {
       const str = (item as any).str as string;
       if (!str.trim()) continue;
       const [, , , , x, y] = (item as any).transform as number[];
-      allItems.push({ str: str.trim(), x, y });
+      allItems.push({ str: str.trim(), x, y, page: p });
     }
   }
 
   return allItems;
 }
 
-/**
- * Group text items into lines sorted top-to-bottom, left-to-right.
- */
-function groupIntoLines(items: TextItem[]): string[][] {
-  // Group by y-bucket
-  const byY = new Map<number, TextItem[]>();
+/** Group text items into lines using ±6pt Y-coordinate tolerance */
+function groupItemsIntoLines(items: TextItem[]): TextItem[][] {
+  // Process page by page
+  const pages = new Map<number, TextItem[]>();
   for (const item of items) {
-    const key = bucket(item.y);
-    const arr = byY.get(key) ?? [];
+    const arr = pages.get(item.page) || [];
     arr.push(item);
-    byY.set(key, arr);
+    pages.set(item.page, arr);
   }
 
-  // Sort y keys descending (PDF y increases upward)
-  const sortedY = [...byY.keys()].sort((a, b) => b - a);
+  const allLines: TextItem[][] = [];
 
-  return sortedY.map(y =>
-    (byY.get(y) ?? [])
-      .sort((a, b) => a.x - b.x)
-      .map(i => i.str)
-  );
-}
+  for (const [, pageItems] of pages.entries()) {
+    // Sort page items by y descending (top to bottom)
+    const sorted = [...pageItems].sort((a, b) => b.y - a.y);
+    const pageLines: TextItem[][] = [];
 
-/**
- * Determine whether a token looks like a valid quantity number.
- * Accepts integers and decimals; ignores pure dates or prices with $ prefix.
- */
-function isQuantity(token: string): boolean {
-  if (token.startsWith('$')) return false;
-  // Match e.g. "12", "1.5", "100.00" but not "12/07/2026"
-  return /^\d+(\.\d+)?$/.test(token) && !token.includes('/');
-}
+    for (const item of sorted) {
+      let matchedLine = pageLines.find(line => {
+        const avgY = line.reduce((sum, i) => sum + i.y, 0) / line.length;
+        return Math.abs(avgY - item.y) <= 6; // ±6pt tolerance
+      });
 
-/**
- * Skip header / footer / summary lines that aren't stock rows.
- */
-function isSkipLine(line: string[]): boolean {
-  const joined = line.join(' ').toLowerCase();
-  const skipPatterns = [
-    'item', 'description', 'product', 'name', 'qty', 'quantity',
-    'total', 'subtotal', 'grand', 'date', 'invoice', 'report',
-    'page', 'tax', 'vat', 'discount', 'amount', 'price', 'unit',
-    'sales report', 'reach', 'retail',
-  ];
-  return skipPatterns.some(p => joined.includes(p));
-}
+      if (matchedLine) {
+        matchedLine.push(item);
+      } else {
+        pageLines.push([item]);
+      }
+    }
 
-/**
- * Given a line of tokens, try to extract (item_name, quantity).
- *
- * Heuristic: The last numeric token that looks like a quantity IS the quantity;
- * everything before it (non-numeric tokens) forms the item name.
- */
-function parseLineToRow(line: string[]): ParsedPdfRow | null {
-  if (isSkipLine(line)) return null;
-
-  const raw_line = line.join(' ');
-
-  // Find rightmost quantity-like token
-  let qtyIndex = -1;
-  for (let i = line.length - 1; i >= 0; i--) {
-    if (isQuantity(line[i])) {
-      qtyIndex = i;
-      break;
+    // Sort items within each line left-to-right by X
+    for (const line of pageLines) {
+      line.sort((a, b) => a.x - b.x);
+      allLines.push(line);
     }
   }
 
-  if (qtyIndex <= 0) return null; // Need at least one name token before qty
-
-  const nameParts = line.slice(0, qtyIndex).filter(t => !/^\$/.test(t));
-  const item_name = nameParts.join(' ').trim();
-  const quantity = parseFloat(line[qtyIndex]);
-
-  if (!item_name || isNaN(quantity) || quantity <= 0) return null;
-
-  // Skip implausible quantities (e.g. year numbers)
-  if (quantity > 10000) return null;
-
-  return { item_name, quantity, raw_line };
+  return allLines;
 }
 
-/**
- * Main export: parse a PDF File object and return extracted rows.
- */
-export async function parsePdfSalesReport(file: File): Promise<ParsedPdfRow[]> {
+/** Clean currency symbols (₦, $, N) and commas from numbers */
+function cleanNumber(str: string): number | null {
+  const cleaned = str.replace(/[₦\$N\s]/gi, '').replace(/,/g, '').trim();
+  if (!cleaned) return null;
+  const num = parseFloat(cleaned);
+  return isNaN(num) ? null : num;
+}
+
+/** Check if token is a currency symbol */
+function isCurrencySymbol(token: string): boolean {
+  return /^[₦\$N]$/i.test(token.trim());
+}
+
+/** Lines to skip (headers, footers, total rows, summary sections) */
+function isSkipLine(lineStr: string): boolean {
+  const lower = lineStr.toLowerCase();
+  const skipKeywords = [
+    'cash reconciliation report',
+    'box office',
+    'username:',
+    'date:',
+    'time:',
+    'sales',
+    'refunds',
+    'gross',
+    'net',
+    'price',
+    'quantity',
+    'value',
+    'total',
+    'subtotal',
+    'ticket sales by price cards',
+    'concession sales',
+    'admin actions occurrences',
+    'sales reconciliation',
+    'no data found',
+    'payment channel',
+    'expected amount',
+    'amount remitted',
+    'variance',
+    'card',
+    'transfer',
+    'ext. voucher',
+  ];
+
+  // If line contains any skip keyword or "total"
+  if (lower.includes('total')) return true;
+  if (skipKeywords.some(k => lower === k || lower.startsWith(k))) return true;
+
+  return false;
+}
+
+/** Parse header text for Username (retail member) and Date */
+function extractHeaderMetadata(allText: string): { retailMember?: string; reportDate?: string } {
+  let retailMember: string | undefined;
+  let reportDate: string | undefined;
+
+  // Username: Chinenye Joy
+  const userMatch = allText.match(/Username:\s*([A-Za-z0-9\s]+?)(?=\s*Date:|\s*Time:|\n|$)/i);
+  if (userMatch && userMatch[1].trim()) {
+    retailMember = userMatch[1].trim();
+  }
+
+  // Date: Wed Jul 22 2026 or 2026-07-22
+  const dateMatch = allText.match(/Date:\s*([A-Za-z0-9\s,]+?)(?=\s*Time:|\n|$)/i);
+  if (dateMatch && dateMatch[1].trim()) {
+    try {
+      const parsedDate = new Date(dateMatch[1].trim());
+      if (!isNaN(parsedDate.getTime())) {
+        const year = parsedDate.getFullYear();
+        const month = String(parsedDate.getMonth() + 1).padStart(2, '0');
+        const day = String(parsedDate.getDate()).padStart(2, '0');
+        reportDate = `${year}-${month}-${day}`;
+      }
+    } catch {
+      // Keep date as is if parsing fails
+    }
+  }
+
+  return { retailMember, reportDate };
+}
+
+/** Parse a single line into a row if it matches an item row structure */
+function parseLineToRow(tokens: string[]): ParsedPdfRow | null {
+  const lineStr = tokens.join(' ').trim();
+  if (!lineStr || isSkipLine(lineStr)) return null;
+
+  // Separate item name tokens from numeric/price tokens
+  const nameTokens: string[] = [];
+  const numTokens: number[] = [];
+
+  for (let i = 0; i < tokens.length; i++) {
+    const tok = tokens[i].trim();
+    if (!tok || isCurrencySymbol(tok)) continue;
+
+    const num = cleanNumber(tok);
+    // If token is purely numeric or price (e.g. 4,500 or 21)
+    if (num !== null && /^[\d,₦\$N\.\s]+$/i.test(tok)) {
+      numTokens.push(num);
+    } else {
+      // If we haven't encountered numeric columns yet, it's part of the item name
+      if (numTokens.length === 0) {
+        nameTokens.push(tok);
+      }
+    }
+  }
+
+  const itemName = nameTokens.join(' ').trim();
+  if (!itemName || numTokens.length === 0) return null;
+
+  // Reach POS table layout:
+  // numTokens[0] = Price (e.g. 4500)
+  // numTokens[1] = Sales Quantity (e.g. 21)
+  // numTokens[2] = Sales Value (e.g. 94500)
+  // If price is missing, first number is quantity
+  let unit_price = 0;
+  let quantity = 0;
+
+  if (numTokens.length >= 2) {
+    unit_price = numTokens[0];
+    quantity = numTokens[1];
+  } else if (numTokens.length === 1) {
+    quantity = numTokens[0];
+  }
+
+  if (quantity <= 0 || quantity > 10000) return null;
+
+  return {
+    item_name: itemName,
+    quantity,
+    unit_price,
+    raw_line: lineStr,
+  };
+}
+
+/** Main exported function to parse a PDF file */
+export async function parsePdfSalesReport(file: File): Promise<ParsedPdfResult> {
   const buffer = await file.arrayBuffer();
   const items = await extractTextItems(buffer);
-  const lines = groupIntoLines(items);
+
+  // Extract full text for header metadata
+  const fullText = items.map(i => i.str).join(' ');
+  const { retailMember, reportDate } = extractHeaderMetadata(fullText);
+
+  // Group text items into lines
+  const lines = groupItemsIntoLines(items);
 
   const rows: ParsedPdfRow[] = [];
-  for (const line of lines) {
-    if (line.length < 2) continue;
-    const row = parseLineToRow(line);
+  for (const lineItems of lines) {
+    const tokens = lineItems.map(i => i.str);
+    const row = parseLineToRow(tokens);
     if (row) rows.push(row);
   }
 
-  // Deduplicate by item name (sum quantities if same item appears multiple times)
-  const merged = new Map<string, ParsedPdfRow>();
-  for (const row of rows) {
-    const key = row.item_name.toLowerCase();
-    if (merged.has(key)) {
-      merged.get(key)!.quantity += row.quantity;
+  // Deduplicate items by name (merge quantities if same item appears multiple times)
+  const mergedMap = new Map<string, ParsedPdfRow>();
+  for (const r of rows) {
+    const key = r.item_name.toLowerCase();
+    if (mergedMap.has(key)) {
+      const existing = mergedMap.get(key)!;
+      existing.quantity += r.quantity;
     } else {
-      merged.set(key, { ...row });
+      mergedMap.set(key, { ...r });
     }
   }
 
-  return [...merged.values()];
+  return {
+    rows: [...mergedMap.values()],
+    retailMember,
+    reportDate,
+  };
 }

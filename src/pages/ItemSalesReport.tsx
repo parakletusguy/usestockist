@@ -103,33 +103,41 @@ export default function ItemSalesReport() {
       let newRows: ParsedSaleRow[] = [];
 
       if (file.name.toLowerCase().endsWith('.pdf')) {
-        // --- PDF path: use pdfjs-dist in-browser parser ---
-        const pdfRows = await parsePdfSalesReport(file);
-        let unmatched = 0;
+        // --- PDF path: use pdfjs-dist in-browser parser for Reach reports ---
+        const pdfResult = await parsePdfSalesReport(file);
+        
+        // Auto-fill header fields if extracted
+        if (pdfResult.retailMember) {
+          setRetailMember(pdfResult.retailMember);
+        }
+        if (pdfResult.reportDate) {
+          try {
+            setReportDate(new Date(pdfResult.reportDate));
+          } catch {
+            // Keep default date
+          }
+        }
 
-        newRows = pdfRows.reduce<ParsedSaleRow[]>((acc, row) => {
+        let unmatched = 0;
+        newRows = pdfResult.rows.map(row => {
           const matched = matchToCatalog(row.item_name);
           if (matched) {
-            acc.push({
+            return {
               itemId: matched.id,
               itemName: matched.name,
               qtySold: row.quantity,
-              unitPrice: matched.unit_cost,
-            });
+              unitPrice: row.unit_price || matched.unit_cost,
+            };
           } else {
-            // Still include row, but leave itemId blank so user can select
             unmatched++;
-            if (items && items.length > 0) {
-              acc.push({
-                itemId: items[0].id,
-                itemName: row.item_name, // raw name as hint
-                qtySold: row.quantity,
-                unitPrice: 0,
-              });
-            }
+            return {
+              itemId: items?.[0]?.id || '',
+              itemName: row.item_name, // Raw name from PDF as hint
+              qtySold: row.quantity,
+              unitPrice: row.unit_price || 0,
+            };
           }
-          return acc;
-        }, []);
+        });
 
         setUnmatchedCount(unmatched);
       } else {
