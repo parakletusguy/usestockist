@@ -132,7 +132,7 @@ export function useDeleteIssuance() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('inventory_transactions').delete().eq('id', id);
+      const { error } = await (supabase as any).from('inventory_transactions').delete().eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -255,7 +255,7 @@ export function useDeleteTransfer() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('inventory_transactions').delete().eq('id', id);
+      const { error } = await (supabase as any).from('inventory_transactions').delete().eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -378,7 +378,7 @@ export function useDeleteReceived() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('inventory_transactions').delete().eq('id', id);
+      const { error } = await (supabase as any).from('inventory_transactions').delete().eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
