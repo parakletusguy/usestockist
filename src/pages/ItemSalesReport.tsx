@@ -216,8 +216,8 @@ export default function ItemSalesReport() {
     setUnmatchedCount(0);
   };
 
-  const totalValue = parsedRows.reduce((s, r) => s + r.qtySold * r.unitPrice, 0);
-  const totalQty = parsedRows.reduce((s, r) => s + r.qtySold, 0);
+  const totalValue = parsedRows.reduce((s, r) => s + (Number(r.qtySold) || 0) * (Number(r.unitPrice) || 0), 0);
+  const totalQty = parsedRows.reduce((s, r) => s + (Number(r.qtySold) || 0), 0);
 
   return (
     <div className="space-y-6">
