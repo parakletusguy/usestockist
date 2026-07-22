@@ -45,7 +45,7 @@ export function useCreateItem() {
   return useMutation({
     mutationFn: async (input: CreateItemInput) => {
       const validated = ItemSchema.parse(input);
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('items')
         .insert(validated as any)
         .select()
@@ -71,7 +71,7 @@ export function useUpdateItem() {
   return useMutation({
     mutationFn: async ({ id, ...input }: CreateItemInput & { id: string }) => {
       const validated = ItemSchema.parse(input);
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('items')
         .update(validated as any)
         .eq('id', id)
@@ -97,7 +97,7 @@ export function useDeleteItem() {
   
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('items')
         .delete()
         .eq('id', id);
