@@ -173,7 +173,7 @@ export default function AIAssistantPage() {
         },
       }));
 
-      const { error } = await supabase.from('inventory_transactions').insert(rows);
+      const { error } = await (supabase as any).from('inventory_transactions').insert(rows);
       if (error) throw error;
 
       queryClient.invalidateQueries({ queryKey: ['inventory_transactions'] });
