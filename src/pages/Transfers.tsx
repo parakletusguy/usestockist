@@ -21,7 +21,9 @@ import { cn } from '@/lib/utils';
 import { exportToCSV } from '@/lib/export';
 import { EditDeleteActions } from '@/components/ledger/EditDeleteActions';
 
-const DESTINATIONS = ['Sister Branch', 'Partner Business', 'Warehouse', 'Other'];
+import { DEPARTMENTS } from '@/lib/validation';
+
+const DESTINATIONS = DEPARTMENTS;
 
 const Transfers = () => {
   const [date, setDate] = useState<Date>(new Date());

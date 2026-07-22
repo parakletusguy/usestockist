@@ -21,7 +21,9 @@ import { cn } from '@/lib/utils';
 import { exportToCSV } from '@/lib/export';
 import { EditDeleteActions } from '@/components/ledger/EditDeleteActions';
 
-const RECIPIENT_GROUPS = ['Retail', 'Housekeeping', 'Managers', 'Cube', 'Bar'];
+import { DEPARTMENTS } from '@/lib/validation';
+
+const RECIPIENT_GROUPS = DEPARTMENTS;
 
 const Issuance = () => {
   const { user } = useAuth();
