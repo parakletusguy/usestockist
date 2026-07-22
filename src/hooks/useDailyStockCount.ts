@@ -39,7 +39,7 @@ export function useDailyStockCount(startDate: string, endDate?: string, departme
     queryKey: ['stock_count', startDate, endDate || startDate, deptParam || 'all'],
     queryFn: async () => {
       const [{ data: reportData, error: reportError }, { data: txData, error: txError }] = await Promise.all([
-        supabase.rpc('get_daily_inventory_report', {
+        (supabase as any).rpc('get_daily_inventory_report', {
           p_start_date: startIso,
           p_end_date: endIso,
           p_include_zero_activity: true,
@@ -122,7 +122,7 @@ export async function saveDailyStockEntries(entries: DailyStockEntryInput[]) {
 
     if (deleteError) throw deleteError;
 
-    const { data: reportData, error: reportError } = await supabase.rpc('get_daily_inventory_report', {
+    const { data: reportData, error: reportError } = await (supabase as any).rpc('get_daily_inventory_report', {
       p_start_date: startIso,
       p_end_date: endIso,
       p_include_zero_activity: true,
@@ -175,7 +175,7 @@ export async function saveDailyStockEntries(entries: DailyStockEntryInput[]) {
     });
 
     if (rows.length > 0) {
-      const { error: insertError } = await supabase.from('inventory_transactions').insert(rows);
+      const { error: insertError } = await (supabase as any).from('inventory_transactions').insert(rows);
       if (insertError) throw insertError;
     }
   }

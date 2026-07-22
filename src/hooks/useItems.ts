@@ -28,7 +28,7 @@ export function useItems(departmentFilter?: string) {
   return useQuery({
     queryKey: ['items', departmentFilter || 'all'],
     queryFn: async () => {
-      let query = supabase.from('items').select('*').order('name');
+      let query = (supabase as any).from('items').select('*').order('name');
       if (departmentFilter && departmentFilter !== 'all') {
         query = query.eq('department', departmentFilter);
       }
