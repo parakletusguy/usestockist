@@ -17,6 +17,15 @@ const qty = z.coerce.number().finite().min(0, 'Must be >= 0').max(9_999_999, 'To
 const shortText = (max = 100) => z.string().trim().min(1, 'Required').max(max);
 const optText = (max = 500) => z.string().trim().max(max).optional().or(z.literal('').transform(() => undefined));
 
+export const PasswordSchema = z
+  .string()
+  .min(12, 'Password must be at least 12 characters')
+  .max(128, 'Password too long')
+  .refine((v) => /[a-z]/.test(v), 'Must include a lowercase letter')
+  .refine((v) => /[A-Z]/.test(v), 'Must include an uppercase letter')
+  .refine((v) => /[0-9]/.test(v), 'Must include a number')
+  .refine((v) => /[^A-Za-z0-9]/.test(v), 'Must include a symbol');
+
 export const ItemSchema = z.object({
   name: shortText(100),
   category: shortText(50),
