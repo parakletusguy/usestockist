@@ -140,7 +140,7 @@ export async function saveDailyStockEntries(entries: DailyStockEntryInput[]) {
     }[] = [];
 
     dayEntries.forEach((entry) => {
-      const report = reportByItem.get(entry.item_id);
+      const report = reportByItem.get(entry.item_id) as any;
       const opening = Number(report?.opening_stock) || 0;
       const received = Number(report?.qty_received) || 0;
       const issued = Number(report?.qty_issued) || 0;

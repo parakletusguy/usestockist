@@ -129,7 +129,7 @@ export default function StockCount() {
     });
   }, [rows, edits]);
 
-  const categories = useMemo(() => Array.from(new Set((rows || []).map((r) => r.category))).sort(), [rows]);
+  const categories = useMemo(() => Array.from(new Set((rows || []).map((r) => r.category))).sort() as string[], [rows]);
 
   const filtered = computed.filter(({ row, status }) => {
     const matchesSearch = row.item_name.toLowerCase().includes(search.toLowerCase());

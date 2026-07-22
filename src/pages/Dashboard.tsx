@@ -13,13 +13,14 @@ function useDashboardData() {
     queryKey: ['dashboard'],
     queryFn: async () => {
       const today = new Date().toISOString().split('T')[0];
+      const sb = supabase as any;
       const [itemsRes, issuanceRes, transfersRes, receivedRes, todaysTransRes, stockStatusRes] = await Promise.all([
-        supabase.from('items').select('id, category', { count: 'exact' }),
-        supabase.from('inventory_transactions').select('*, items(name)').eq('type', 'issuance').order('transaction_date', { ascending: false }).limit(10),
-        supabase.from('inventory_transactions').select('id', { count: 'exact' }).eq('type', 'transfer'),
-        supabase.from('inventory_transactions').select('id', { count: 'exact' }).eq('type', 'receive'),
-        supabase.from('inventory_transactions').select('quantity').eq('transaction_date', today).in('type', ['issuance', 'sale']),
-        supabase.rpc('get_daily_inventory_report', {
+        sb.from('items').select('id, category', { count: 'exact' }),
+        sb.from('inventory_transactions').select('*, items(name)').eq('type', 'issuance').order('transaction_date', { ascending: false }).limit(10),
+        sb.from('inventory_transactions').select('id', { count: 'exact' }).eq('type', 'transfer'),
+        sb.from('inventory_transactions').select('id', { count: 'exact' }).eq('type', 'receive'),
+        sb.from('inventory_transactions').select('quantity').eq('transaction_date', today).in('type', ['issuance', 'sale']),
+        sb.rpc('get_daily_inventory_report', {
           p_start_date: `${today}T00:00:00Z`,
           p_end_date: `${today}T23:59:59.999Z`,
           p_include_zero_activity: true,
