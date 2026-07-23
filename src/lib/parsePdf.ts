@@ -45,9 +45,10 @@ async function extractTextItems(pdfData: ArrayBuffer): Promise<TextItem[]> {
 
     for (const item of content.items) {
       if (!('str' in item)) continue;
-      const str = (item as any).str as string;
+      const textItem = item as { str: string; transform: number[] };
+      const str = textItem.str;
       if (!str.trim()) continue;
-      const [, , , , x, y] = (item as any).transform as number[];
+      const [, , , , x, y] = textItem.transform;
       allItems.push({ str: str.trim(), x, y, page: p });
     }
   }
@@ -57,7 +58,6 @@ async function extractTextItems(pdfData: ArrayBuffer): Promise<TextItem[]> {
 
 /** Group text items into lines using ±6pt Y-coordinate tolerance */
 function groupItemsIntoLines(items: TextItem[]): TextItem[][] {
-  // Process page by page
   const pages = new Map<number, TextItem[]>();
   for (const item of items) {
     const arr = pages.get(item.page) || [];
@@ -68,14 +68,13 @@ function groupItemsIntoLines(items: TextItem[]): TextItem[][] {
   const allLines: TextItem[][] = [];
 
   for (const [, pageItems] of pages.entries()) {
-    // Sort page items by y descending (top to bottom)
     const sorted = [...pageItems].sort((a, b) => b.y - a.y);
     const pageLines: TextItem[][] = [];
 
     for (const item of sorted) {
-      let matchedLine = pageLines.find(line => {
+      const matchedLine = pageLines.find(line => {
         const avgY = line.reduce((sum, i) => sum + i.y, 0) / line.length;
-        return Math.abs(avgY - item.y) <= 6; // ±6pt tolerance
+        return Math.abs(avgY - item.y) <= 6;
       });
 
       if (matchedLine) {
@@ -85,7 +84,6 @@ function groupItemsIntoLines(items: TextItem[]): TextItem[][] {
       }
     }
 
-    // Sort items within each line left-to-right by X
     for (const line of pageLines) {
       line.sort((a, b) => a.x - b.x);
       allLines.push(line);
@@ -97,7 +95,7 @@ function groupItemsIntoLines(items: TextItem[]): TextItem[][] {
 
 /** Clean currency symbols (₦, $, N) and commas from numbers */
 function cleanNumber(str: string): number | null {
-  const cleaned = str.replace(/[₦\$N\s]/gi, '').replace(/,/g, '').trim();
+  const cleaned = str.replace(/[₦$N\s]/gi, '').replace(/,/g, '').trim();
   if (!cleaned) return null;
   const num = parseFloat(cleaned);
   return isNaN(num) ? null : num;
@@ -105,7 +103,7 @@ function cleanNumber(str: string): number | null {
 
 /** Check if token is a currency symbol */
 function isCurrencySymbol(token: string): boolean {
-  return /^[₦\$N]$/i.test(token.trim());
+  return /^[₦$N]$/i.test(token.trim());
 }
 
 /** Lines to skip (headers, footers, total rows, summary sections) */
@@ -140,7 +138,6 @@ function isSkipLine(lineStr: string): boolean {
     'ext. voucher',
   ];
 
-  // If line contains any skip keyword or "total"
   if (lower.includes('total')) return true;
   if (skipKeywords.some(k => lower === k || lower.startsWith(k))) return true;
 
@@ -152,13 +149,11 @@ function extractHeaderMetadata(allText: string): { retailMember?: string; report
   let retailMember: string | undefined;
   let reportDate: string | undefined;
 
-  // Username: Chinenye Joy
   const userMatch = allText.match(/Username:\s*([A-Za-z0-9\s]+?)(?=\s*Date:|\s*Time:|\n|$)/i);
   if (userMatch && userMatch[1].trim()) {
     retailMember = userMatch[1].trim();
   }
 
-  // Date: Wed Jul 22 2026 or 2026-07-22
   const dateMatch = allText.match(/Date:\s*([A-Za-z0-9\s,]+?)(?=\s*Time:|\n|$)/i);
   if (dateMatch && dateMatch[1].trim()) {
     try {
@@ -182,7 +177,6 @@ function parseLineToRow(tokens: string[]): ParsedPdfRow | null {
   const lineStr = tokens.join(' ').trim();
   if (!lineStr || isSkipLine(lineStr)) return null;
 
-  // Separate item name tokens from numeric/price tokens
   const nameTokens: string[] = [];
   const numTokens: number[] = [];
 
@@ -191,11 +185,9 @@ function parseLineToRow(tokens: string[]): ParsedPdfRow | null {
     if (!tok || isCurrencySymbol(tok)) continue;
 
     const num = cleanNumber(tok);
-    // If token is purely numeric or price (e.g. 4,500 or 21)
-    if (num !== null && /^[\d,₦\$N\.\s]+$/i.test(tok)) {
+    if (num !== null && /^[\d,₦$N.\s]+$/i.test(tok)) {
       numTokens.push(num);
     } else {
-      // If we haven't encountered numeric columns yet, it's part of the item name
       if (numTokens.length === 0) {
         nameTokens.push(tok);
       }
@@ -205,11 +197,6 @@ function parseLineToRow(tokens: string[]): ParsedPdfRow | null {
   const itemName = nameTokens.join(' ').trim();
   if (!itemName || numTokens.length === 0) return null;
 
-  // Reach POS table layout:
-  // numTokens[0] = Price (e.g. 4500)
-  // numTokens[1] = Sales Quantity (e.g. 21)
-  // numTokens[2] = Sales Value (e.g. 94500)
-  // If price is missing, first number is quantity
   let unit_price = 0;
   let quantity = 0;
 
@@ -235,11 +222,9 @@ export async function parsePdfSalesReport(file: File): Promise<ParsedPdfResult> 
   const buffer = await file.arrayBuffer();
   const items = await extractTextItems(buffer);
 
-  // Extract full text for header metadata
   const fullText = items.map(i => i.str).join(' ');
   const { retailMember, reportDate } = extractHeaderMetadata(fullText);
 
-  // Group text items into lines
   const lines = groupItemsIntoLines(items);
 
   const rows: ParsedPdfRow[] = [];
@@ -249,7 +234,6 @@ export async function parsePdfSalesReport(file: File): Promise<ParsedPdfResult> 
     if (row) rows.push(row);
   }
 
-  // Deduplicate items by name (merge quantities if same item appears multiple times)
   const mergedMap = new Map<string, ParsedPdfRow>();
   for (const r of rows) {
     const key = r.item_name.toLowerCase();

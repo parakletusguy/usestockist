@@ -158,7 +158,7 @@ export default function DepartmentView() {
                 className="pl-8 w-full h-11 sm:h-9 text-base sm:text-xs"
               />
             </div>
-            <Select value={statusFilter} onValueChange={(v: any) => setStatusFilter(v)}>
+            <Select value={statusFilter} onValueChange={(v: string) => setStatusFilter(v)}>
               <SelectTrigger className="w-full sm:w-[140px] h-11 sm:h-9 text-base sm:text-xs">
                 <SelectValue placeholder="All Statuses" />
               </SelectTrigger>

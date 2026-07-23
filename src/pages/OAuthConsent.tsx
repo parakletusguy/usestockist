@@ -6,17 +6,18 @@ import { Button } from "@/components/ui/button";
 import { Package } from "lucide-react";
 
 // Beta namespace not in the SDK's public types yet.
+type OAuthResponse = { data: Record<string, unknown> | null; error: { message?: string } | null };
 type SupabaseOAuth = {
-  getAuthorizationDetails: (id: string) => Promise<{ data: any; error: any }>;
-  approveAuthorization: (id: string) => Promise<{ data: any; error: any }>;
-  denyAuthorization: (id: string) => Promise<{ data: any; error: any }>;
+  getAuthorizationDetails: (id: string) => Promise<OAuthResponse>;
+  approveAuthorization: (id: string) => Promise<OAuthResponse>;
+  denyAuthorization: (id: string) => Promise<OAuthResponse>;
 };
 const supabaseOAuth = (supabase.auth as unknown as { oauth: SupabaseOAuth }).oauth;
 
 export default function OAuthConsent() {
   const [params] = useSearchParams();
   const authorizationId = params.get("authorization_id") ?? "";
-  const [details, setDetails] = useState<any>(null);
+  const [details, setDetails] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 

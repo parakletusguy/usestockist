@@ -63,9 +63,10 @@ export const ReceivedSchema = z.object({
 });
 
 export function firstError(err: unknown): string {
-  if (err && typeof err === 'object' && 'issues' in err) {
-    const issues = (err as any).issues as Array<{ message: string }>;
+  if (err && typeof err === 'object' && 'issues' in err && Array.isArray((err as { issues: Array<{ message: string }> }).issues)) {
+    const issues = (err as { issues: Array<{ message: string }> }).issues;
     return issues[0]?.message ?? 'Invalid input';
   }
   return err instanceof Error ? err.message : 'Invalid input';
 }
+

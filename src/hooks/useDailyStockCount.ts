@@ -30,6 +30,30 @@ export interface DailyStockEntryInput {
   department?: string;
 }
 
+interface ItemRow {
+  id: string;
+  name: string;
+  category: string;
+  department?: string;
+  unit_of_measure: string;
+  unit_cost?: number;
+  low_stock_threshold?: number;
+}
+
+interface LedgerRow {
+  item_id: string;
+  quantity?: number;
+}
+
+interface SheetRow {
+  item_id: string;
+  open_qty?: number;
+  qty_in?: number;
+  close_qty?: number;
+  sales_qty?: number;
+  remark?: string | null;
+}
+
 export function useDailyStockCount(startDate: string, endDate?: string, department?: string) {
   const deptParam = department && department !== 'all' ? department : undefined;
   return useQuery({
@@ -37,33 +61,40 @@ export function useDailyStockCount(startDate: string, endDate?: string, departme
     staleTime: 60_000,
     refetchOnWindowFocus: false,
     queryFn: async () => {
-      // Derive daily stock rows from the real ledger tables.
-      const sb = supabase as any;
       const startD = startDate;
       const endD = endDate || startDate;
 
+      let itemsQuery = supabase.from('items').select('*').order('name');
+      if (deptParam) {
+        itemsQuery = itemsQuery.eq('department', deptParam);
+      }
+
       const [itemsRes, issuanceRes, receivedRes, transferRes, sheetsRes] = await Promise.all([
-        sb.from('items').select('*').order('name'),
-        sb.from('issuance_ledger').select('item_id, quantity').gte('date', startD).lte('date', endD),
-        sb.from('received_ledger').select('item_id, quantity').gte('date', startD).lte('date', endD),
-        sb.from('transfer_ledger').select('item_id, quantity').gte('date', startD).lte('date', endD),
-        sb.from('daily_stock_sheets')
+        itemsQuery,
+        supabase.from('issuance_ledger').select('item_id, quantity').gte('date', startD).lte('date', endD),
+        supabase.from('received_ledger').select('item_id, quantity').gte('date', startD).lte('date', endD),
+        supabase.from('transfer_ledger').select('item_id, quantity').gte('date', startD).lte('date', endD),
+        supabase.from('daily_stock_sheets')
           .select('item_id, open_qty, qty_in, close_qty, sales_qty, remark')
           .gte('date', startD).lte('date', endD),
       ]);
 
-      const sum = (rows: any[] | null, id: string) =>
+      if (itemsRes.error) throw itemsRes.error;
+
+      const sum = (rows: LedgerRow[] | null, id: string) =>
         (rows || []).filter(r => r.item_id === id).reduce((s, r) => s + Number(r.quantity || 0), 0);
 
-      const sheetsByItem = new Map<string, any[]>();
-      (sheetsRes.data || []).forEach((s: any) => {
+      const sheetsByItem = new Map<string, SheetRow[]>();
+      ((sheetsRes.data as SheetRow[]) || []).forEach((s) => {
         const arr = sheetsByItem.get(s.item_id) || [];
         arr.push(s);
         sheetsByItem.set(s.item_id, arr);
       });
 
-      return (itemsRes.data || [])
-        .map((item: any): DailyStockCountRow => {
+      const catalogItems = (itemsRes.data as ItemRow[]) || [];
+
+      return catalogItems
+        .map((item): DailyStockCountRow => {
           const sheets = sheetsByItem.get(item.id) || [];
           const opening = sheets.reduce((s, r) => s + Number(r.open_qty || 0), 0);
           const qtyIn = sheets.reduce((s, r) => s + Number(r.qty_in || 0), 0);
@@ -74,14 +105,14 @@ export function useDailyStockCount(startDate: string, endDate?: string, departme
             item_id: item.id,
             item_name: item.name,
             category: item.category,
-            department: 'Retail',
+            department: item.department || 'Retail',
             unit_of_measure: item.unit_of_measure,
             unit_cost: Number(item.unit_cost) || 0,
             low_stock_threshold: Number(item.low_stock_threshold) || 0,
             opening_stock: opening,
-            qty_received: sum(receivedRes.data, item.id) + qtyIn,
-            qty_issued: sum(issuanceRes.data, item.id),
-            qty_transferred: sum(transferRes.data, item.id),
+            qty_received: sum(receivedRes.data as LedgerRow[], item.id) + qtyIn,
+            qty_issued: sum(issuanceRes.data as LedgerRow[], item.id),
+            qty_transferred: sum(transferRes.data as LedgerRow[], item.id),
             qty_sold: sold,
             damages: 0,
             phy_count: closing || null,
@@ -94,13 +125,41 @@ export function useDailyStockCount(startDate: string, endDate?: string, departme
   });
 }
 
+export async function saveDailyStockEntries(entries: DailyStockEntryInput[]) {
+  if (!entries || entries.length === 0) return;
+  for (const entry of entries) {
+    const { data: existing } = await supabase
+      .from('daily_stock_sheets')
+      .select('id')
+      .eq('item_id', entry.item_id)
+      .eq('date', entry.date)
+      .maybeSingle();
 
-export async function saveDailyStockEntries(_entries: DailyStockEntryInput[]) {
-  throw new Error('Saving stock count entries is disabled: use the Daily Stock Sheet page instead.');
+    const payload = {
+      item_id: entry.item_id,
+      date: entry.date,
+      sales_qty: entry.qty_sold ?? 0,
+      close_qty: entry.phy_count ?? 0,
+      remark: entry.comment || null,
+      retail_team_name: entry.department || 'Retail',
+    };
+
+    if (existing?.id) {
+      const { error } = await supabase
+        .from('daily_stock_sheets')
+        .update(payload)
+        .eq('id', existing.id);
+      if (error) throw error;
+    } else {
+      const { error } = await supabase
+        .from('daily_stock_sheets')
+        .insert(payload);
+      if (error) throw error;
+    }
+  }
 }
 
-
-export function useSaveDailyStockCount(date: string) {
+export function useSaveDailyStockCount(_date: string) {
   const queryClient = useQueryClient();
 
   return useMutation({

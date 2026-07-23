@@ -41,7 +41,7 @@ export default function ItemSalesReport() {
   const uploadSales = useUploadReachSales();
 
   /** Match a raw name from PDF/CSV against the catalog */
-  const matchToCatalog = (rawName: string): { id: string; name: string; unit_cost: number } | null => {
+  const matchToCatalog = useCallback((rawName: string): { id: string; name: string; unit_cost: number } | null => {
     if (!items) return null;
     const lower = rawName.toLowerCase().trim();
     return (
@@ -50,10 +50,10 @@ export default function ItemSalesReport() {
       items.find(it => it.name.toLowerCase().includes(lower)) ||
       null
     );
-  };
+  }, [items]);
 
   /** Parse a CSV/TXT file */
-  const parseCsv = (text: string): ParsedSaleRow[] => {
+  const parseCsv = useCallback((text: string): ParsedSaleRow[] => {
     const lines = text.split(/\r\n|\n/).filter(l => l.trim().length > 0);
     if (lines.length < 2) throw new Error('File must have headers and at least one row');
 
@@ -90,7 +90,7 @@ export default function ItemSalesReport() {
 
     setUnmatchedCount(unmatched);
     return newRows;
-  };
+  }, [matchToCatalog]);
 
   /** Core file processor — handles PDF, CSV, TXT */
   const processFile = useCallback(async (file: File) => {
@@ -153,11 +153,11 @@ export default function ItemSalesReport() {
         title: 'File Parsed',
         description: `Loaded ${newRows.length} item row${newRows.length !== 1 ? 's' : ''} from ${file.name}`,
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       setFileStatus('error');
-      toast({ title: 'Parse Error', description: err.message || 'Failed to parse file', variant: 'destructive' });
+      toast({ title: 'Parse Error', description: err instanceof Error ? err.message : 'Failed to parse file', variant: 'destructive' });
     }
-  }, [items]);
+  }, [items, matchToCatalog, parseCsv]);
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -192,7 +192,7 @@ export default function ItemSalesReport() {
     toast({ title: 'Manual Row Added', description: `Added ${first.name} to sales entry table.` });
   };
 
-  const handleRowChange = (index: number, field: keyof ParsedSaleRow, value: any) => {
+  const handleRowChange = (index: number, field: keyof ParsedSaleRow, value: string | number) => {
     setParsedRows(prev => {
       const next = [...prev];
       if (field === 'itemId') {

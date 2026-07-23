@@ -308,24 +308,68 @@ export default function AIAssistantPage() {
     if (!canCommit) return;
 
     try {
-      const dbRows = rows.map(tx => ({
-        item_id: tx.item.value!.id,
-        type: tx.type.value!,
-        quantity: tx.quantity.value!,
-        transaction_date: tx.date.value!,
-        department: tx.department.value!,
-        metadata: {
-          ai_entry: true,
-          raw_input: tx.rawInput,
-          notes: tx.notes,
-        },
-      }));
+      const date = format(new Date(), 'yyyy-MM-dd');
+      for (const tx of rows) {
+        const itemId = tx.item.value!.id;
+        const quantity = tx.quantity.value!;
+        const txDate = tx.date.value!;
+        const dept = tx.department.value!;
+        const notes = tx.notes;
 
-      const { error } = await (supabase as any)
-        .from('inventory_transactions')
-        .insert(dbRows);
-
-      if (error) throw error;
+        if (tx.type.value === 'receive') {
+          const { error } = await supabase.from('received_ledger').insert({
+            item_id: itemId,
+            quantity,
+            date: txDate,
+            supplier: 'AI Entry',
+            invoice_number: notes || null,
+          });
+          if (error) throw error;
+        } else if (tx.type.value === 'issuance') {
+          const { error } = await supabase.from('issuance_ledger').insert({
+            item_id: itemId,
+            quantity,
+            date: txDate,
+            recipient_group: dept,
+            issued_by: 'AI Entry',
+          });
+          if (error) throw error;
+        } else if (tx.type.value === 'transfer') {
+          const { error } = await supabase.from('transfer_ledger').insert({
+            item_id: itemId,
+            quantity,
+            date: txDate,
+            destination: dept,
+            reason: notes || null,
+          });
+          if (error) throw error;
+        } else if (tx.type.value === 'sale' || tx.type.value === 'damage') {
+          // Record as a daily stock sheet entry (sales_qty)
+          const { data: existing } = await supabase
+            .from('daily_stock_sheets')
+            .select('id, sales_qty')
+            .eq('item_id', itemId)
+            .eq('date', txDate)
+            .maybeSingle();
+          if (existing) {
+            const existingRow = existing as { id: string; sales_qty: number | null };
+            const { error } = await supabase
+              .from('daily_stock_sheets')
+              .update({ sales_qty: (Number(existingRow.sales_qty || 0) + quantity) })
+              .eq('id', existingRow.id);
+            if (error) throw error;
+          } else {
+            const { error } = await supabase.from('daily_stock_sheets').insert({
+              item_id: itemId,
+              date: txDate,
+              sales_qty: quantity,
+              retail_team_name: dept,
+              remark: notes || null,
+            });
+            if (error) throw error;
+          }
+        }
+      }
 
       queryClient.invalidateQueries({ queryKey: ['stock_count'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
@@ -336,10 +380,11 @@ export default function AIAssistantPage() {
       toast({ title: 'Committed', description: `${rows.length} transaction${rows.length > 1 ? 's' : ''} saved to ledger` });
       setRows([]);
       setPromptText('');
-    } catch (err: any) {
-      toast({ title: 'Commit Error', description: err.message, variant: 'destructive' });
+    } catch (err: unknown) {
+      toast({ title: 'Commit Error', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' });
     }
   };
+
 
   return (
     <div className="space-y-4 sm:space-y-6 max-w-5xl mx-auto">

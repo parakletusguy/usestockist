@@ -42,7 +42,7 @@ export function useItems(departmentFilter?: string) {
       }
 
       // Optional department mapping table — silently skip if not provisioned
-      let deptData: { item_id: string; department: string }[] = [];
+      const deptData: { item_id: string; department: string }[] = [];
 
 
       // Build map of item_id -> departments[]
@@ -53,7 +53,7 @@ export function useItems(departmentFilter?: string) {
         deptMap.set(row.item_id, existing);
       });
 
-      const items = (itemData || []).map((item: any) => ({
+      const items = (itemData || []).map((item) => ({
         ...item,
         departments: deptMap.get(item.id)?.length
           ? deptMap.get(item.id)
@@ -90,7 +90,7 @@ export function useCreateItem() {
 
       const { data, error } = await supabase
         .from('items')
-        .insert({ ...validated as any, department: primaryDept })
+        .insert({ ...validated, department: primaryDept })
         .select()
         .single();
 
@@ -125,7 +125,7 @@ export function useUpdateItem() {
 
       const { data, error } = await supabase
         .from('items')
-        .update({ ...validated as any, department: primaryDept })
+        .update({ ...validated, department: primaryDept })
         .eq('id', id)
         .select()
         .single();

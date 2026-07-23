@@ -7,19 +7,19 @@ export function exportToCSV<T extends Record<string, unknown>>(
     return;
   }
 
-  const headers = columns.map(col => col.header);
+  const headers = columns.map(col => `"${String(col.header).replace(/"/g, '""')}"`);
   const rows = data.map(item =>
     columns.map(col => {
       const value = item[col.key];
-      if (value === null || value === undefined) return '';
-      if (typeof value === 'object') return JSON.stringify(value);
-      return String(value);
+      if (value === null || value === undefined) return '""';
+      if (typeof value === 'object') return `"${JSON.stringify(value).replace(/"/g, '""')}"`;
+      return `"${String(value).replace(/"/g, '""')}"`;
     })
   );
 
   const csvContent = [
     headers.join(','),
-    ...rows.map(row => row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(','))
+    ...rows.map(row => row.join(','))
   ].join('\n');
 
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -32,4 +32,6 @@ export function exportToCSV<T extends Record<string, unknown>>(
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 }
+

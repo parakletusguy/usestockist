@@ -300,7 +300,7 @@ export default function StockCount() {
     if (entries.length === 0) return;
 
     if (!isOnline) {
-      entries.forEach((entry) => addToQueue(entry as any));
+      entries.forEach((entry) => addToQueue(entry));
       setDirty(new Set());
     } else {
       await saveStockCount.mutateAsync(entries);

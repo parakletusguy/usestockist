@@ -52,8 +52,8 @@ Deno.serve(async (req) => {
       serviceClient.from("user_teams").select("team_name").eq("user_id", userId),
     ]);
 
-    const isAdmin = rolesRes.data?.some((r: any) => r.role === "admin") ?? false;
-    const userTeams = teamsRes.data?.map((t: any) => t.team_name) ?? [];
+    const isAdmin = rolesRes.data?.some((r: { role: string }) => r.role === "admin") ?? false;
+    const userTeams = teamsRes.data?.map((t: { team_name: string }) => t.team_name) ?? [];
 
     // Fetch inventory data - filter by team for non-admins
     let dailyQuery = serviceClient

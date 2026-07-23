@@ -8,6 +8,14 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 
 const COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
 
+type IssuanceRow = {
+  id: string;
+  quantity: number;
+  recipient_group: string | null;
+  date: string;
+  items: { name: string } | null;
+};
+
 function useDashboardData() {
   return useQuery({
     queryKey: ['dashboard'],
@@ -15,35 +23,53 @@ function useDashboardData() {
     refetchOnWindowFocus: false,
     queryFn: async () => {
       const today = new Date().toISOString().split('T')[0];
-      const sb = supabase as any;
-      const [itemsRes, issuanceRes, transfersRes, receivedRes, todaysIssRes] = await Promise.all([
-        sb.from('items').select('id, category', { count: 'exact' }),
-        sb.from('issuance_ledger').select('*, items(name)').order('date', { ascending: false }).limit(10),
-        sb.from('transfer_ledger').select('id', { count: 'exact', head: true }),
-        sb.from('received_ledger').select('id', { count: 'exact', head: true }),
-        sb.from('issuance_ledger').select('quantity').eq('date', today),
+
+      const [itemsRes, issuanceRes, transfersRes, receivedRes, todaysIssRes, sheetsRes] = await Promise.all([
+        supabase.from('items').select('id, category, low_stock_threshold'),
+        supabase.from('issuance_ledger').select('*, items(name)').order('date', { ascending: false }).limit(10),
+        supabase.from('transfer_ledger').select('id', { count: 'exact', head: true }),
+        supabase.from('received_ledger').select('id', { count: 'exact', head: true }),
+        supabase.from('issuance_ledger').select('quantity').eq('date', today),
+        supabase.from('daily_stock_sheets').select('item_id, close_qty').order('date', { ascending: false }).limit(500),
       ]);
 
       // Category distribution
       const categoryCount: Record<string, number> = {};
-      (itemsRes.data || []).forEach((item: any) => {
+      (itemsRes.data || []).forEach((item) => {
         categoryCount[item.category] = (categoryCount[item.category] || 0) + 1;
       });
       const categoryData = Object.entries(categoryCount).map(([name, value]) => ({ name, value }));
 
       const todaysOutward = (todaysIssRes.data || []).reduce(
-        (sum: number, t: any) => sum + Number(t.quantity || 0), 0
+        (sum: number, t) => sum + Number((t as { quantity: number }).quantity || 0), 0
       );
 
+      // Latest close_qty per item from daily sheets
+      const latestClose = new Map<string, number>();
+      for (const s of (sheetsRes.data || [])) {
+        const row = s as { item_id: string; close_qty: number | null };
+        if (!latestClose.has(row.item_id)) latestClose.set(row.item_id, Number(row.close_qty || 0));
+      }
+
+      let outOfStock = 0;
+      let lowStock = 0;
+      for (const item of (itemsRes.data || [])) {
+        const typed = item as { id: string; category: string; low_stock_threshold: number };
+        const stock = latestClose.get(typed.id) ?? 0;
+        const threshold = Number(typed.low_stock_threshold || 0);
+        if (stock === 0) outOfStock++;
+        else if (threshold > 0 && stock <= threshold) lowStock++;
+      }
+
       return {
-        totalItems: itemsRes.count || 0,
+        totalItems: (itemsRes.data || []).length,
         totalTransactions:
           (issuanceRes.data?.length || 0) + (transfersRes.count || 0) + (receivedRes.count || 0),
         todaysSales: todaysOutward,
         recentIssuances: issuanceRes.data || [],
         categoryData,
-        outOfStock: 0,
-        lowStock: 0,
+        outOfStock,
+        lowStock,
       };
     },
   });
@@ -146,7 +172,7 @@ const Dashboard = () => {
           <CardContent>
             {data?.recentIssuances && data.recentIssuances.length > 0 ? (
               <div className="space-y-3">
-                {data.recentIssuances.map((issuance: any) => (
+                {(data.recentIssuances as IssuanceRow[]).map((issuance) => (
                   <div key={issuance.id} className="flex items-center justify-between gap-2">
                     <div className="min-w-0">
                       <p className="text-sm font-medium truncate">{issuance.items?.name}</p>

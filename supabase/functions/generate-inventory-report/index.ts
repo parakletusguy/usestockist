@@ -72,7 +72,7 @@ serve(async (req) => {
     headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
 
     // Add data rows and apply formatting
-    data.forEach((item: any) => {
+    data.forEach((item: Record<string, unknown>) => {
       const row = worksheet.addRow({
         item_name: item.item_name,
         opening_stock: Number(item.opening_stock) || 0,
@@ -119,10 +119,11 @@ serve(async (req) => {
       },
     });
 
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Internal Server Error';
     console.error('Function error:', err);
     return new Response(
-      JSON.stringify({ error: err.message || 'Internal Server Error' }),
+      JSON.stringify({ error: message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
