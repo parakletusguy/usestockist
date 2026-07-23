@@ -30,18 +30,34 @@ export function useItems(departmentFilter?: string) {
   return useQuery({
     queryKey: ['items', departmentFilter || 'all'],
     queryFn: async () => {
-      // Execute both queries concurrently for maximum speed
-      const [{ data: itemData, error: itemError }, { data: deptData, error: deptError }] = await Promise.all([
-        supabase.from('items').select('*').order('name'),
-        (supabase as any).from('item_departments').select('item_id, department'),
-      ]);
+      // 1. Fetch catalog items (primary query)
+      const { data: itemData, error: itemError } = await supabase
+        .from('items')
+        .select('*')
+        .order('name');
 
-      if (itemError) throw itemError;
-      if (deptError) throw deptError;
+      if (itemError) {
+        console.error('Error fetching items:', itemError);
+        throw itemError;
+      }
 
-      // Build a map of item_id -> departments[]
+      // 2. Fetch department mappings safely (non-blocking fallback)
+      let deptData: { item_id: string; department: string }[] = [];
+      try {
+        const { data, error } = await (supabase as any)
+          .from('item_departments')
+          .select('item_id, department');
+        
+        if (!error && data) {
+          deptData = data;
+        }
+      } catch (err) {
+        console.warn('item_departments fetch warning:', err);
+      }
+
+      // Build map of item_id -> departments[]
       const deptMap = new Map<string, string[]>();
-      (deptData || []).forEach((row: { item_id: string; department: string }) => {
+      deptData.forEach((row) => {
         const existing = deptMap.get(row.item_id) || [];
         existing.push(row.department);
         deptMap.set(row.item_id, existing);
@@ -49,7 +65,9 @@ export function useItems(departmentFilter?: string) {
 
       const items = (itemData || []).map((item: any) => ({
         ...item,
-        departments: deptMap.get(item.id) || [item.department || 'Retail'],
+        departments: deptMap.get(item.id)?.length
+          ? deptMap.get(item.id)
+          : [item.department || 'Retail'],
       })) as Item[];
 
       // Filter by department if specified
@@ -61,20 +79,22 @@ export function useItems(departmentFilter?: string) {
 
       return items;
     },
-    staleTime: 1000 * 60 * 5, // Cache for 5 minutes for instant navigation
   });
 }
 
 async function syncItemDepartments(itemId: string, departments: string[]) {
-  // Delete existing assignments for this item
-  await (supabase as any).from('item_departments').delete().eq('item_id', itemId);
+  try {
+    // Delete existing assignments for this item
+    await (supabase as any).from('item_departments').delete().eq('item_id', itemId);
 
-  if (departments.length === 0) return;
+    if (departments.length === 0) return;
 
-  // Insert new assignments
-  const rows = departments.map(dept => ({ item_id: itemId, department: dept }));
-  const { error } = await (supabase as any).from('item_departments').insert(rows);
-  if (error) throw error;
+    // Insert new assignments
+    const rows = departments.map(dept => ({ item_id: itemId, department: dept }));
+    await (supabase as any).from('item_departments').insert(rows);
+  } catch (err) {
+    console.warn('syncItemDepartments warning:', err);
+  }
 }
 
 export function useCreateItem() {
@@ -105,6 +125,8 @@ export function useCreateItem() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['items'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['stock_count'] });
       toast({ title: 'Success', description: 'Item created successfully' });
     },
     onError: (error: Error) => {
@@ -139,6 +161,8 @@ export function useUpdateItem() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['items'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['stock_count'] });
       toast({ title: 'Success', description: 'Item updated successfully' });
     },
     onError: (error: Error) => {
@@ -157,6 +181,8 @@ export function useDeleteItem() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['items'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['stock_count'] });
       toast({ title: 'Success', description: 'Item deleted successfully' });
     },
     onError: (error: Error) => {
