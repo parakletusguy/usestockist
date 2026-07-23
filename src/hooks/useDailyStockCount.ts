@@ -31,155 +31,74 @@ export interface DailyStockEntryInput {
 }
 
 export function useDailyStockCount(startDate: string, endDate?: string, department?: string) {
-  const startIso = `${startDate}T00:00:00Z`;
-  const endIso = `${endDate || startDate}T23:59:59.999Z`;
   const deptParam = department && department !== 'all' ? department : undefined;
-
   return useQuery({
     queryKey: ['stock_count', startDate, endDate || startDate, deptParam || 'all'],
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
     queryFn: async () => {
-      const [{ data: reportData, error: reportError }, { data: txData, error: txError }] = await Promise.all([
-        (supabase as any).rpc('get_daily_inventory_report', {
-          p_start_date: startIso,
-          p_end_date: endIso,
-          p_include_zero_activity: true,
-          p_department: deptParam,
-        }),
-        (supabase as any)
-          .from('inventory_transactions')
-          .select('item_id, type, quantity, metadata')
-          .in('type', ['sale', 'damage', 'adjustment'])
-          .gte('transaction_date', startIso)
-          .lte('transaction_date', endIso),
+      // Derive daily stock rows from the real ledger tables.
+      const sb = supabase as any;
+      const startD = startDate;
+      const endD = endDate || startDate;
+
+      const [itemsRes, issuanceRes, receivedRes, transferRes, sheetsRes] = await Promise.all([
+        sb.from('items').select('*').order('name'),
+        sb.from('issuance_ledger').select('item_id, quantity').gte('date', startD).lte('date', endD),
+        sb.from('received_ledger').select('item_id, quantity').gte('date', startD).lte('date', endD),
+        sb.from('transfer_ledger').select('item_id, quantity').gte('date', startD).lte('date', endD),
+        sb.from('daily_stock_sheets')
+          .select('item_id, open_qty, qty_in, close_qty, sales_qty, remark')
+          .gte('date', startD).lte('date', endD),
       ]);
 
-      if (reportError) throw reportError;
-      if (txError) throw txError;
+      const sum = (rows: any[] | null, id: string) =>
+        (rows || []).filter(r => r.item_id === id).reduce((s, r) => s + Number(r.quantity || 0), 0);
 
-      const byItem = new Map<string, { qty_sold: number; damages: number; phy_count: number | null; comment: string }>();
-      (txData || []).forEach((t) => {
-        const entry = byItem.get(t.item_id) || { qty_sold: 0, damages: 0, phy_count: null, comment: '' };
-        const metadata = (t.metadata || {}) as Record<string, unknown>;
-        if (t.type === 'sale') entry.qty_sold += Number(t.quantity);
-        if (t.type === 'damage') entry.damages += Number(t.quantity);
-        if (t.type === 'adjustment') {
-          entry.phy_count = metadata.physical_count === null || metadata.physical_count === undefined
-            ? null
-            : Number(metadata.physical_count);
-          entry.comment = (metadata.comment as string) || '';
-        }
-        byItem.set(t.item_id, entry);
+      const sheetsByItem = new Map<string, any[]>();
+      (sheetsRes.data || []).forEach((s: any) => {
+        const arr = sheetsByItem.get(s.item_id) || [];
+        arr.push(s);
+        sheetsByItem.set(s.item_id, arr);
       });
 
-      return (reportData || [])
-        .map((row): DailyStockCountRow => {
-          const extra = byItem.get(row.item_id);
+      return (itemsRes.data || [])
+        .map((item: any): DailyStockCountRow => {
+          const sheets = sheetsByItem.get(item.id) || [];
+          const opening = sheets.reduce((s, r) => s + Number(r.open_qty || 0), 0);
+          const qtyIn = sheets.reduce((s, r) => s + Number(r.qty_in || 0), 0);
+          const closing = sheets.reduce((s, r) => s + Number(r.close_qty || 0), 0);
+          const sold = sheets.reduce((s, r) => s + Number(r.sales_qty || 0), 0);
+          const comment = sheets.map(r => r.remark).filter(Boolean).join('; ');
           return {
-            item_id: row.item_id,
-            item_name: row.item_name,
-            category: row.category,
-            department: row.department || 'Retail',
-            unit_of_measure: row.unit_of_measure,
-            unit_cost: Number(row.unit_cost) || 0,
-            low_stock_threshold: Number(row.low_stock_threshold) || 0,
-            opening_stock: Number(row.opening_stock) || 0,
-            qty_received: Number(row.qty_received) || 0,
-            qty_issued: Number(row.qty_issued) || 0,
-            qty_transferred: Number(row.qty_transferred) || 0,
-            qty_sold: Number(row.qty_sold) || (extra?.qty_sold ?? 0),
-            damages: Number(row.damages) || (extra?.damages ?? 0),
-            phy_count: extra?.phy_count ?? null,
-            comment: extra?.comment ?? '',
+            item_id: item.id,
+            item_name: item.name,
+            category: item.category,
+            department: 'Retail',
+            unit_of_measure: item.unit_of_measure,
+            unit_cost: Number(item.unit_cost) || 0,
+            low_stock_threshold: Number(item.low_stock_threshold) || 0,
+            opening_stock: opening,
+            qty_received: sum(receivedRes.data, item.id) + qtyIn,
+            qty_issued: sum(issuanceRes.data, item.id),
+            qty_transferred: sum(transferRes.data, item.id),
+            qty_sold: sold,
+            damages: 0,
+            phy_count: closing || null,
+            comment,
           };
         })
-        .sort((a, b) => a.category.localeCompare(b.category) || a.item_name.localeCompare(b.item_name));
+        .sort((a: DailyStockCountRow, b: DailyStockCountRow) =>
+          a.category.localeCompare(b.category) || a.item_name.localeCompare(b.item_name));
     },
   });
 }
 
-export async function saveDailyStockEntries(entries: DailyStockEntryInput[]) {
-  if (entries.length === 0) return;
 
-  const byDate = new Map<string, DailyStockEntryInput[]>();
-  entries.forEach((entry) => {
-    const list = byDate.get(entry.date) || [];
-    list.push(entry);
-    byDate.set(entry.date, list);
-  });
-
-  for (const [date, dayEntries] of byDate) {
-    const startIso = `${date}T00:00:00Z`;
-    const endIso = `${date}T23:59:59.999Z`;
-    const itemIds = dayEntries.map((e) => e.item_id);
-
-    const { error: deleteError } = await (supabase as any)
-      .from('inventory_transactions')
-      .delete()
-      .in('item_id', itemIds)
-      .in('type', ['damage', 'adjustment'])
-      .gte('transaction_date', startIso)
-      .lte('transaction_date', endIso);
-
-    if (deleteError) throw deleteError;
-
-    const { data: reportData, error: reportError } = await (supabase as any).rpc('get_daily_inventory_report', {
-      p_start_date: startIso,
-      p_end_date: endIso,
-      p_include_zero_activity: true,
-    });
-    if (reportError) throw reportError;
-    const reportByItem = new Map((reportData || []).map((r) => [r.item_id, r]));
-
-    const rows: {
-      item_id: string;
-      type: 'damage' | 'adjustment';
-      quantity: number;
-      transaction_date: string;
-      department?: string;
-      metadata?: { physical_count: number | null; comment: string };
-    }[] = [];
-
-    dayEntries.forEach((entry) => {
-      const report = reportByItem.get(entry.item_id) as any;
-      const opening = Number(report?.opening_stock) || 0;
-      const received = Number(report?.qty_received) || 0;
-      const issued = Number(report?.qty_issued) || 0;
-      const transferred = Number(report?.qty_transferred) || 0;
-      const sold = Number(report?.qty_sold) || 0;
-      const damaged = entry.damages || 0;
-
-      if (damaged > 0) {
-        rows.push({ 
-          item_id: entry.item_id, 
-          type: 'damage', 
-          quantity: damaged, 
-          transaction_date: date,
-          department: entry.department || 'Retail',
-        });
-      }
-
-      const hasCount = entry.phy_count !== null && entry.phy_count !== undefined;
-      const comment = entry.comment?.trim() || '';
-      if (hasCount || comment) {
-        const balance = opening + received - issued - transferred - sold - damaged;
-        const delta = hasCount ? (entry.phy_count as number) - balance : 0;
-        rows.push({
-          item_id: entry.item_id,
-          type: 'adjustment',
-          quantity: delta,
-          transaction_date: date,
-          department: entry.department || 'Retail',
-          metadata: { physical_count: hasCount ? (entry.phy_count as number) : null, comment },
-        });
-      }
-    });
-
-    if (rows.length > 0) {
-      const { error: insertError } = await (supabase as any).from('inventory_transactions').insert(rows);
-      if (insertError) throw insertError;
-    }
-  }
+export async function saveDailyStockEntries(_entries: DailyStockEntryInput[]) {
+  throw new Error('Saving stock count entries is disabled: use the Daily Stock Sheet page instead.');
 }
+
 
 export function useSaveDailyStockCount(date: string) {
   const queryClient = useQueryClient();
