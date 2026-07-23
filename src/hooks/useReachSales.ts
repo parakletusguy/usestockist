@@ -28,13 +28,11 @@ export function useReachSalesReports() {
   return useQuery({
     queryKey: ['reach_sales_reports'],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from('reach_sales_reports')
-        .select('*')
-        .order('uploaded_at', { ascending: false });
+      // Use RPC to bypass PostgREST table schema cache limitations
+      const { data, error } = await (supabase as any).rpc('get_reach_sales_reports');
 
       if (error) {
-        console.warn('Error fetching reach_sales_reports:', error);
+        console.warn('Error fetching reach_sales_reports via RPC:', error);
         return [] as ReachSalesReport[];
       }
 
@@ -54,44 +52,27 @@ export function useUploadReachSales() {
         0
       );
 
-      // 1. Insert header record into reach_sales_reports
-      const { data: reportHeader, error: headerError } = await (supabase as any)
-        .from('reach_sales_reports')
-        .insert({
-          report_date: input.report_date,
-          retail_member_name: input.retail_member_name,
-          file_name: input.file_name || 'Reach_Sales_Report.pdf',
-          total_items_sold: totalItemsSold,
-          total_sales_value: totalSalesValue,
-        })
-        .select()
-        .single();
-
-      if (headerError) throw headerError;
-
-      // 2. Insert item sales transactions into inventory_transactions
-      if (input.items.length > 0) {
-        const txRows = input.items.map(item => ({
+      // Use RPC function — bypasses PostgREST table schema cache entirely
+      const { data, error } = await (supabase as any).rpc('upload_reach_sales_report', {
+        p_report_date: input.report_date,
+        p_retail_member: input.retail_member_name,
+        p_file_name: input.file_name || 'Reach_Sales_Report.pdf',
+        p_total_items_sold: totalItemsSold,
+        p_total_sales_value: totalSalesValue,
+        p_items: input.items.map(item => ({
           item_id: item.item_id,
-          type: 'sale',
-          quantity: item.qty_sold,
-          transaction_date: input.report_date,
+          qty_sold: item.qty_sold,
+          unit_price: item.unit_price || 0,
           department: item.department || 'Retail',
-          metadata: {
-            retail_member_name: input.retail_member_name,
-            unit_price: item.unit_price || 0,
-            report_id: reportHeader.id,
-          },
-        }));
+        })),
+      });
 
-        const { error: txError } = await (supabase as any)
-          .from('inventory_transactions')
-          .insert(txRows);
-
-        if (txError) throw txError;
+      if (error) throw error;
+      if (data && data.success === false) {
+        throw new Error(data.error || 'Upload failed');
       }
 
-      return reportHeader;
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reach_sales_reports'] });
