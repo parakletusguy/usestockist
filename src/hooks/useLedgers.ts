@@ -3,10 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
 const LIST_OPTS = {
-  staleTime: 60_000,
-  gcTime: 5 * 60_000,
-  refetchOnWindowFocus: false,
-  refetchOnMount: false as const,
+  staleTime: 1000 * 30, // 30s cache
 };
 
 // ---------------- Issuance ----------------
@@ -17,6 +14,7 @@ export interface IssuanceLedger {
   item_id: string;
   quantity: number;
   issued_by: string;
+  department?: string;
   created_at: string;
   items?: { name: string; unit_of_measure: string };
 }
@@ -27,6 +25,7 @@ export interface CreateIssuanceInput {
   item_id: string;
   quantity: number;
   issued_by: string;
+  department?: string;
 }
 
 export function useIssuanceLedger() {
@@ -49,13 +48,35 @@ export function useCreateIssuance() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: CreateIssuanceInput) => {
+      // 1. Write to issuance_ledger
       const { data, error } = await supabase
         .from('issuance_ledger').insert(input).select().single();
       if (error) throw error;
+
+      // 2. Dual-write to inventory_transactions for dynamic stock count
+      try {
+        await (supabase as any).from('inventory_transactions').insert({
+          item_id: input.item_id,
+          type: 'issuance',
+          quantity: input.quantity,
+          transaction_date: input.date,
+          department: input.department || 'Retail',
+          metadata: {
+            recipient_group: input.recipient_group,
+            issued_by: input.issued_by,
+            ledger_id: data.id,
+          },
+        });
+      } catch (err) {
+        console.warn('inventory_transactions sync notice:', err);
+      }
+
       return data;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['issuance_ledger'] });
+      qc.invalidateQueries({ queryKey: ['inventory_transactions'] });
+      qc.invalidateQueries({ queryKey: ['stock_count'] });
       qc.invalidateQueries({ queryKey: ['dashboard'] });
       toast({ title: 'Success', description: 'Issuance recorded' });
     },
@@ -74,6 +95,8 @@ export function useUpdateIssuance() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['issuance_ledger'] });
+      qc.invalidateQueries({ queryKey: ['inventory_transactions'] });
+      qc.invalidateQueries({ queryKey: ['stock_count'] });
       qc.invalidateQueries({ queryKey: ['dashboard'] });
       toast({ title: 'Success', description: 'Issuance updated' });
     },
@@ -90,6 +113,8 @@ export function useDeleteIssuance() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['issuance_ledger'] });
+      qc.invalidateQueries({ queryKey: ['inventory_transactions'] });
+      qc.invalidateQueries({ queryKey: ['stock_count'] });
       qc.invalidateQueries({ queryKey: ['dashboard'] });
       toast({ title: 'Success', description: 'Issuance deleted' });
     },
@@ -105,6 +130,7 @@ export interface TransferLedger {
   item_id: string;
   quantity: number;
   reason: string | null;
+  department?: string;
   created_at: string;
   items?: { name: string; unit_of_measure: string };
 }
@@ -115,6 +141,7 @@ export interface CreateTransferInput {
   item_id: string;
   quantity: number;
   reason?: string;
+  department?: string;
 }
 
 export function useTransferLedger() {
@@ -137,13 +164,35 @@ export function useCreateTransfer() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: CreateTransferInput) => {
+      // 1. Write to transfer_ledger
       const { data, error } = await supabase
         .from('transfer_ledger').insert(input).select().single();
       if (error) throw error;
+
+      // 2. Dual-write to inventory_transactions
+      try {
+        await (supabase as any).from('inventory_transactions').insert({
+          item_id: input.item_id,
+          type: 'transfer',
+          quantity: input.quantity,
+          transaction_date: input.date,
+          department: input.department || 'Retail',
+          metadata: {
+            destination: input.destination,
+            reason: input.reason,
+            ledger_id: data.id,
+          },
+        });
+      } catch (err) {
+        console.warn('inventory_transactions sync notice:', err);
+      }
+
       return data;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['transfer_ledger'] });
+      qc.invalidateQueries({ queryKey: ['inventory_transactions'] });
+      qc.invalidateQueries({ queryKey: ['stock_count'] });
       qc.invalidateQueries({ queryKey: ['dashboard'] });
       toast({ title: 'Success', description: 'Transfer recorded' });
     },
@@ -162,6 +211,8 @@ export function useUpdateTransfer() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['transfer_ledger'] });
+      qc.invalidateQueries({ queryKey: ['inventory_transactions'] });
+      qc.invalidateQueries({ queryKey: ['stock_count'] });
       qc.invalidateQueries({ queryKey: ['dashboard'] });
       toast({ title: 'Success', description: 'Transfer updated' });
     },
@@ -178,6 +229,8 @@ export function useDeleteTransfer() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['transfer_ledger'] });
+      qc.invalidateQueries({ queryKey: ['inventory_transactions'] });
+      qc.invalidateQueries({ queryKey: ['stock_count'] });
       qc.invalidateQueries({ queryKey: ['dashboard'] });
       toast({ title: 'Success', description: 'Transfer deleted' });
     },
@@ -193,6 +246,7 @@ export interface ReceivedLedger {
   item_id: string;
   quantity: number;
   invoice_number: string | null;
+  department?: string;
   created_at: string;
   items?: { name: string; unit_of_measure: string };
 }
@@ -203,6 +257,7 @@ export interface CreateReceivedInput {
   item_id: string;
   quantity: number;
   invoice_number?: string;
+  department?: string;
 }
 
 export function useReceivedLedger() {
@@ -225,13 +280,35 @@ export function useCreateReceived() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: CreateReceivedInput) => {
+      // 1. Write to received_ledger
       const { data, error } = await supabase
         .from('received_ledger').insert(input).select().single();
       if (error) throw error;
+
+      // 2. Dual-write to inventory_transactions
+      try {
+        await (supabase as any).from('inventory_transactions').insert({
+          item_id: input.item_id,
+          type: 'receive',
+          quantity: input.quantity,
+          transaction_date: input.date,
+          department: input.department || 'Retail',
+          metadata: {
+            supplier: input.supplier,
+            invoice_number: input.invoice_number,
+            ledger_id: data.id,
+          },
+        });
+      } catch (err) {
+        console.warn('inventory_transactions sync notice:', err);
+      }
+
       return data;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['received_ledger'] });
+      qc.invalidateQueries({ queryKey: ['inventory_transactions'] });
+      qc.invalidateQueries({ queryKey: ['stock_count'] });
       qc.invalidateQueries({ queryKey: ['dashboard'] });
       toast({ title: 'Success', description: 'Receipt recorded' });
     },
@@ -250,6 +327,8 @@ export function useUpdateReceived() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['received_ledger'] });
+      qc.invalidateQueries({ queryKey: ['inventory_transactions'] });
+      qc.invalidateQueries({ queryKey: ['stock_count'] });
       qc.invalidateQueries({ queryKey: ['dashboard'] });
       toast({ title: 'Success', description: 'Receipt updated' });
     },
@@ -266,6 +345,8 @@ export function useDeleteReceived() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['received_ledger'] });
+      qc.invalidateQueries({ queryKey: ['inventory_transactions'] });
+      qc.invalidateQueries({ queryKey: ['stock_count'] });
       qc.invalidateQueries({ queryKey: ['dashboard'] });
       toast({ title: 'Success', description: 'Receipt deleted' });
     },
