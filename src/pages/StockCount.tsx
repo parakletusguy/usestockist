@@ -165,7 +165,7 @@ function MobileStockCard({
           </div>
           <div className="text-center">
             <div className="text-muted-foreground">Unit Cost</div>
-            <div className="font-medium">${row.unit_cost.toFixed(2)}</div>
+            <div className="font-medium">${(Number(row.unit_cost) || 0).toFixed(2)}</div>
           </div>
           <div className="text-center col-span-2">
             <div className="text-muted-foreground">Variance Value</div>
@@ -654,7 +654,7 @@ export default function StockCount() {
                               />
                             </TableCell>
                             <TableCell className="text-right">{variance ?? '-'}</TableCell>
-                            <TableCell className="text-right">{row.unit_cost.toFixed(2)}</TableCell>
+                            <TableCell className="text-right">{(Number(row.unit_cost) || 0).toFixed(2)}</TableCell>
                             <TableCell className="text-right">
                               {varianceValue !== null ? varianceValue.toFixed(2) : '-'}
                             </TableCell>

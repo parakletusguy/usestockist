@@ -223,7 +223,7 @@ const ItemManager = () => {
                 </div>
                 <div>
                   <span className="text-muted-foreground">Unit Cost: </span>
-                  <span className="font-medium">${item.unit_cost.toFixed(2)}</span>
+                  <span className="font-medium">${(Number(item.unit_cost) || 0).toFixed(2)}</span>
                 </div>
               </div>
             </div>

@@ -220,7 +220,7 @@ export default function DepartmentView() {
                       <TableCell className="text-right font-semibold text-primary">{item.qty_sold}</TableCell>
                       <TableCell className="text-right font-extrabold text-sm">{item.balance}</TableCell>
                       <TableCell className="text-right text-xs text-muted-foreground">{item.low_stock_threshold}</TableCell>
-                      <TableCell className="text-right">${item.unit_cost.toFixed(2)}</TableCell>
+                      <TableCell className="text-right">${(Number(item.unit_cost) || 0).toFixed(2)}</TableCell>
                       <TableCell className="text-center whitespace-nowrap">
                         {item.status === 'out' && (
                           <span className="px-2 py-1 rounded-full text-xs font-bold bg-destructive/20 text-destructive">
