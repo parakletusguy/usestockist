@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { ItemSchema } from '@/lib/validation';
+import { TablesInsert } from '@/integrations/supabase/types';
 
 export interface Item {
   id: string;
@@ -30,7 +31,7 @@ export function useItems(departmentFilter?: string) {
   return useQuery({
     queryKey: ['items', departmentFilter || 'all'],
     queryFn: async () => {
-      // 1. Fetch catalog items (primary query)
+      // 1. Fetch catalog items
       const { data: itemData, error: itemError } = await supabase
         .from('items')
         .select('*')
@@ -41,23 +42,18 @@ export function useItems(departmentFilter?: string) {
         throw itemError;
       }
 
-      // 2. Fetch department mappings from item_departments table safely
-      let deptData: { item_id: string; department: string }[] = [];
-      try {
-        const { data, error } = await (supabase as any)
-          .from('item_departments')
-          .select('item_id, department');
-        
-        if (!error && data) {
-          deptData = data;
-        }
-      } catch (err) {
-        console.warn('item_departments fetch notice:', err);
+      // 2. Fetch department mappings from item_departments table
+      const { data: deptData, error: deptError } = await supabase
+        .from('item_departments')
+        .select('item_id, department');
+
+      if (deptError) {
+        console.warn('item_departments fetch notice:', deptError);
       }
 
       // Build map of item_id -> departments[]
       const deptMap = new Map<string, string[]>();
-      deptData.forEach((row) => {
+      (deptData || []).forEach((row) => {
         const existing = deptMap.get(row.item_id) || [];
         if (!existing.includes(row.department)) {
           existing.push(row.department);
@@ -89,20 +85,20 @@ export function useItems(departmentFilter?: string) {
 }
 
 async function syncItemDepartments(itemId: string, departments: string[]) {
-  try {
-    // Delete existing assignments for this item
-    await (supabase as any).from('item_departments').delete().eq('item_id', itemId);
+  // Delete existing assignments for this item
+  await supabase.from('item_departments').delete().eq('item_id', itemId);
 
-    if (!departments || departments.length === 0) return;
+  if (!departments || departments.length === 0) return;
 
-    // Insert new assignments
-    const rows = departments.map(dept => ({ item_id: itemId, department: dept }));
-    const { error } = await (supabase as any).from('item_departments').insert(rows);
-    if (error) {
-      console.warn('Error saving to item_departments:', error);
-    }
-  } catch (err) {
-    console.warn('syncItemDepartments notice:', err);
+  // Insert new assignments
+  const rows: TablesInsert<'item_departments'>[] = departments.map(dept => ({
+    item_id: itemId,
+    department: dept,
+  }));
+
+  const { error } = await supabase.from('item_departments').insert(rows);
+  if (error) {
+    console.error('Error saving to item_departments:', error);
   }
 }
 

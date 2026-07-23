@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { TablesInsert } from '@/integrations/supabase/types';
 
 const LIST_OPTS = {
   staleTime: 1000 * 30, // 30s cache
@@ -50,25 +51,39 @@ export function useCreateIssuance() {
     mutationFn: async (input: CreateIssuanceInput) => {
       // 1. Write to issuance_ledger
       const { data, error } = await supabase
-        .from('issuance_ledger').insert(input).select().single();
+        .from('issuance_ledger')
+        .insert({
+          date: input.date,
+          recipient_group: input.recipient_group,
+          item_id: input.item_id,
+          quantity: input.quantity,
+          issued_by: input.issued_by,
+        })
+        .select()
+        .single();
+
       if (error) throw error;
 
-      // 2. Dual-write to inventory_transactions for dynamic stock count
-      try {
-        await (supabase as any).from('inventory_transactions').insert({
-          item_id: input.item_id,
-          type: 'issuance',
-          quantity: input.quantity,
-          transaction_date: input.date,
-          department: input.department || 'Retail',
-          metadata: {
-            recipient_group: input.recipient_group,
-            issued_by: input.issued_by,
-            ledger_id: data.id,
-          },
-        });
-      } catch (err) {
-        console.warn('inventory_transactions sync notice:', err);
+      // 2. Dual-write to inventory_transactions for unified stock tracking
+      const txRow: TablesInsert<'inventory_transactions'> = {
+        item_id: input.item_id,
+        type: 'issuance',
+        quantity: input.quantity,
+        transaction_date: input.date,
+        department: input.department || 'Retail',
+        metadata: {
+          recipient_group: input.recipient_group,
+          issued_by: input.issued_by,
+          ledger_id: data.id,
+        },
+      };
+
+      const { error: txError } = await supabase
+        .from('inventory_transactions')
+        .insert(txRow);
+
+      if (txError) {
+        console.warn('inventory_transactions sync notice:', txError);
       }
 
       return data;
@@ -89,7 +104,12 @@ export function useUpdateIssuance() {
   return useMutation({
     mutationFn: async ({ id, ...input }: Partial<CreateIssuanceInput> & { id: string }) => {
       const { data, error } = await supabase
-        .from('issuance_ledger').update(input).eq('id', id).select().single();
+        .from('issuance_ledger')
+        .update(input)
+        .eq('id', id)
+        .select()
+        .single();
+
       if (error) throw error;
       return data;
     },
@@ -166,25 +186,39 @@ export function useCreateTransfer() {
     mutationFn: async (input: CreateTransferInput) => {
       // 1. Write to transfer_ledger
       const { data, error } = await supabase
-        .from('transfer_ledger').insert(input).select().single();
+        .from('transfer_ledger')
+        .insert({
+          date: input.date,
+          destination: input.destination,
+          item_id: input.item_id,
+          quantity: input.quantity,
+          reason: input.reason,
+        })
+        .select()
+        .single();
+
       if (error) throw error;
 
       // 2. Dual-write to inventory_transactions
-      try {
-        await (supabase as any).from('inventory_transactions').insert({
-          item_id: input.item_id,
-          type: 'transfer',
-          quantity: input.quantity,
-          transaction_date: input.date,
-          department: input.department || 'Retail',
-          metadata: {
-            destination: input.destination,
-            reason: input.reason,
-            ledger_id: data.id,
-          },
-        });
-      } catch (err) {
-        console.warn('inventory_transactions sync notice:', err);
+      const txRow: TablesInsert<'inventory_transactions'> = {
+        item_id: input.item_id,
+        type: 'transfer',
+        quantity: input.quantity,
+        transaction_date: input.date,
+        department: input.department || 'Retail',
+        metadata: {
+          destination: input.destination,
+          reason: input.reason,
+          ledger_id: data.id,
+        },
+      };
+
+      const { error: txError } = await supabase
+        .from('inventory_transactions')
+        .insert(txRow);
+
+      if (txError) {
+        console.warn('inventory_transactions sync notice:', txError);
       }
 
       return data;
@@ -205,7 +239,12 @@ export function useUpdateTransfer() {
   return useMutation({
     mutationFn: async ({ id, ...input }: Partial<CreateTransferInput> & { id: string }) => {
       const { data, error } = await supabase
-        .from('transfer_ledger').update(input).eq('id', id).select().single();
+        .from('transfer_ledger')
+        .update(input)
+        .eq('id', id)
+        .select()
+        .single();
+
       if (error) throw error;
       return data;
     },
@@ -282,25 +321,39 @@ export function useCreateReceived() {
     mutationFn: async (input: CreateReceivedInput) => {
       // 1. Write to received_ledger
       const { data, error } = await supabase
-        .from('received_ledger').insert(input).select().single();
+        .from('received_ledger')
+        .insert({
+          date: input.date,
+          supplier: input.supplier,
+          item_id: input.item_id,
+          quantity: input.quantity,
+          invoice_number: input.invoice_number,
+        })
+        .select()
+        .single();
+
       if (error) throw error;
 
       // 2. Dual-write to inventory_transactions
-      try {
-        await (supabase as any).from('inventory_transactions').insert({
-          item_id: input.item_id,
-          type: 'receive',
-          quantity: input.quantity,
-          transaction_date: input.date,
-          department: input.department || 'Retail',
-          metadata: {
-            supplier: input.supplier,
-            invoice_number: input.invoice_number,
-            ledger_id: data.id,
-          },
-        });
-      } catch (err) {
-        console.warn('inventory_transactions sync notice:', err);
+      const txRow: TablesInsert<'inventory_transactions'> = {
+        item_id: input.item_id,
+        type: 'receive',
+        quantity: input.quantity,
+        transaction_date: input.date,
+        department: input.department || 'Retail',
+        metadata: {
+          supplier: input.supplier,
+          invoice_number: input.invoice_number,
+          ledger_id: data.id,
+        },
+      };
+
+      const { error: txError } = await supabase
+        .from('inventory_transactions')
+        .insert(txRow);
+
+      if (txError) {
+        console.warn('inventory_transactions sync notice:', txError);
       }
 
       return data;
@@ -321,7 +374,12 @@ export function useUpdateReceived() {
   return useMutation({
     mutationFn: async ({ id, ...input }: Partial<CreateReceivedInput> & { id: string }) => {
       const { data, error } = await supabase
-        .from('received_ledger').update(input).eq('id', id).select().single();
+        .from('received_ledger')
+        .update(input)
+        .eq('id', id)
+        .select()
+        .single();
+
       if (error) throw error;
       return data;
     },
