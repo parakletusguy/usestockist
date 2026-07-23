@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.1"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -70,6 +70,50 @@ export type Database = {
           },
         ]
       }
+      inventory_transactions: {
+        Row: {
+          created_at: string
+          department: string | null
+          id: string
+          item_id: string
+          metadata: Json | null
+          notes: string | null
+          quantity: number
+          transaction_date: string
+          type: Database["public"]["Enums"]["inventory_transaction_type"]
+        }
+        Insert: {
+          created_at?: string
+          department?: string | null
+          id?: string
+          item_id: string
+          metadata?: Json | null
+          notes?: string | null
+          quantity: number
+          transaction_date?: string
+          type: Database["public"]["Enums"]["inventory_transaction_type"]
+        }
+        Update: {
+          created_at?: string
+          department?: string | null
+          id?: string
+          item_id?: string
+          metadata?: Json | null
+          notes?: string | null
+          quantity?: number
+          transaction_date?: string
+          type?: Database["public"]["Enums"]["inventory_transaction_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_transactions_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       issuance_ledger: {
         Row: {
           created_at: string
@@ -108,30 +152,98 @@ export type Database = {
           },
         ]
       }
+      item_departments: {
+        Row: {
+          created_at: string | null
+          department: string
+          id: string
+          item_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          department: string
+          id?: string
+          item_id: string
+        }
+        Update: {
+          created_at?: string | null
+          department?: string
+          id?: string
+          item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "item_departments_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       items: {
         Row: {
           category: string
           created_at: string
+          department: string | null
           id: string
+          low_stock_threshold: number
           name: string
+          unit_cost: number
           unit_of_measure: string
           updated_at: string
         }
         Insert: {
           category: string
           created_at?: string
+          department?: string | null
           id?: string
+          low_stock_threshold?: number
           name: string
+          unit_cost?: number
           unit_of_measure: string
           updated_at?: string
         }
         Update: {
           category?: string
           created_at?: string
+          department?: string | null
           id?: string
+          low_stock_threshold?: number
           name?: string
+          unit_cost?: number
           unit_of_measure?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      reach_sales_reports: {
+        Row: {
+          file_name: string | null
+          id: string
+          report_date: string
+          retail_member_name: string
+          total_items_sold: number | null
+          total_sales_value: number | null
+          uploaded_at: string
+        }
+        Insert: {
+          file_name?: string | null
+          id?: string
+          report_date: string
+          retail_member_name: string
+          total_items_sold?: number | null
+          total_sales_value?: number | null
+          uploaded_at?: string
+        }
+        Update: {
+          file_name?: string | null
+          id?: string
+          report_date?: string
+          retail_member_name?: string
+          total_items_sold?: number | null
+          total_sales_value?: number | null
+          uploaded_at?: string
         }
         Relationships: []
       }
@@ -293,10 +405,73 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_daily_inventory_report: {
+        Args: {
+          p_department?: string
+          p_end_date: string
+          p_include_zero_activity?: boolean
+          p_start_date: string
+        }
+        Returns: {
+          calculated_closing_stock: number
+          category: string
+          comment: string
+          damages: number
+          department: string
+          item_id: string
+          item_name: string
+          low_stock_threshold: number
+          opening_stock: number
+          physical_count: number
+          qty_issued: number
+          qty_received: number
+          qty_sold: number
+          qty_transferred: number
+          unit_cost: number
+          unit_of_measure: string
+          variance: number
+          variance_value: number
+        }[]
+      }
+      get_reach_sales_reports: {
+        Args: never
+        Returns: {
+          file_name: string | null
+          id: string
+          report_date: string
+          retail_member_name: string
+          total_items_sold: number | null
+          total_sales_value: number | null
+          uploaded_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "reach_sales_reports"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      upload_reach_sales_report: {
+        Args: {
+          p_file_name: string
+          p_items: Json
+          p_report_date: string
+          p_retail_member: string
+          p_total_items_sold: number
+          p_total_sales_value: number
+        }
+        Returns: Json
+      }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
+      inventory_transaction_type:
+        | "receive"
+        | "sale"
+        | "damage"
+        | "adjustment"
+        | "issuance"
+        | "transfer"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -394,7 +569,7 @@ export type Enums<
   EnumName extends DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    ? keyof DefaultSchema["Enums"][EnumName]
     : never = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
@@ -404,27 +579,18 @@ export type Enums<
     ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
     : never
 
-export type CompositeTypes<
-  PublicCompositeTypeNameOrOptions extends
-    | keyof DefaultSchema["CompositeTypes"]
-    | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
-> = PublicCompositeTypeNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-    : never
-
 export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "moderator", "user"],
+      inventory_transaction_type: [
+        "receive",
+        "sale",
+        "damage",
+        "adjustment",
+        "issuance",
+        "transfer",
+      ],
     },
   },
 } as const
