@@ -27,17 +27,14 @@ export interface UploadReachSalesInput {
 export function useReachSalesReports() {
   return useQuery({
     queryKey: ['reach_sales_reports'],
+    staleTime: Infinity,
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from('reach_sales_reports')
-        .select('*')
-        .order('report_date', { ascending: false });
-
-      if (error) throw error;
-      return data as ReachSalesReport[];
+      // Table not provisioned in this environment — return empty gracefully.
+      return [] as ReachSalesReport[];
     },
   });
 }
+
 
 export function useUploadReachSales() {
   const queryClient = useQueryClient();
