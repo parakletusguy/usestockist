@@ -308,7 +308,6 @@ export default function AIAssistantPage() {
     if (!canCommit) return;
 
     try {
-      const date = format(new Date(), 'yyyy-MM-dd');
       for (const tx of rows) {
         const itemId = tx.item.value!.id;
         const quantity = tx.quantity.value!;
@@ -316,6 +315,18 @@ export default function AIAssistantPage() {
         const dept = tx.department.value!;
         const notes = tx.notes;
 
+        // Always write to inventory_transactions so StockCount reconciliation picks it up
+        const { error: txErr } = await supabase.from('inventory_transactions').insert({
+          item_id: itemId,
+          type: tx.type.value!,
+          quantity,
+          transaction_date: txDate,
+          department: dept,
+          metadata: { source: 'ai_assistant', notes: notes || null },
+        });
+        if (txErr) throw txErr;
+
+        // Additionally write to the dedicated ledger tables for each type
         if (tx.type.value === 'receive') {
           const { error } = await supabase.from('received_ledger').insert({
             item_id: itemId,
@@ -344,7 +355,7 @@ export default function AIAssistantPage() {
           });
           if (error) throw error;
         } else if (tx.type.value === 'sale' || tx.type.value === 'damage') {
-          // Record as a daily stock sheet entry (sales_qty)
+          // Also mirror to daily_stock_sheets for legacy compatibility
           const { data: existing } = await supabase
             .from('daily_stock_sheets')
             .select('id, sales_qty')
@@ -372,6 +383,7 @@ export default function AIAssistantPage() {
       }
 
       queryClient.invalidateQueries({ queryKey: ['stock_count'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory_transactions'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['issuance_ledger'] });
       queryClient.invalidateQueries({ queryKey: ['received_ledger'] });
@@ -442,6 +454,12 @@ export default function AIAssistantPage() {
               </button>
             ))}
           </div>
+          {!items?.length && (
+            <div className="flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              Your item catalog is empty. Go to <strong>Items Manager</strong> and add items first — the AI assistant needs a catalog to match against.
+            </div>
+          )}
           <Button
             onClick={handleParse}
             disabled={isProcessing || !promptText.trim() || !items?.length}
