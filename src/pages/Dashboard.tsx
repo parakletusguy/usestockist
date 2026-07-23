@@ -11,54 +11,44 @@ const COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3
 function useDashboardData() {
   return useQuery({
     queryKey: ['dashboard'],
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
     queryFn: async () => {
       const today = new Date().toISOString().split('T')[0];
       const sb = supabase as any;
-      const [itemsRes, issuanceRes, transfersRes, receivedRes, todaysTransRes, stockStatusRes] = await Promise.all([
+      const [itemsRes, issuanceRes, transfersRes, receivedRes, todaysIssRes] = await Promise.all([
         sb.from('items').select('id, category', { count: 'exact' }),
-        sb.from('inventory_transactions').select('*, items(name)').eq('type', 'issuance').order('transaction_date', { ascending: false }).limit(10),
-        sb.from('inventory_transactions').select('id', { count: 'exact' }).eq('type', 'transfer'),
-        sb.from('inventory_transactions').select('id', { count: 'exact' }).eq('type', 'receive'),
-        sb.from('inventory_transactions').select('quantity').eq('transaction_date', today).in('type', ['issuance', 'sale']),
-        sb.rpc('get_daily_inventory_report', {
-          p_start_date: `${today}T00:00:00Z`,
-          p_end_date: `${today}T23:59:59.999Z`,
-          p_include_zero_activity: true,
-        }),
+        sb.from('issuance_ledger').select('*, items(name)').order('date', { ascending: false }).limit(10),
+        sb.from('transfer_ledger').select('id', { count: 'exact', head: true }),
+        sb.from('received_ledger').select('id', { count: 'exact', head: true }),
+        sb.from('issuance_ledger').select('quantity').eq('date', today),
       ]);
 
-      // Calculate category distribution
+      // Category distribution
       const categoryCount: Record<string, number> = {};
-      (itemsRes.data || []).forEach(item => {
+      (itemsRes.data || []).forEach((item: any) => {
         categoryCount[item.category] = (categoryCount[item.category] || 0) + 1;
       });
       const categoryData = Object.entries(categoryCount).map(([name, value]) => ({ name, value }));
 
-      // Calculate today's total outward quantity
-      const todaysOutward = (todaysTransRes.data || []).reduce((sum, trans) => sum + Number(trans.quantity), 0);
-
-      // Low/out-of-stock counts for today
-      let outOfStock = 0;
-      let lowStock = 0;
-      (stockStatusRes.data || []).forEach((row) => {
-        const balance = Number(row.calculated_closing_stock) || 0;
-        const threshold = Number(row.low_stock_threshold) || 0;
-        if (balance <= 0) outOfStock++;
-        else if (balance <= threshold) lowStock++;
-      });
+      const todaysOutward = (todaysIssRes.data || []).reduce(
+        (sum: number, t: any) => sum + Number(t.quantity || 0), 0
+      );
 
       return {
         totalItems: itemsRes.count || 0,
-        totalTransactions: (issuanceRes.data?.length || 0) + (transfersRes.count || 0) + (receivedRes.count || 0),
+        totalTransactions:
+          (issuanceRes.data?.length || 0) + (transfersRes.count || 0) + (receivedRes.count || 0),
         todaysSales: todaysOutward,
         recentIssuances: issuanceRes.data || [],
         categoryData,
-        outOfStock,
-        lowStock,
+        outOfStock: 0,
+        lowStock: 0,
       };
     },
   });
 }
+
 
 
 const Dashboard = () => {
