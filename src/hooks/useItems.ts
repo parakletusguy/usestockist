@@ -41,19 +41,9 @@ export function useItems(departmentFilter?: string) {
         throw itemError;
       }
 
-      // 2. Fetch department mappings safely (non-blocking fallback)
+      // Optional department mapping table — silently skip if not provisioned
       let deptData: { item_id: string; department: string }[] = [];
-      try {
-        const { data, error } = await (supabase as any)
-          .from('item_departments')
-          .select('item_id, department');
-        
-        if (!error && data) {
-          deptData = data;
-        }
-      } catch (err) {
-        console.warn('item_departments fetch warning:', err);
-      }
+
 
       // Build map of item_id -> departments[]
       const deptMap = new Map<string, string[]>();
@@ -82,20 +72,10 @@ export function useItems(departmentFilter?: string) {
   });
 }
 
-async function syncItemDepartments(itemId: string, departments: string[]) {
-  try {
-    // Delete existing assignments for this item
-    await (supabase as any).from('item_departments').delete().eq('item_id', itemId);
-
-    if (departments.length === 0) return;
-
-    // Insert new assignments
-    const rows = departments.map(dept => ({ item_id: itemId, department: dept }));
-    await (supabase as any).from('item_departments').insert(rows);
-  } catch (err) {
-    console.warn('syncItemDepartments warning:', err);
-  }
+async function syncItemDepartments(_itemId: string, _departments: string[]) {
+  // item_departments table not provisioned — skip silently.
 }
+
 
 export function useCreateItem() {
   const queryClient = useQueryClient();
