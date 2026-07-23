@@ -297,42 +297,43 @@ const ItemManager = () => {
         </Table>
       </div>
 
-      {/* Add/Edit Dialog — full screen on mobile, modal on desktop */}
+      {/* Add/Edit Dialog — responsive modal with fixed header & footer, scrollable body */}
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="flex flex-col w-full max-w-lg rounded-none sm:rounded-lg p-0 gap-0 h-dvh sm:h-auto sm:max-h-[90vh]">
-          {/* Scrollable header + form */}
-          <div className="flex-1 overflow-y-auto">
-            <div className="px-4 pt-4 pb-2 sm:px-6 sm:pt-6 border-b">
-              <DialogHeader>
-                <DialogTitle className="text-xl">{editingItem ? 'Edit Item' : 'Add New Item'}</DialogTitle>
-                <DialogDescription className="text-xs sm:text-sm">
-                  {editingItem ? 'Update item details. You can assign it to multiple departments.' : 'Fill in item details and select which departments stock this item.'}
-                </DialogDescription>
-              </DialogHeader>
-            </div>
+        <DialogContent className="flex flex-col w-[calc(100vw-2rem)] max-w-lg max-h-[85dvh] sm:max-h-[85vh] p-0 gap-0 rounded-lg overflow-hidden">
+          {/* Fixed header */}
+          <div className="shrink-0 p-4 sm:p-6 border-b bg-background">
+            <DialogHeader>
+              <DialogTitle className="text-lg sm:text-xl">{editingItem ? 'Edit Item' : 'Add New Item'}</DialogTitle>
+              <DialogDescription className="text-xs sm:text-sm">
+                {editingItem ? 'Update item details. You can assign it to multiple departments.' : 'Fill in item details and select which departments stock this item.'}
+              </DialogDescription>
+            </DialogHeader>
+          </div>
 
-            <form id="item-form" onSubmit={handleSubmit} className="space-y-4 px-4 py-4 sm:px-6">
-              <div className="space-y-2">
-                <Label htmlFor="name" className="text-sm">Item Name</Label>
+          {/* Scrollable form body */}
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 min-h-0">
+            <form id="item-form" onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="name" className="text-xs sm:text-sm">Item Name</Label>
                 <Input
                   id="name"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   placeholder="Enter item name"
-                  className="text-base sm:text-sm h-11 sm:h-9"
+                  className="text-base sm:text-xs h-11 sm:h-9"
                   required
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label htmlFor="category" className="text-sm">Category</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="category" className="text-xs sm:text-sm">Category</Label>
                   <Select
                     value={formData.category}
                     onValueChange={(value) => setFormData({ ...formData, category: value })}
                     required
                   >
-                    <SelectTrigger className="text-base sm:text-sm h-11 sm:h-9">
+                    <SelectTrigger className="text-base sm:text-xs h-11 sm:h-9">
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
                     <SelectContent className="bg-background">
@@ -342,14 +343,14 @@ const ItemManager = () => {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="unit" className="text-sm">Unit</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="unit" className="text-xs sm:text-sm">Unit</Label>
                   <Select
                     value={formData.unit_of_measure}
                     onValueChange={(value) => setFormData({ ...formData, unit_of_measure: value })}
                     required
                   >
-                    <SelectTrigger className="text-base sm:text-sm h-11 sm:h-9">
+                    <SelectTrigger className="text-base sm:text-xs h-11 sm:h-9">
                       <SelectValue placeholder="Select unit" />
                     </SelectTrigger>
                     <SelectContent className="bg-background">
@@ -362,23 +363,23 @@ const ItemManager = () => {
               </div>
 
               {/* Multi-Department Assignment */}
-              <div className="space-y-2">
-                <Label className="text-sm">
+              <div className="space-y-1.5">
+                <Label className="text-xs sm:text-sm">
                   Departments
-                  <span className="ml-1.5 text-xs text-muted-foreground font-normal">(select all that apply)</span>
+                  <span className="ml-1 text-xs text-muted-foreground font-normal">(select all that apply)</span>
                 </Label>
-                <div className="grid grid-cols-2 gap-1 border rounded-md p-3">
+                <div className="grid grid-cols-2 gap-1 border rounded-md p-2.5 bg-muted/20">
                   {DEPARTMENTS.map(dept => (
-                    <div key={dept} className="flex items-center gap-2.5 min-h-[44px]">
+                    <div key={dept} className="flex items-center gap-2 min-h-[38px]">
                       <Checkbox
                         id={`dept-${dept}`}
                         checked={(formData.departments || []).includes(dept)}
                         onCheckedChange={() => toggleDepartment(dept)}
-                        className="h-5 w-5"
+                        className="h-4 w-4"
                       />
                       <label
                         htmlFor={`dept-${dept}`}
-                        className="text-sm cursor-pointer select-none font-medium flex-1 py-2"
+                        className="text-xs sm:text-sm cursor-pointer select-none font-medium flex-1 py-1"
                       >
                         {dept}
                       </label>
@@ -390,14 +391,14 @@ const ItemManager = () => {
                 )}
                 {formData.departments && formData.departments.length > 1 && (
                   <p className="text-xs text-blue-600 dark:text-blue-400">
-                    ✓ This item will appear in {formData.departments.length} departments and tracked separately per department.
+                    ✓ Selected {formData.departments.length} departments.
                   </p>
                 )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label htmlFor="low_stock_threshold" className="text-sm">Low Stock Threshold</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="low_stock_threshold" className="text-xs sm:text-sm">Low Stock Threshold</Label>
                   <Input
                     id="low_stock_threshold"
                     type="number"
@@ -405,11 +406,11 @@ const ItemManager = () => {
                     value={formData.low_stock_threshold}
                     onChange={(e) => setFormData({ ...formData, low_stock_threshold: Number(e.target.value) })}
                     placeholder="0"
-                    className="text-base sm:text-sm h-11 sm:h-9"
+                    className="text-base sm:text-xs h-11 sm:h-9"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="unit_cost" className="text-sm">Unit Cost ($)</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="unit_cost" className="text-xs sm:text-sm">Unit Cost ($)</Label>
                   <Input
                     id="unit_cost"
                     type="number"
@@ -418,15 +419,15 @@ const ItemManager = () => {
                     value={formData.unit_cost}
                     onChange={(e) => setFormData({ ...formData, unit_cost: Number(e.target.value) })}
                     placeholder="0.00"
-                    className="text-base sm:text-sm h-11 sm:h-9"
+                    className="text-base sm:text-xs h-11 sm:h-9"
                   />
                 </div>
               </div>
             </form>
           </div>
 
-          {/* Sticky footer — always visible at bottom */}
-          <div className="shrink-0 flex flex-col sm:flex-row gap-2 p-4 sm:px-6 border-t bg-background">
+          {/* Fixed footer */}
+          <div className="shrink-0 p-4 sm:p-6 border-t bg-background flex flex-col sm:flex-row justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => setIsFormOpen(false)} className="w-full sm:w-auto h-11 sm:h-9 text-base sm:text-xs order-last sm:order-first">
               Cancel
             </Button>
