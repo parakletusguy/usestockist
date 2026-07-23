@@ -186,7 +186,30 @@ const Transfers = () => {
           </Button>
         </CardHeader>
         <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
-          <div className="rounded-md border overflow-x-auto">
+          {/* Mobile card list */}
+          <div className="sm:hidden space-y-2">
+            {!ledger?.length ? (
+              <p className="text-center text-muted-foreground py-8 text-sm">No transfers recorded yet</p>
+            ) : ledger.map(entry => (
+              <div key={entry.id} className="rounded-lg border p-3 space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-semibold text-sm truncate">{entry.items?.name}</span>
+                  <span className="text-xs font-bold bg-amber-500/10 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-full shrink-0">
+                    {entry.quantity} {entry.items?.unit_of_measure}
+                  </span>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {format(new Date(entry.date), 'PP')} · To: <strong className="text-foreground">{entry.destination}</strong>
+                </div>
+                {entry.reason && <p className="text-xs text-muted-foreground italic truncate">{entry.reason}</p>}
+                <div className="flex justify-end pt-1 border-t">
+                  <EditDeleteActions onEdit={() => openEdit(entry)} onDelete={() => deleteTransfer.mutate(entry.id)} isDeleting={deleteTransfer.isPending} />
+                </div>
+              </div>
+            ))}
+          </div>
+          {/* Desktop table */}
+          <div className="hidden sm:block rounded-md border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -212,11 +235,7 @@ const Transfers = () => {
                       <TableCell className="whitespace-nowrap">{entry.quantity} {entry.items?.unit_of_measure}</TableCell>
                       <TableCell className="max-w-xs truncate">{entry.reason || '-'}</TableCell>
                       <TableCell>
-                        <EditDeleteActions
-                          onEdit={() => openEdit(entry)}
-                          onDelete={() => deleteTransfer.mutate(entry.id)}
-                          isDeleting={deleteTransfer.isPending}
-                        />
+                        <EditDeleteActions onEdit={() => openEdit(entry)} onDelete={() => deleteTransfer.mutate(entry.id)} isDeleting={deleteTransfer.isPending} />
                       </TableCell>
                     </TableRow>
                   ))

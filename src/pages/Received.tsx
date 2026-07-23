@@ -176,7 +176,30 @@ const Received = () => {
           </Button>
         </CardHeader>
         <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
-          <div className="rounded-md border overflow-x-auto">
+          {/* Mobile card list */}
+          <div className="sm:hidden space-y-2">
+            {!ledger?.length ? (
+              <p className="text-center text-muted-foreground py-8 text-sm">No receipts recorded yet</p>
+            ) : ledger.map(entry => (
+              <div key={entry.id} className="rounded-lg border p-3 space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-semibold text-sm truncate">{entry.items?.name}</span>
+                  <span className="text-xs font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-full shrink-0">
+                    +{entry.quantity} {entry.items?.unit_of_measure}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>{format(new Date(entry.date), 'PP')} · {entry.supplier}</span>
+                  {entry.invoice_number && <span className="font-mono">{entry.invoice_number}</span>}
+                </div>
+                <div className="flex justify-end pt-1 border-t">
+                  <EditDeleteActions onEdit={() => openEdit(entry)} onDelete={() => deleteReceived.mutate(entry.id)} isDeleting={deleteReceived.isPending} />
+                </div>
+              </div>
+            ))}
+          </div>
+          {/* Desktop table */}
+          <div className="hidden sm:block rounded-md border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -202,11 +225,7 @@ const Received = () => {
                       <TableCell className="whitespace-nowrap">{entry.quantity} {entry.items?.unit_of_measure}</TableCell>
                       <TableCell className="whitespace-nowrap">{entry.invoice_number || '-'}</TableCell>
                       <TableCell>
-                        <EditDeleteActions
-                          onEdit={() => openEdit(entry)}
-                          onDelete={() => deleteReceived.mutate(entry.id)}
-                          isDeleting={deleteReceived.isPending}
-                        />
+                        <EditDeleteActions onEdit={() => openEdit(entry)} onDelete={() => deleteReceived.mutate(entry.id)} isDeleting={deleteReceived.isPending} />
                       </TableCell>
                     </TableRow>
                   ))

@@ -172,7 +172,49 @@ export default function DepartmentView() {
           </div>
         </CardHeader>
         <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
-          <div className="rounded-md border overflow-x-auto">
+          {/* Mobile card list */}
+          <div className="sm:hidden space-y-2">
+            {isLoading ? (
+              <p className="text-center text-muted-foreground py-8 text-sm">Loading...</p>
+            ) : filteredItems.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8 text-sm">No items found matching current filters.</p>
+            ) : filteredItems.map((item) => (
+              <div
+                key={item.item_id}
+                className={cn(
+                  'rounded-lg border p-3 space-y-2',
+                  item.status === 'out' && 'border-l-4 border-l-destructive bg-destructive/5',
+                  item.status === 'low' && 'border-l-4 border-l-amber-500 bg-amber-500/5'
+                )}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-sm truncate">{item.item_name}</p>
+                    <p className="text-xs text-muted-foreground">{item.category} · {item.unit_of_measure}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className={cn('text-2xl font-extrabold leading-none',
+                      item.status === 'out' && 'text-destructive',
+                      item.status === 'low' && 'text-amber-600 dark:text-amber-500'
+                    )}>{item.balance}</div>
+                    {item.status === 'out' && <span className="text-[10px] font-bold text-destructive">🔴 Out of Stock</span>}
+                    {item.status === 'low' && <span className="text-[10px] font-bold text-amber-600 dark:text-amber-500">🟡 Low Stock</span>}
+                    {item.status === 'healthy' && <span className="text-[10px] font-semibold text-green-600">🟢 OK</span>}
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-x-3 gap-y-1 text-xs border-t pt-2">
+                  <div><p className="text-muted-foreground">Opening</p><p className="font-medium">{item.opening_stock}</p></div>
+                  <div><p className="text-muted-foreground">Received</p><p className="font-medium text-green-600">+{item.qty_received}</p></div>
+                  <div><p className="text-muted-foreground">Sold</p><p className="font-medium text-primary">-{item.qty_sold}</p></div>
+                  <div><p className="text-muted-foreground">Issued</p><p className="font-medium text-destructive">-{item.qty_issued}</p></div>
+                  <div><p className="text-muted-foreground">Threshold</p><p className="font-medium">{item.low_stock_threshold}</p></div>
+                  <div><p className="text-muted-foreground">Cost</p><p className="font-medium">${(Number(item.unit_cost) || 0).toFixed(2)}</p></div>
+                </div>
+              </div>
+            ))}
+          </div>
+          {/* Desktop table */}
+          <div className="hidden sm:block rounded-md border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
