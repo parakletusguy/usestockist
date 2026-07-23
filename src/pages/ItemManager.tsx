@@ -214,7 +214,7 @@ const ItemManager = () => {
                   </TableCell>
                   <TableCell>{item.unit_of_measure}</TableCell>
                   <TableCell className="text-right">{item.low_stock_threshold}</TableCell>
-                  <TableCell className="text-right">${item.unit_cost.toFixed(2)}</TableCell>
+                  <TableCell className="text-right">${(Number(item.unit_cost) || 0).toFixed(2)}</TableCell>
                   <TableCell>
                     <div className="flex gap-1">
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenForm(item)}>
