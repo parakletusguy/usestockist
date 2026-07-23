@@ -7,6 +7,7 @@ export interface DailyStockCountRow {
   item_name: string;
   category: string;
   department: string;
+  departments?: string[];
   unit_of_measure: string;
   unit_cost: number;
   low_stock_threshold: number;
@@ -54,35 +55,62 @@ interface SheetRow {
   remark?: string | null;
 }
 
+interface TxRow {
+  item_id: string;
+  type: string;
+  quantity: number;
+  department?: string | null;
+}
+
 export function useDailyStockCount(startDate: string, endDate?: string, department?: string) {
   const deptParam = department && department !== 'all' ? department : undefined;
   return useQuery({
     queryKey: ['stock_count', startDate, endDate || startDate, deptParam || 'all'],
-    staleTime: 60_000,
-    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const startD = startDate;
       const endD = endDate || startDate;
 
-      let itemsQuery = supabase.from('items').select('*').order('name');
-      if (deptParam) {
-        itemsQuery = itemsQuery.eq('department', deptParam);
-      }
+      // 1. Fetch catalog items & department junction table
+      const [itemsRes, itemDeptsRes] = await Promise.all([
+        supabase.from('items').select('*').order('name'),
+        supabase.from('item_departments').select('item_id, department'),
+      ]);
 
-      const [itemsRes, issuanceRes, receivedRes, transferRes, sheetsRes] = await Promise.all([
-        itemsQuery,
+      if (itemsRes.error) throw itemsRes.error;
+
+      // Build map of item_id -> departments[]
+      const deptMap = new Map<string, string[]>();
+      (itemDeptsRes.data || []).forEach((row) => {
+        const existing = deptMap.get(row.item_id) || [];
+        if (!existing.includes(row.department)) {
+          existing.push(row.department);
+        }
+        deptMap.set(row.item_id, existing);
+      });
+
+      // 2. Fetch transactions & ledgers for the date range
+      const [issuanceRes, receivedRes, transferRes, sheetsRes, txRes] = await Promise.all([
         supabase.from('issuance_ledger').select('item_id, quantity').gte('date', startD).lte('date', endD),
         supabase.from('received_ledger').select('item_id, quantity').gte('date', startD).lte('date', endD),
         supabase.from('transfer_ledger').select('item_id, quantity').gte('date', startD).lte('date', endD),
         supabase.from('daily_stock_sheets')
           .select('item_id, open_qty, qty_in, close_qty, sales_qty, remark')
           .gte('date', startD).lte('date', endD),
+        supabase.from('inventory_transactions')
+          .select('item_id, type, quantity, department')
+          .gte('transaction_date', startD)
+          .lte('transaction_date', endD),
       ]);
-
-      if (itemsRes.error) throw itemsRes.error;
 
       const sum = (rows: LedgerRow[] | null, id: string) =>
         (rows || []).filter(r => r.item_id === id).reduce((s, r) => s + Number(r.quantity || 0), 0);
+
+      const sumTx = (rows: TxRow[] | null, id: string, type: string) =>
+        (rows || [])
+          .filter(r => r.item_id === id && r.type === type && (!deptParam || !r.department || r.department === deptParam))
+          .reduce((s, r) => s + Number(r.quantity || 0), 0);
 
       const sheetsByItem = new Map<string, SheetRow[]>();
       ((sheetsRes.data as SheetRow[]) || []).forEach((s) => {
@@ -93,28 +121,57 @@ export function useDailyStockCount(startDate: string, endDate?: string, departme
 
       const catalogItems = (itemsRes.data as ItemRow[]) || [];
 
-      return catalogItems
+      // Filter catalog items by department if specified (matching primary or junction departments)
+      const filteredCatalogItems = deptParam
+        ? catalogItems.filter(item => {
+            const depts = deptMap.get(item.id) || [item.department || 'Retail'];
+            return depts.includes(deptParam) || item.department === deptParam;
+          })
+        : catalogItems;
+
+      const txData = (txRes.data as TxRow[]) || [];
+
+      return filteredCatalogItems
         .map((item): DailyStockCountRow => {
+          const depts = deptMap.get(item.id) || [item.department || 'Retail'];
           const sheets = sheetsByItem.get(item.id) || [];
           const opening = sheets.reduce((s, r) => s + Number(r.open_qty || 0), 0);
           const qtyIn = sheets.reduce((s, r) => s + Number(r.qty_in || 0), 0);
           const closing = sheets.reduce((s, r) => s + Number(r.close_qty || 0), 0);
-          const sold = sheets.reduce((s, r) => s + Number(r.sales_qty || 0), 0);
+          const sheetSold = sheets.reduce((s, r) => s + Number(r.sales_qty || 0), 0);
           const comment = sheets.map(r => r.remark).filter(Boolean).join('; ');
+
+          const txReceived = sumTx(txData, item.id, 'receive');
+          const txIssued = sumTx(txData, item.id, 'issuance');
+          const txTransferred = sumTx(txData, item.id, 'transfer');
+          const txSold = sumTx(txData, item.id, 'sale');
+          const txDamages = sumTx(txData, item.id, 'damage');
+
+          const ledgerReceived = sum(receivedRes.data as LedgerRow[], item.id);
+          const ledgerIssued = sum(issuanceRes.data as LedgerRow[], item.id);
+          const ledgerTransferred = sum(transferRes.data as LedgerRow[], item.id);
+
+          // Use total sales from inventory_transactions (Reach PDF / AI Assistant) + daily_stock_sheets
+          const totalSold = txSold + sheetSold;
+          const totalReceived = Math.max(txReceived, ledgerReceived) + qtyIn;
+          const totalIssued = Math.max(txIssued, ledgerIssued);
+          const totalTransferred = Math.max(txTransferred, ledgerTransferred);
+
           return {
             item_id: item.id,
             item_name: item.name,
             category: item.category,
             department: item.department || 'Retail',
+            departments: depts,
             unit_of_measure: item.unit_of_measure,
             unit_cost: Number(item.unit_cost) || 0,
             low_stock_threshold: Number(item.low_stock_threshold) || 0,
             opening_stock: opening,
-            qty_received: sum(receivedRes.data as LedgerRow[], item.id) + qtyIn,
-            qty_issued: sum(issuanceRes.data as LedgerRow[], item.id),
-            qty_transferred: sum(transferRes.data as LedgerRow[], item.id),
-            qty_sold: sold,
-            damages: 0,
+            qty_received: totalReceived,
+            qty_issued: totalIssued,
+            qty_transferred: totalTransferred,
+            qty_sold: totalSold,
+            damages: txDamages,
             phy_count: closing || null,
             comment,
           };
@@ -156,6 +213,18 @@ export async function saveDailyStockEntries(entries: DailyStockEntryInput[]) {
         .insert(payload);
       if (error) throw error;
     }
+
+    // Sync sales entry into inventory_transactions if sales_qty > 0
+    if (entry.qty_sold && entry.qty_sold > 0) {
+      await supabase.from('inventory_transactions').insert({
+        item_id: entry.item_id,
+        type: 'sale',
+        quantity: entry.qty_sold,
+        transaction_date: entry.date,
+        department: entry.department || 'Retail',
+        metadata: { source: 'stock_count_manual_entry' },
+      });
+    }
   }
 }
 
@@ -167,6 +236,7 @@ export function useSaveDailyStockCount(_date: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['stock_count'] });
       queryClient.invalidateQueries({ queryKey: ['daily_stock_count'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory_transactions'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       toast({ title: 'Success', description: 'Stock count saved successfully' });
     },
