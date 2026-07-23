@@ -58,25 +58,25 @@ export default function DepartmentView() {
   }, [computedItems]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
-            <Building2 className="h-7 w-7 text-primary" />
-            <h1 className="text-3xl font-bold">{departmentName} Department</h1>
+            <Building2 className="h-6 w-6 sm:h-7 sm:w-7 text-primary shrink-0" />
+            <h1 className="text-2xl sm:text-3xl font-bold">{departmentName} Department</h1>
           </div>
-          <p className="text-muted-foreground mt-1">
+          <p className="text-muted-foreground text-xs sm:text-sm mt-0.5">
             Department inventory balances, alerts, and stock movements for {departmentName}
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button asChild variant="outline" size="sm">
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <Button asChild variant="outline" size="sm" className="h-11 sm:h-9 text-base sm:text-xs justify-center">
             <Link to="/ledgers/stock-count">
               <PackageCheck className="mr-1.5 h-4 w-4" /> Stock Count
             </Link>
           </Button>
-          <Button asChild size="sm">
+          <Button asChild size="sm" className="h-11 sm:h-9 text-base sm:text-xs justify-center">
             <Link to="/ledgers/transfers">
               <ArrowRightLeft className="mr-1.5 h-4 w-4" /> Transfer Stock
             </Link>
@@ -84,14 +84,14 @@ export default function DepartmentView() {
         </div>
       </div>
 
-      {/* Metric Cards */}
-      <div className="grid gap-4 sm:grid-cols-4">
+      {/* Metric Cards — 2 grid cols on mobile */}
+      <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Department Items</CardTitle>
+          <CardHeader className="p-3 pb-1">
+            <CardTitle className="text-xs font-medium text-muted-foreground truncate">Total Items</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-extrabold">{kpiCounts.total}</div>
+          <CardContent className="p-3 pt-0">
+            <div className="text-2xl sm:text-3xl font-extrabold">{kpiCounts.total}</div>
           </CardContent>
         </Card>
 
@@ -99,67 +99,67 @@ export default function DepartmentView() {
           type="button"
           onClick={() => setStatusFilter(statusFilter === 'out' ? 'all' : 'out')}
           className={cn(
-            'rounded-lg border p-4 text-left transition-all',
+            'rounded-lg border p-3 text-left transition-all min-h-[44px]',
             statusFilter === 'out' ? 'border-destructive bg-destructive/15 ring-2 ring-destructive' : 'hover:bg-muted/50'
           )}
         >
-          <div className="flex items-center gap-2 text-destructive font-bold">
-            <PackageX className="h-4 w-4" />
-            <span className="text-xs">🔴 Out of Stock</span>
+          <div className="flex items-center gap-1.5 text-destructive font-bold">
+            <PackageX className="h-4 w-4 shrink-0" />
+            <span className="text-xs">🔴 Out</span>
           </div>
-          <div className="text-2xl font-extrabold mt-1 text-destructive">{kpiCounts.out}</div>
+          <div className="text-2xl sm:text-3xl font-extrabold mt-1 text-destructive">{kpiCounts.out}</div>
         </button>
 
         <button
           type="button"
           onClick={() => setStatusFilter(statusFilter === 'low' ? 'all' : 'low')}
           className={cn(
-            'rounded-lg border p-4 text-left transition-all',
+            'rounded-lg border p-3 text-left transition-all min-h-[44px]',
             statusFilter === 'low' ? 'border-amber-500 bg-amber-500/15 ring-2 ring-amber-500' : 'hover:bg-muted/50'
           )}
         >
-          <div className="flex items-center gap-2 text-amber-600 dark:text-amber-500 font-bold">
-            <AlertTriangle className="h-4 w-4" />
-            <span className="text-xs">🟡 Low Stock</span>
+          <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-500 font-bold">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            <span className="text-xs">🟡 Low</span>
           </div>
-          <div className="text-2xl font-extrabold mt-1 text-amber-600 dark:text-amber-500">{kpiCounts.low}</div>
+          <div className="text-2xl sm:text-3xl font-extrabold mt-1 text-amber-600 dark:text-amber-500">{kpiCounts.low}</div>
         </button>
 
         <button
           type="button"
           onClick={() => setStatusFilter(statusFilter === 'healthy' ? 'all' : 'healthy')}
           className={cn(
-            'rounded-lg border p-4 text-left transition-all',
+            'rounded-lg border p-3 text-left transition-all min-h-[44px]',
             statusFilter === 'healthy' ? 'border-green-600 bg-green-500/10 ring-2 ring-green-600' : 'hover:bg-muted/50'
           )}
         >
-          <div className="flex items-center gap-2 text-green-600 font-bold">
-            <CheckCircle2 className="h-4 w-4" />
-            <span className="text-xs">🟢 Healthy</span>
+          <div className="flex items-center gap-1.5 text-green-600 font-bold">
+            <CheckCircle2 className="h-4 w-4 shrink-0" />
+            <span className="text-xs">🟢 OK</span>
           </div>
-          <div className="text-2xl font-extrabold mt-1 text-green-600">{kpiCounts.healthy}</div>
+          <div className="text-2xl sm:text-3xl font-extrabold mt-1 text-green-600">{kpiCounts.healthy}</div>
         </button>
       </div>
 
       {/* Inventory Table */}
       <Card>
-        <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 sm:p-6">
           <div>
-            <CardTitle>{departmentName} Inventory List</CardTitle>
-            <CardDescription>Live stock levels for items in {departmentName}</CardDescription>
+            <CardTitle className="text-base sm:text-lg">{departmentName} Inventory List</CardTitle>
+            <CardDescription className="text-xs sm:text-sm">Live stock levels for items in {departmentName}</CardDescription>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="relative">
+          <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
+            <div className="relative w-full sm:w-[200px]">
               <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Search items..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8 w-[200px] h-9 text-xs"
+                className="pl-8 w-full h-11 sm:h-9 text-base sm:text-xs"
               />
             </div>
             <Select value={statusFilter} onValueChange={(v: any) => setStatusFilter(v)}>
-              <SelectTrigger className="w-[140px] h-9 text-xs">
+              <SelectTrigger className="w-full sm:w-[140px] h-11 sm:h-9 text-base sm:text-xs">
                 <SelectValue placeholder="All Statuses" />
               </SelectTrigger>
               <SelectContent>
@@ -171,34 +171,34 @@ export default function DepartmentView() {
             </Select>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
           <div className="rounded-md border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Item Name</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Unit</TableHead>
-                  <TableHead className="text-right">Opening Stock</TableHead>
-                  <TableHead className="text-right">Received</TableHead>
-                  <TableHead className="text-right">Issued</TableHead>
-                  <TableHead className="text-right font-bold text-primary">Sold</TableHead>
-                  <TableHead className="text-right font-bold">Current Stock</TableHead>
-                  <TableHead className="text-right">Threshold</TableHead>
-                  <TableHead className="text-right">Unit Cost ($)</TableHead>
-                  <TableHead className="text-center">Status</TableHead>
+                  <TableHead className="whitespace-nowrap min-w-[150px]">Item Name</TableHead>
+                  <TableHead className="whitespace-nowrap">Category</TableHead>
+                  <TableHead className="whitespace-nowrap">Unit</TableHead>
+                  <TableHead className="text-right whitespace-nowrap">Opening</TableHead>
+                  <TableHead className="text-right whitespace-nowrap">Received</TableHead>
+                  <TableHead className="text-right whitespace-nowrap">Issued</TableHead>
+                  <TableHead className="text-right font-bold text-primary whitespace-nowrap">Sold</TableHead>
+                  <TableHead className="text-right font-bold whitespace-nowrap">Current Stock</TableHead>
+                  <TableHead className="text-right whitespace-nowrap">Threshold</TableHead>
+                  <TableHead className="text-right whitespace-nowrap">Unit Cost ($)</TableHead>
+                  <TableHead className="text-center whitespace-nowrap">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={11} className="text-center py-8 text-muted-foreground text-xs sm:text-sm">
                       Loading department inventory...
                     </TableCell>
                   </TableRow>
                 ) : filteredItems.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={11} className="text-center py-8 text-muted-foreground text-xs sm:text-sm">
                       No items found in {departmentName} matching current filters.
                     </TableCell>
                   </TableRow>
@@ -211,9 +211,9 @@ export default function DepartmentView() {
                         item.status === 'low' && 'bg-amber-500/10 border-l-4 border-l-amber-500'
                       )}
                     >
-                      <TableCell className="font-medium">{item.item_name}</TableCell>
-                      <TableCell>{item.category}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{item.unit_of_measure}</TableCell>
+                      <TableCell className="font-medium whitespace-nowrap">{item.item_name}</TableCell>
+                      <TableCell className="whitespace-nowrap">{item.category}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{item.unit_of_measure}</TableCell>
                       <TableCell className="text-right">{item.opening_stock}</TableCell>
                       <TableCell className="text-right">{item.qty_received}</TableCell>
                       <TableCell className="text-right">{item.qty_issued}</TableCell>
@@ -221,7 +221,7 @@ export default function DepartmentView() {
                       <TableCell className="text-right font-extrabold text-sm">{item.balance}</TableCell>
                       <TableCell className="text-right text-xs text-muted-foreground">{item.low_stock_threshold}</TableCell>
                       <TableCell className="text-right">${item.unit_cost.toFixed(2)}</TableCell>
-                      <TableCell className="text-center">
+                      <TableCell className="text-center whitespace-nowrap">
                         {item.status === 'out' && (
                           <span className="px-2 py-1 rounded-full text-xs font-bold bg-destructive/20 text-destructive">
                             🔴 Out of Stock

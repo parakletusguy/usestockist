@@ -239,11 +239,13 @@ export default function ItemSalesReport() {
   const totalQty = parsedRows.reduce((s, r) => s + (Number(r.qtySold) || 0), 0);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold">Reach Item Sales Report</h1>
-          <p className="text-muted-foreground">Upload daily Reach POS exports — CSV, Excel, or PDF auto-parsed instantly</p>
+          <h1 className="text-2xl sm:text-3xl font-bold">Reach Item Sales Report</h1>
+          <p className="text-muted-foreground text-xs sm:text-sm">
+            Upload daily Reach POS exports — CSV, Excel, or PDF auto-parsed instantly
+          </p>
         </div>
       </div>
 
@@ -251,16 +253,16 @@ export default function ItemSalesReport() {
         {/* Upload & Form Section */}
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Daily Sales Entry</CardTitle>
-            <CardDescription>Drop any file — PDF, CSV, or Excel — and the app parses it automatically</CardDescription>
+            <CardTitle className="text-base sm:text-lg">Daily Sales Entry</CardTitle>
+            <CardDescription className="text-xs sm:text-sm">Drop any file — PDF, CSV, or Excel — and the app parses it automatically</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Report Date</Label>
+            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Report Date</Label>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start text-left font-normal">
+                    <Button variant="outline" className="w-full justify-start text-left font-normal h-11 sm:h-9 text-base sm:text-xs">
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {format(reportDate, 'PPP')}
                     </Button>
@@ -271,12 +273,13 @@ export default function ItemSalesReport() {
                 </Popover>
               </div>
 
-              <div className="space-y-2">
-                <Label>Retail Member Name</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Retail Member Name</Label>
                 <Input
                   placeholder="e.g. John Doe"
                   value={retailMember}
                   onChange={e => setRetailMember(e.target.value)}
+                  className="h-11 sm:h-9 text-base sm:text-xs"
                 />
               </div>
             </div>
@@ -287,7 +290,7 @@ export default function ItemSalesReport() {
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
               className={cn(
-                'border-2 border-dashed rounded-lg p-8 text-center transition-all cursor-pointer',
+                'border-2 border-dashed rounded-lg p-6 sm:p-8 text-center transition-all cursor-pointer min-h-[140px] flex items-center justify-center',
                 isDragging
                   ? 'border-primary bg-primary/5 scale-[1.01]'
                   : fileStatus === 'done'
@@ -304,7 +307,7 @@ export default function ItemSalesReport() {
                 className="hidden"
                 id="reach-file-upload"
               />
-              <label htmlFor="reach-file-upload" className="cursor-pointer flex flex-col items-center gap-2">
+              <label htmlFor="reach-file-upload" className="cursor-pointer flex flex-col items-center gap-2 w-full">
                 {fileStatus === 'parsing' ? (
                   <>
                     <Loader2 className="h-9 w-9 text-primary animate-spin" />
@@ -339,8 +342,8 @@ export default function ItemSalesReport() {
 
             {/* Summary bar */}
             {parsedRows.length > 0 && (
-              <div className="flex items-center justify-between rounded-md border bg-muted/30 px-4 py-2 text-sm">
-                <div className="flex items-center gap-4">
+              <div className="flex flex-wrap items-center justify-between rounded-md border bg-muted/30 px-3 py-2 text-xs gap-2">
+                <div className="flex items-center gap-3">
                   <span className="text-muted-foreground">
                     <strong className="text-foreground">{parsedRows.length}</strong> items
                   </span>
@@ -348,7 +351,7 @@ export default function ItemSalesReport() {
                     <strong className="text-foreground">{totalQty}</strong> units sold
                   </span>
                 </div>
-                <span className="font-bold text-primary">${totalValue.toFixed(2)}</span>
+                <span className="font-bold text-primary text-sm">${totalValue.toFixed(2)}</span>
               </div>
             )}
 
@@ -356,8 +359,8 @@ export default function ItemSalesReport() {
             {parsedRows.length > 0 && (
               <div className="space-y-3 pt-1">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-sm">Review & Edit Rows</h3>
-                  <Button size="sm" variant="outline" onClick={handleAddManualRow}>
+                  <h3 className="font-semibold text-xs sm:text-sm">Review & Edit Rows</h3>
+                  <Button size="sm" variant="outline" onClick={handleAddManualRow} className="h-9 text-xs">
                     <Plus className="h-4 w-4 mr-1" /> Add Row
                   </Button>
                 </div>
@@ -365,10 +368,10 @@ export default function ItemSalesReport() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Item</TableHead>
-                        <TableHead className="w-28 text-right">Qty Sold</TableHead>
-                        <TableHead className="w-28 text-right">Unit Price</TableHead>
-                        <TableHead className="w-28 text-right">Total ($)</TableHead>
+                        <TableHead className="min-w-[160px]">Item</TableHead>
+                        <TableHead className="w-24 text-right min-w-[80px]">Qty Sold</TableHead>
+                        <TableHead className="w-24 text-right min-w-[90px]">Unit Price</TableHead>
+                        <TableHead className="w-24 text-right min-w-[90px]">Total ($)</TableHead>
                         <TableHead className="w-12" />
                       </TableRow>
                     </TableHeader>
@@ -379,7 +382,7 @@ export default function ItemSalesReport() {
                             <select
                               value={row.itemId}
                               onChange={e => handleRowChange(idx, 'itemId', e.target.value)}
-                              className="w-full h-8 text-sm rounded-md border bg-background px-2"
+                              className="w-full h-9 text-xs sm:text-sm rounded-md border bg-background px-2"
                             >
                               {items?.map(it => (
                                 <option key={it.id} value={it.id}>
@@ -393,7 +396,7 @@ export default function ItemSalesReport() {
                               type="number" min="1"
                               value={row.qtySold}
                               onChange={e => handleRowChange(idx, 'qtySold', Number(e.target.value))}
-                              className="h-8 w-20 text-right ml-auto"
+                              className="h-9 w-20 text-right ml-auto text-xs sm:text-sm"
                             />
                           </TableCell>
                           <TableCell>
@@ -401,10 +404,10 @@ export default function ItemSalesReport() {
                               type="number" step="0.01"
                               value={row.unitPrice}
                               onChange={e => handleRowChange(idx, 'unitPrice', Number(e.target.value))}
-                              className="h-8 w-24 text-right ml-auto"
+                              className="h-9 w-24 text-right ml-auto text-xs sm:text-sm"
                             />
                           </TableCell>
-                          <TableCell className="text-right font-medium">
+                          <TableCell className="text-right font-medium text-xs sm:text-sm">
                             {((Number(row.qtySold) || 0) * (Number(row.unitPrice) || 0)).toFixed(2)}
                           </TableCell>
                           <TableCell>
@@ -419,7 +422,7 @@ export default function ItemSalesReport() {
                 </div>
 
                 <div className="flex justify-end pt-2">
-                  <Button onClick={handleSubmitReport} disabled={uploadSales.isPending}>
+                  <Button onClick={handleSubmitReport} disabled={uploadSales.isPending} className="w-full sm:w-auto h-11 sm:h-9 text-base sm:text-xs">
                     {uploadSales.isPending ? (
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     ) : (
@@ -435,7 +438,7 @@ export default function ItemSalesReport() {
             {parsedRows.length === 0 && fileStatus === 'idle' && (
               <div className="flex flex-col items-center gap-2 pt-2">
                 <p className="text-xs text-muted-foreground">No file? Enter items manually instead</p>
-                <Button size="sm" variant="outline" onClick={handleAddManualRow}>
+                <Button size="sm" variant="outline" onClick={handleAddManualRow} className="h-9 text-xs">
                   <ShoppingBag className="h-4 w-4 mr-2" /> Add Item Manually
                 </Button>
               </div>
@@ -446,27 +449,27 @@ export default function ItemSalesReport() {
         {/* Upload History */}
         <Card>
           <CardHeader>
-            <CardTitle>Recent Uploads</CardTitle>
-            <CardDescription>Reach daily reports history</CardDescription>
+            <CardTitle className="text-base sm:text-lg">Recent Uploads</CardTitle>
+            <CardDescription className="text-xs sm:text-sm">Reach daily reports history</CardDescription>
           </CardHeader>
           <CardContent>
             {isLoadingHistory ? (
-              <div className="text-center py-6 text-muted-foreground text-sm">Loading…</div>
+              <div className="text-center py-6 text-muted-foreground text-xs sm:text-sm">Loading…</div>
             ) : !reportsHistory || reportsHistory.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground text-sm">No sales reports uploaded yet.</div>
+              <div className="text-center py-8 text-muted-foreground text-xs sm:text-sm">No sales reports uploaded yet.</div>
             ) : (
               <div className="space-y-3">
                 {reportsHistory.map(rep => (
-                  <div key={rep.id} className="p-3 border rounded-lg flex items-center justify-between text-sm">
-                    <div>
-                      <div className="font-semibold">{rep.retail_member_name}</div>
+                  <div key={rep.id} className="p-3 border rounded-lg flex items-center justify-between text-xs sm:text-sm gap-2">
+                    <div className="min-w-0">
+                      <div className="font-semibold truncate">{rep.retail_member_name}</div>
                       <div className="text-xs text-muted-foreground">
                         {format(new Date(rep.report_date), 'PP')} · {rep.total_items_sold || 0} items
                       </div>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right shrink-0">
                       <div className="font-bold text-primary">${(rep.total_sales_value || 0).toFixed(2)}</div>
-                      <div className="text-[10px] text-muted-foreground">{rep.file_name}</div>
+                      <div className="text-[10px] text-muted-foreground truncate max-w-[100px]">{rep.file_name}</div>
                     </div>
                   </div>
                 ))}

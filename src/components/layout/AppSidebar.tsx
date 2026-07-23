@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { 
   LayoutDashboard, 
   Package, 
@@ -8,6 +9,8 @@ import {
   FileSpreadsheet,
   Building2,
   Sparkles,
+  Menu,
+  X,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import {
@@ -21,6 +24,10 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from '@/components/ui/sidebar';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Button } from '@/components/ui/button';
+import { Package as PackageIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 const ledgerItems = [
   { title: 'Received', url: '/ledgers/received', icon: PackageCheck },
@@ -40,12 +47,106 @@ const departmentItems = [
   { title: 'Kitchen (Nox)', url: '/departments/kitchen-nox' },
 ];
 
+/** Mobile slide-out drawer — renders all nav links inside a Sheet */
+export function MobileNavDrawer({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  const linkClass = 'flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors hover:bg-muted/60 min-h-[44px]';
+  const activeLinkClass = 'bg-muted text-primary font-semibold';
+
+  return (
+    <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
+      <SheetContent side="left" className="w-72 p-0 flex flex-col">
+        <SheetHeader className="px-4 py-3 border-b shrink-0">
+          <SheetTitle className="flex items-center gap-2 text-left">
+            <PackageIcon className="h-5 w-5 text-primary" />
+            Stockist
+          </SheetTitle>
+        </SheetHeader>
+
+        <nav className="flex-1 overflow-y-auto py-2 px-2 space-y-1">
+          {/* Dashboard */}
+          <NavLink
+            to="/"
+            end
+            className={linkClass}
+            activeClassName={activeLinkClass}
+            onClick={onClose}
+          >
+            <LayoutDashboard className="h-5 w-5 shrink-0" />
+            Dashboard
+          </NavLink>
+
+          {/* Ledgers section */}
+          <div className="pt-3 pb-1">
+            <p className="px-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+              Ledgers
+            </p>
+          </div>
+          {ledgerItems.map((item) => (
+            <NavLink
+              key={item.title}
+              to={item.url}
+              className={linkClass}
+              activeClassName={activeLinkClass}
+              onClick={onClose}
+            >
+              <item.icon className="h-5 w-5 shrink-0" />
+              {item.title}
+            </NavLink>
+          ))}
+
+          {/* Departments section */}
+          <div className="pt-3 pb-1">
+            <p className="px-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+              Departments
+            </p>
+          </div>
+          {departmentItems.map((dept) => (
+            <NavLink
+              key={dept.title}
+              to={dept.url}
+              className={linkClass}
+              activeClassName={activeLinkClass}
+              onClick={onClose}
+            >
+              <Building2 className="h-4.5 w-4.5 shrink-0" />
+              {dept.title}
+            </NavLink>
+          ))}
+
+          {/* AI Assistant */}
+          <div className="pt-3 pb-1">
+            <p className="px-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+              Tools
+            </p>
+          </div>
+          <NavLink
+            to="/ai-assistant"
+            className={cn(linkClass, 'text-primary font-medium hover:bg-primary/10')}
+            activeClassName="bg-primary/15 text-primary font-bold"
+            onClick={onClose}
+          >
+            <Sparkles className="h-5 w-5 shrink-0 text-primary" />
+            AI Assistant
+          </NavLink>
+        </nav>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+/** Desktop sidebar — uses shadcn Sidebar with collapsible icon mode */
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
 
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar collapsible="icon" className="hidden md:flex">
       <SidebarContent>
         {/* Top Level Dashboard */}
         <SidebarGroup>

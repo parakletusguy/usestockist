@@ -54,51 +54,53 @@ const Login = () => {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="flex justify-center mb-4">
+    <div className="flex min-h-screen items-center justify-center bg-background p-4 sm:p-6">
+      <Card className="w-full max-w-md border shadow-md">
+        <CardHeader className="text-center p-4 sm:p-6">
+          <div className="flex justify-center mb-3">
             <div className="rounded-full bg-primary/10 p-3">
               <Package className="h-8 w-8 text-primary" />
             </div>
           </div>
-          <CardTitle className="text-2xl">Welcome to Stockist</CardTitle>
-          <CardDescription>Sign in to manage your inventory</CardDescription>
+          <CardTitle className="text-2xl font-bold">Welcome to Stockist</CardTitle>
+          <CardDescription className="text-xs sm:text-sm">Sign in to manage your inventory</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 p-4 sm:p-6 pt-0 sm:pt-0">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email" className="text-sm">Email</Label>
               <Input
                 id="email"
                 type="email"
                 placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                className="h-11 sm:h-9 text-base sm:text-sm"
                 required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password" className="text-sm">Password</Label>
               <Input
                 id="password"
                 type="password"
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                className="h-11 sm:h-9 text-base sm:text-sm"
                 required
               />
             </div>
           </CardContent>
-          <CardFooter className="flex flex-col gap-4">
-            <Button type="submit" className="w-full" disabled={isLoading}>
+          <CardFooter className="flex flex-col gap-4 p-4 sm:p-6 pt-0 sm:pt-0">
+            <Button type="submit" className="w-full h-11 sm:h-9 text-base sm:text-sm" disabled={isLoading}>
               {isLoading ? 'Signing in...' : 'Sign In'}
             </Button>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground text-center">
               Don't have an account?{' '}
               <Link
                 to={nextPath !== '/' ? `/signup?next=${encodeURIComponent(nextPath)}` : '/signup'}
-                className="text-primary hover:underline"
+                className="text-primary hover:underline font-medium"
               >
                 Sign up
               </Link>

@@ -342,22 +342,22 @@ export default function AIAssistantPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
+    <div className="space-y-4 sm:space-y-6 max-w-5xl mx-auto">
       {/* Header */}
       <div className="flex items-start gap-3">
-        <div className="p-2.5 bg-primary/10 rounded-xl shrink-0">
-          <Sparkles className="h-8 w-8 text-primary" />
+        <div className="p-2 sm:p-2.5 bg-primary/10 rounded-xl shrink-0">
+          <Sparkles className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
         </div>
         <div>
-          <h1 className="text-3xl font-bold">AI Data Entry Assistant</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl sm:text-3xl font-bold">AI Data Entry Assistant</h1>
+          <p className="text-muted-foreground text-xs sm:text-sm">
             Parse stock movements from plain language — all fields validated against your catalog before saving
           </p>
         </div>
       </div>
 
       {/* Guardrail Info Banner */}
-      <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-800 px-4 py-3 text-sm text-blue-800 dark:text-blue-300">
+      <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-800 px-3 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm text-blue-800 dark:text-blue-300">
         <ShieldAlert className="h-4 w-4 mt-0.5 shrink-0" />
         <div>
           <strong>Guardrails active:</strong> The AI parser will only accept items from your catalog,
@@ -368,22 +368,22 @@ export default function AIAssistantPage() {
 
       {/* Text Input */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
+        <CardHeader className="p-4 sm:p-6">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
             <Bot className="h-5 w-5 text-primary" /> Natural Language Entry
           </CardTitle>
-          <CardDescription>
+          <CardDescription className="text-xs sm:text-sm">
             Describe the stock movement in plain English — one entry at a time
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0 space-y-4">
           <Textarea
             placeholder='e.g. "Received 50 bottles of Red Wine from supplier for Bar"'
             value={promptText}
             onChange={e => setPromptText(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) handleParse(); }}
             rows={3}
-            className="resize-none text-sm"
+            className="resize-none text-base sm:text-sm min-h-[80px]"
           />
           <div className="flex flex-wrap gap-1.5">
             <span className="text-xs text-muted-foreground self-center mr-1">Examples:</span>
@@ -391,7 +391,7 @@ export default function AIAssistantPage() {
               <button
                 key={i}
                 onClick={() => setPromptText(eg)}
-                className="text-[11px] bg-muted hover:bg-primary/10 text-foreground px-2 py-1 rounded-md transition-colors text-left"
+                className="text-[11px] bg-muted hover:bg-primary/10 text-foreground px-2.5 py-1.5 rounded-md transition-colors text-left min-h-[36px] flex items-center"
               >
                 {eg}
               </button>
@@ -400,10 +400,10 @@ export default function AIAssistantPage() {
           <Button
             onClick={handleParse}
             disabled={isProcessing || !promptText.trim() || !items?.length}
-            className="w-full"
+            className="w-full h-11 sm:h-9 text-base sm:text-xs"
           >
             <Sparkles className="h-4 w-4 mr-2" />
-            {isProcessing ? 'Parsing…' : 'Parse Entry (Ctrl + Enter)'}
+            {isProcessing ? 'Parsing…' : 'Parse Entry'}
           </Button>
         </CardContent>
       </Card>
@@ -411,15 +411,15 @@ export default function AIAssistantPage() {
       {/* Review Table */}
       {rows.length > 0 && (
         <Card className={cn('shadow-md', blockedCount > 0 ? 'border-destructive/50' : 'border-primary/40')}>
-          <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 sm:p-6">
             <div>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
                 {blockedCount > 0
-                  ? <XCircle className="h-5 w-5 text-destructive" />
-                  : <CheckCircle2 className="h-5 w-5 text-green-600" />}
+                  ? <XCircle className="h-5 w-5 text-destructive shrink-0" />
+                  : <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0" />}
                 Review Entries ({rows.length})
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-xs sm:text-sm">
                 {blockedCount > 0
                   ? `${blockedCount} row${blockedCount > 1 ? 's have' : ' has'} unresolved fields — fix them before committing`
                   : 'All fields resolved — ready to commit'}
@@ -428,15 +428,15 @@ export default function AIAssistantPage() {
             <Button
               onClick={handleCommit}
               disabled={!canCommit}
-              className={cn(canCommit ? 'bg-green-600 hover:bg-green-700 text-white' : '')}
+              className={cn('w-full sm:w-auto h-11 sm:h-9 text-base sm:text-xs', canCommit ? 'bg-green-600 hover:bg-green-700 text-white' : '')}
             >
               Commit {rows.length} Transaction{rows.length > 1 ? 's' : ''}
               <ArrowRight className="h-4 w-4 ml-1.5" />
             </Button>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
             {/* Legend */}
-            <div className="flex flex-wrap gap-4 text-[11px] mb-3 text-muted-foreground">
+            <div className="flex flex-wrap gap-3 text-[11px] mb-3 text-muted-foreground">
               <span className="flex items-center gap-1"><ShieldCheck className="h-3 w-3 text-green-500" /> High confidence</span>
               <span className="flex items-center gap-1"><AlertTriangle className="h-3 w-3 text-amber-500" /> Needs verification</span>
               <span className="flex items-center gap-1"><XCircle className="h-3 w-3 text-destructive" /> Blocked — must fix</span>
@@ -447,7 +447,7 @@ export default function AIAssistantPage() {
                 <div
                   key={row.id}
                   className={cn(
-                    'rounded-lg border p-4 space-y-3',
+                    'rounded-lg border p-3 sm:p-4 space-y-3',
                     [row.type, row.item, row.quantity, row.department].some(f => f.confidence === 'blocked' || f.value === null)
                       ? 'border-destructive/40 bg-destructive/5'
                       : [row.type, row.item, row.quantity, row.department].some(f => f.confidence === 'uncertain')
@@ -461,7 +461,7 @@ export default function AIAssistantPage() {
                     <span className="line-clamp-2">{row.rawInput}</span>
                     <button
                       onClick={() => removeRow(row.id)}
-                      className="ml-auto text-destructive hover:text-destructive/80 shrink-0 font-medium not-italic"
+                      className="ml-auto text-destructive hover:text-destructive/80 shrink-0 font-medium not-italic min-h-[32px] px-2 flex items-center"
                     >
                       Remove
                     </button>
@@ -479,7 +479,7 @@ export default function AIAssistantPage() {
                           type: { value: val as TxType, confidence: 'ok', hint: 'Manually selected' }
                         })}
                       >
-                        <SelectTrigger className={cn('h-8 text-xs', confidenceBorder[row.type.confidence])}>
+                        <SelectTrigger className={cn('h-10 sm:h-8 text-base sm:text-xs', confidenceBorder[row.type.confidence])}>
                           <SelectValue placeholder="Select type…" />
                         </SelectTrigger>
                         <SelectContent className="bg-background">
@@ -507,7 +507,7 @@ export default function AIAssistantPage() {
                           });
                         }}
                       >
-                        <SelectTrigger className={cn('h-8 text-xs', confidenceBorder[row.item.confidence])}>
+                        <SelectTrigger className={cn('h-10 sm:h-8 text-base sm:text-xs', confidenceBorder[row.item.confidence])}>
                           <SelectValue placeholder="Select item from catalog…" />
                         </SelectTrigger>
                         <SelectContent className="bg-background">
@@ -545,7 +545,7 @@ export default function AIAssistantPage() {
                           });
                         }}
                         placeholder="1–9999"
-                        className={cn('h-8 text-xs', confidenceBorder[row.quantity.confidence])}
+                        className={cn('h-10 sm:h-8 text-base sm:text-xs', confidenceBorder[row.quantity.confidence])}
                       />
                       {row.quantity.confidence !== 'ok' && (
                         <p className="text-[10px] text-muted-foreground">{row.quantity.hint}</p>
@@ -563,7 +563,7 @@ export default function AIAssistantPage() {
                           department: { value: val, confidence: 'ok', hint: 'Manually selected' }
                         })}
                       >
-                        <SelectTrigger className={cn('h-8 text-xs', confidenceBorder[row.department.confidence])}>
+                        <SelectTrigger className={cn('h-10 sm:h-8 text-base sm:text-xs', confidenceBorder[row.department.confidence])}>
                           <SelectValue placeholder="Select dept…" />
                         </SelectTrigger>
                         <SelectContent className="bg-background">
@@ -591,7 +591,7 @@ export default function AIAssistantPage() {
                         onChange={e => updateRow(row.id, {
                           date: { value: e.target.value || null, confidence: 'ok', hint: 'Manually set' }
                         })}
-                        className={cn('h-8 text-xs', confidenceBorder[row.date.confidence])}
+                        className={cn('h-10 sm:h-8 text-base sm:text-xs', confidenceBorder[row.date.confidence])}
                       />
                       {row.date.confidence !== 'ok' && (
                         <p className="text-[10px] text-muted-foreground">{row.date.hint}</p>
@@ -603,7 +603,7 @@ export default function AIAssistantPage() {
                         value={row.notes}
                         onChange={e => updateRow(row.id, { notes: e.target.value })}
                         placeholder="Additional notes…"
-                        className="h-8 text-xs"
+                        className="h-10 sm:h-8 text-base sm:text-xs"
                       />
                     </div>
                   </div>

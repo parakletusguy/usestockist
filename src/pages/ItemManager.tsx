@@ -115,20 +115,22 @@ const ItemManager = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold">Items Manager</h1>
-          <p className="text-muted-foreground">Manage your master inventory catalog — items can be shared across multiple departments</p>
+          <h1 className="text-2xl sm:text-3xl font-bold">Items Manager</h1>
+          <p className="text-muted-foreground text-xs sm:text-sm">
+            Manage your master inventory catalog — items can be shared across multiple departments
+          </p>
         </div>
-        <Button onClick={() => handleOpenForm()}>
+        <Button onClick={() => handleOpenForm()} className="w-full sm:w-auto h-11 sm:h-9 text-base sm:text-xs">
           <Plus className="mr-2 h-4 w-4" />
           Add Item
         </Button>
       </div>
 
       {/* Info Banner: Multi-Department Items */}
-      <div className="flex items-start gap-3 p-3 rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-800 text-sm text-blue-800 dark:text-blue-300">
+      <div className="flex items-start gap-3 p-3 rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-800 text-xs sm:text-sm text-blue-800 dark:text-blue-300">
         <Info className="h-4 w-4 mt-0.5 shrink-0" />
         <span>
           <strong>Shared Items:</strong> Each item can be assigned to multiple departments. The same physical item (e.g. <em>Mineral Water</em>) can appear in <em>Bar</em>, <em>Kitchen (Nox)</em>, and <em>Retail</em> simultaneously — tracked separately per department in the Stock Count.
@@ -136,19 +138,19 @@ const ItemManager = () => {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
+      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Search items..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-9"
+            className="pl-9 text-base sm:text-xs h-11 sm:h-9"
           />
         </div>
         <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
-          <SelectTrigger className="w-full sm:w-52">
-            <Building2 className="mr-2 h-4 w-4 text-muted-foreground" />
+          <SelectTrigger className="w-full sm:w-52 h-11 sm:h-9 text-base sm:text-xs">
+            <Building2 className="mr-2 h-4 w-4 text-muted-foreground shrink-0" />
             <SelectValue placeholder="All Departments" />
           </SelectTrigger>
           <SelectContent className="bg-background">
@@ -159,7 +161,7 @@ const ItemManager = () => {
           </SelectContent>
         </Select>
         <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-          <SelectTrigger className="w-full sm:w-48">
+          <SelectTrigger className="w-full sm:w-48 h-11 sm:h-9 text-base sm:text-xs">
             <SelectValue placeholder="All Categories" />
           </SelectTrigger>
           <SelectContent className="bg-background">
@@ -171,8 +173,66 @@ const ItemManager = () => {
         </Select>
       </div>
 
-      {/* Table */}
-      <div className="rounded-md border overflow-x-auto">
+      {/* Mobile Card-List Layout (shown on screens < md) */}
+      <div className="space-y-3 md:hidden">
+        {!filteredItems || filteredItems.length === 0 ? (
+          <div className="text-center text-muted-foreground py-8 text-sm border rounded-lg p-4">
+            No items found. Add your first item to get started.
+          </div>
+        ) : (
+          filteredItems.map(item => (
+            <div key={item.id} className="rounded-lg border p-4 space-y-2 bg-card">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <h3 className="font-semibold text-base">{item.name}</h3>
+                  <p className="text-xs text-muted-foreground">{item.category} · {item.unit_of_measure}</p>
+                </div>
+                <div className="flex gap-1 shrink-0">
+                  <Button variant="ghost" size="icon" className="h-10 w-10" onClick={() => handleOpenForm(item)}>
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-10 w-10 text-destructive"
+                    onClick={() => {
+                      setDeletingItem(item);
+                      setIsDeleteOpen(true);
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-1">
+                {(item.departments?.length ? item.departments : [item.department || 'Retail']).map(dept => (
+                  <span
+                    key={dept}
+                    className="text-[11px] px-2 py-0.5 rounded font-medium bg-primary/10 text-primary border border-primary/20"
+                  >
+                    {dept}
+                  </span>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 pt-2 border-t text-xs">
+                <div>
+                  <span className="text-muted-foreground">Low Stock Threshold: </span>
+                  <span className="font-medium">{item.low_stock_threshold}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Unit Cost: </span>
+                  <span className="font-medium">${item.unit_cost.toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Desktop Table (hidden on mobile, shown md+) */}
+      <div className="rounded-md border overflow-x-auto hidden md:block">
         <Table>
           <TableHeader>
             <TableRow>
@@ -202,10 +262,7 @@ const ItemManager = () => {
                       {(item.departments?.length ? item.departments : [item.department || 'Retail']).map(dept => (
                         <span
                           key={dept}
-                          className={cn(
-                            'text-[11px] px-1.5 py-0.5 rounded font-medium',
-                            'bg-primary/10 text-primary border border-primary/20'
-                          )}
+                          className="text-[11px] px-1.5 py-0.5 rounded font-medium bg-primary/10 text-primary border border-primary/20"
                         >
                           {dept}
                         </span>
@@ -240,37 +297,38 @@ const ItemManager = () => {
         </Table>
       </div>
 
-      {/* Add/Edit Dialog */}
+      {/* Add/Edit Dialog — full screen on mobile */}
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{editingItem ? 'Edit Item' : 'Add New Item'}</DialogTitle>
-            <DialogDescription>
-              {editingItem ? 'Update item details. You can assign it to multiple departments.' : 'Fill in item details and select which departments stock this item.'}
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleSubmit}>
-            <div className="space-y-4 py-4">
+        <DialogContent className="w-full h-full sm:h-auto sm:max-w-lg rounded-none sm:rounded-lg overflow-y-auto p-4 sm:p-6 flex flex-col justify-between">
+          <div>
+            <DialogHeader>
+              <DialogTitle className="text-xl">{editingItem ? 'Edit Item' : 'Add New Item'}</DialogTitle>
+              <DialogDescription className="text-xs sm:text-sm">
+                {editingItem ? 'Update item details. You can assign it to multiple departments.' : 'Fill in item details and select which departments stock this item.'}
+              </DialogDescription>
+            </DialogHeader>
+            <form id="item-form" onSubmit={handleSubmit} className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Item Name</Label>
+                <Label htmlFor="name" className="text-sm">Item Name</Label>
                 <Input
                   id="name"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   placeholder="Enter item name"
+                  className="text-base sm:text-sm h-11 sm:h-9"
                   required
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="category">Category</Label>
+                  <Label htmlFor="category" className="text-sm">Category</Label>
                   <Select
                     value={formData.category}
                     onValueChange={(value) => setFormData({ ...formData, category: value })}
                     required
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="text-base sm:text-sm h-11 sm:h-9">
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
                     <SelectContent className="bg-background">
@@ -281,13 +339,13 @@ const ItemManager = () => {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="unit">Unit of Measure</Label>
+                  <Label htmlFor="unit" className="text-sm">Unit of Measure</Label>
                   <Select
                     value={formData.unit_of_measure}
                     onValueChange={(value) => setFormData({ ...formData, unit_of_measure: value })}
                     required
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="text-base sm:text-sm h-11 sm:h-9">
                       <SelectValue placeholder="Select unit" />
                     </SelectTrigger>
                     <SelectContent className="bg-background">
@@ -301,21 +359,22 @@ const ItemManager = () => {
 
               {/* Multi-Department Assignment */}
               <div className="space-y-2">
-                <Label>
+                <Label className="text-sm">
                   Departments
                   <span className="ml-1.5 text-xs text-muted-foreground font-normal">(select all that apply)</span>
                 </Label>
                 <div className="grid grid-cols-2 gap-2 border rounded-md p-3">
                   {DEPARTMENTS.map(dept => (
-                    <div key={dept} className="flex items-center gap-2">
+                    <div key={dept} className="flex items-center gap-2.5 min-h-[44px]">
                       <Checkbox
                         id={`dept-${dept}`}
                         checked={(formData.departments || []).includes(dept)}
                         onCheckedChange={() => toggleDepartment(dept)}
+                        className="h-5 w-5"
                       />
                       <label
                         htmlFor={`dept-${dept}`}
-                        className="text-sm cursor-pointer select-none"
+                        className="text-sm cursor-pointer select-none font-medium flex-1 py-2"
                       >
                         {dept}
                       </label>
@@ -332,9 +391,9 @@ const ItemManager = () => {
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="low_stock_threshold">Low Stock Threshold</Label>
+                  <Label htmlFor="low_stock_threshold" className="text-sm">Low Stock Threshold</Label>
                   <Input
                     id="low_stock_threshold"
                     type="number"
@@ -342,10 +401,11 @@ const ItemManager = () => {
                     value={formData.low_stock_threshold}
                     onChange={(e) => setFormData({ ...formData, low_stock_threshold: Number(e.target.value) })}
                     placeholder="0"
+                    className="text-base sm:text-sm h-11 sm:h-9"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="unit_cost">Unit Cost ($)</Label>
+                  <Label htmlFor="unit_cost" className="text-sm">Unit Cost ($)</Label>
                   <Input
                     id="unit_cost"
                     type="number"
@@ -354,37 +414,40 @@ const ItemManager = () => {
                     value={formData.unit_cost}
                     onChange={(e) => setFormData({ ...formData, unit_cost: Number(e.target.value) })}
                     placeholder="0.00"
+                    className="text-base sm:text-sm h-11 sm:h-9"
                   />
                 </div>
               </div>
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsFormOpen(false)}>
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={createItem.isPending || updateItem.isPending || !formData.departments?.length}
-              >
-                {editingItem ? 'Update' : 'Create'}
-              </Button>
-            </DialogFooter>
-          </form>
+            </form>
+          </div>
+          <DialogFooter className="flex-col sm:flex-row gap-2 pt-4 border-t">
+            <Button type="button" variant="outline" onClick={() => setIsFormOpen(false)} className="w-full sm:w-auto h-11 sm:h-9 text-base sm:text-xs">
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              form="item-form"
+              disabled={createItem.isPending || updateItem.isPending || !formData.departments?.length}
+              className="w-full sm:w-auto h-11 sm:h-9 text-base sm:text-xs"
+            >
+              {editingItem ? 'Update' : 'Create'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Delete Confirmation */}
       <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="w-[90vw] max-w-md rounded-lg">
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Item</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogDescription className="text-xs sm:text-sm">
               Are you sure you want to delete "{deletingItem?.name}"? This will remove it from all departments and cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel className="w-full sm:w-auto min-h-[44px]">Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90 w-full sm:w-auto min-h-[44px]">
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>

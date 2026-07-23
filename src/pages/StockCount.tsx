@@ -12,7 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { CalendarIcon, Download, Save, Search, Wifi, WifiOff, CloudOff, PackageX, AlertTriangle, CheckCircle2, Building2 } from 'lucide-react';
+import { CalendarIcon, Download, Save, Search, Wifi, WifiOff, CloudOff, PackageX, AlertTriangle, CheckCircle2, Building2, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type PeriodType = 'daily' | 'weekly' | 'monthly' | 'custom';
@@ -52,6 +52,130 @@ const statusBadge: Record<Status, string> = {
   low: 'text-amber-600 dark:text-amber-500 font-bold',
   healthy: 'text-muted-foreground',
 };
+
+/** Mobile card for a single stock item */
+function MobileStockCard({
+  row,
+  edit,
+  sold,
+  balance,
+  phyCount,
+  variance,
+  varianceValue,
+  status,
+  onUpdate,
+}: {
+  row: DailyStockCountRow;
+  edit: RowEdit;
+  sold: number;
+  balance: number;
+  phyCount: number | null;
+  variance: number | null;
+  varianceValue: number | null;
+  status: Status;
+  onUpdate: (field: keyof RowEdit, value: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className={cn('rounded-lg border p-3 space-y-2', statusStyles[status])}>
+      {/* Header row */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            {status === 'out' && <span className="text-destructive font-bold text-sm">🔴</span>}
+            {status === 'low' && <span className="text-amber-500 font-bold text-sm">🟡</span>}
+            <p className="font-semibold text-sm truncate">{row.item_name}</p>
+          </div>
+          <p className="text-xs text-muted-foreground">{row.unit_of_measure} · {row.department}</p>
+        </div>
+        <div className="text-right shrink-0">
+          <div className={cn('text-xl font-extrabold', statusBadge[status])}>{balance}</div>
+          <div className="text-[10px] text-muted-foreground">Stock Balance</div>
+        </div>
+      </div>
+
+      {/* Quick edit fields always visible */}
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className="text-[10px] text-muted-foreground font-medium block mb-1">Damages</label>
+          <Input
+            type="number"
+            value={edit.damages}
+            onChange={(e) => onUpdate('damages', e.target.value)}
+            className="h-9 text-sm text-right"
+            placeholder="0"
+          />
+        </div>
+        <div>
+          <label className="text-[10px] text-muted-foreground font-medium block mb-1">Phy. Count</label>
+          <Input
+            type="number"
+            value={edit.phy_count}
+            onChange={(e) => onUpdate('phy_count', e.target.value)}
+            className="h-9 text-sm text-right"
+            placeholder="-"
+          />
+        </div>
+      </div>
+
+      {/* Comment */}
+      <Input
+        value={edit.comment}
+        onChange={(e) => onUpdate('comment', e.target.value)}
+        className="h-9 text-sm"
+        placeholder="Comment..."
+      />
+
+      {/* Expand to see all columns */}
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors w-full"
+      >
+        {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+        {expanded ? 'Hide details' : 'Show all details'}
+      </button>
+
+      {expanded && (
+        <div className="grid grid-cols-3 gap-2 pt-1 border-t text-xs">
+          <div className="text-center">
+            <div className="text-muted-foreground">Opening</div>
+            <div className="font-medium">{row.opening_stock}</div>
+          </div>
+          <div className="text-center">
+            <div className="text-muted-foreground">Received</div>
+            <div className="font-medium">{row.qty_received}</div>
+          </div>
+          <div className="text-center">
+            <div className="text-muted-foreground">Issued</div>
+            <div className="font-medium">{row.qty_issued}</div>
+          </div>
+          <div className="text-center">
+            <div className="text-muted-foreground">Transferred</div>
+            <div className="font-medium">{row.qty_transferred}</div>
+          </div>
+          <div className="text-center">
+            <div className="text-primary text-muted-foreground">Sold</div>
+            <div className="font-semibold text-primary">{sold}</div>
+          </div>
+          <div className="text-center">
+            <div className="text-muted-foreground">Variance</div>
+            <div className="font-medium">{variance ?? '-'}</div>
+          </div>
+          <div className="text-center">
+            <div className="text-muted-foreground">Unit Cost</div>
+            <div className="font-medium">${row.unit_cost.toFixed(2)}</div>
+          </div>
+          <div className="text-center col-span-2">
+            <div className="text-muted-foreground">Variance Value</div>
+            <div className="font-medium">{varianceValue !== null ? `$${varianceValue.toFixed(2)}` : '-'}</div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function StockCount() {
   const [searchParams] = useSearchParams();
@@ -227,12 +351,12 @@ export default function StockCount() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold">Reconciled Stock Count</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-xl sm:text-3xl font-bold">Reconciled Stock Count</h1>
+          <p className="text-muted-foreground text-xs sm:text-sm mt-0.5">
             Auto-reconciles Reach sales reports, ledgers, and physical counts with automated 🔴 Out-of-Stock and 🟡 Low-Stock alerts
           </p>
         </div>
@@ -258,31 +382,33 @@ export default function StockCount() {
       </div>
 
       {/* Control Bar: Time Periods & Department Selection */}
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-muted/30 p-4 rounded-lg border">
-        {/* Period Selector Tabs */}
-        <div className="flex items-center gap-1 bg-background border rounded-lg p-1">
-          {(['daily', 'weekly', 'monthly', 'custom'] as PeriodType[]).map((p) => (
-            <button
-              key={p}
-              onClick={() => setPeriod(p)}
-              className={cn(
-                'px-3 py-1.5 text-xs font-semibold rounded-md capitalize transition-colors',
-                period === p ? 'bg-primary text-primary-foreground shadow-sm' : 'hover:bg-muted text-muted-foreground'
-              )}
-            >
-              {p}
-            </button>
-          ))}
+      <div className="flex flex-col gap-3 bg-muted/30 p-3 sm:p-4 rounded-lg border">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Period Selector Tabs */}
+          <div className="flex items-center gap-1 bg-background border rounded-lg p-1 overflow-x-auto">
+            {(['daily', 'weekly', 'monthly', 'custom'] as PeriodType[]).map((p) => (
+              <button
+                key={p}
+                onClick={() => setPeriod(p)}
+                className={cn(
+                  'px-3 py-1.5 text-xs font-semibold rounded-md capitalize transition-colors whitespace-nowrap',
+                  period === p ? 'bg-primary text-primary-foreground shadow-sm' : 'hover:bg-muted text-muted-foreground'
+                )}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* Date Controls */}
-        <div className="flex items-center gap-2">
+        {/* Date Controls + Department Filter */}
+        <div className="flex flex-wrap items-center gap-2">
           {period !== 'custom' ? (
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="w-[180px] justify-start text-left font-normal">
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {format(singleDate, 'PPP')}
+                <Button variant="outline" size="sm" className="h-9 justify-start text-left font-normal text-xs">
+                  <CalendarIcon className="mr-2 h-3.5 w-3.5" />
+                  {format(singleDate, 'PP')}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
@@ -290,12 +416,12 @@ export default function StockCount() {
               </PopoverContent>
             </Popover>
           ) : (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="w-[130px] justify-start text-left text-xs">
+                  <Button variant="outline" size="sm" className="h-9 justify-start text-left text-xs">
                     <CalendarIcon className="mr-1 h-3 w-3" />
-                    {customStart ? format(customStart, 'MMM d, yyyy') : 'Start Date'}
+                    {customStart ? format(customStart, 'MMM d') : 'Start'}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
@@ -305,9 +431,9 @@ export default function StockCount() {
               <span className="text-xs text-muted-foreground">to</span>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="w-[130px] justify-start text-left text-xs">
+                  <Button variant="outline" size="sm" className="h-9 justify-start text-left text-xs">
                     <CalendarIcon className="mr-1 h-3 w-3" />
-                    {customEnd ? format(customEnd, 'MMM d, yyyy') : 'End Date'}
+                    {customEnd ? format(customEnd, 'MMM d') : 'End'}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
@@ -319,7 +445,7 @@ export default function StockCount() {
 
           {/* Department Filter */}
           <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
-            <SelectTrigger className="w-[160px] h-9 text-xs">
+            <SelectTrigger className="h-9 text-xs w-auto min-w-[120px]">
               <Building2 className="h-3.5 w-3.5 mr-1 text-muted-foreground" />
               <SelectValue placeholder="All Departments" />
             </SelectTrigger>
@@ -336,74 +462,77 @@ export default function StockCount() {
       </div>
 
       {/* Summary KPI Cards */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-3 grid-cols-3">
         <button
           type="button"
           onClick={() => setStatusFilter(statusFilter === 'out' ? 'all' : 'out')}
           className={cn(
-            'rounded-lg border p-4 text-left transition-all',
+            'rounded-lg border p-3 text-left transition-all min-h-[44px]',
             statusFilter === 'out' ? 'border-destructive bg-destructive/15 ring-2 ring-destructive' : 'hover:bg-muted/50'
           )}
         >
-          <div className="flex items-center gap-2 text-destructive font-bold">
-            <PackageX className="h-5 w-5" />
-            <span className="text-sm">🔴 Out of Stock</span>
+          <div className="flex items-center gap-1.5 text-destructive font-bold">
+            <PackageX className="h-4 w-4 shrink-0" />
+            <span className="text-xs">🔴 Out</span>
           </div>
-          <div className="text-3xl font-extrabold mt-2 text-destructive">{summary.out}</div>
+          <div className="text-2xl sm:text-3xl font-extrabold mt-1 text-destructive">{summary.out}</div>
         </button>
 
         <button
           type="button"
           onClick={() => setStatusFilter(statusFilter === 'low' ? 'all' : 'low')}
           className={cn(
-            'rounded-lg border p-4 text-left transition-all',
+            'rounded-lg border p-3 text-left transition-all min-h-[44px]',
             statusFilter === 'low' ? 'border-amber-500 bg-amber-500/15 ring-2 ring-amber-500' : 'hover:bg-muted/50'
           )}
         >
-          <div className="flex items-center gap-2 text-amber-600 dark:text-amber-500 font-bold">
-            <AlertTriangle className="h-5 w-5" />
-            <span className="text-sm">🟡 Low Stock</span>
+          <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-500 font-bold">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            <span className="text-xs">🟡 Low</span>
           </div>
-          <div className="text-3xl font-extrabold mt-2 text-amber-600 dark:text-amber-500">{summary.low}</div>
+          <div className="text-2xl sm:text-3xl font-extrabold mt-1 text-amber-600 dark:text-amber-500">{summary.low}</div>
         </button>
 
         <button
           type="button"
           onClick={() => setStatusFilter(statusFilter === 'healthy' ? 'all' : 'healthy')}
           className={cn(
-            'rounded-lg border p-4 text-left transition-all',
+            'rounded-lg border p-3 text-left transition-all min-h-[44px]',
             statusFilter === 'healthy' ? 'border-green-600 bg-green-500/10 ring-2 ring-green-600' : 'hover:bg-muted/50'
           )}
         >
-          <div className="flex items-center gap-2 text-green-600 font-bold">
-            <CheckCircle2 className="h-5 w-5" />
-            <span className="text-sm">🟢 Healthy Stock</span>
+          <div className="flex items-center gap-1.5 text-green-600 font-bold">
+            <CheckCircle2 className="h-4 w-4 shrink-0" />
+            <span className="text-xs">🟢 OK</span>
           </div>
-          <div className="text-3xl font-extrabold mt-2 text-green-600">{summary.healthy}</div>
+          <div className="text-2xl sm:text-3xl font-extrabold mt-1 text-green-600">{summary.healthy}</div>
         </button>
       </div>
 
-      {/* Main Table Card */}
+      {/* Main Content Card */}
       <Card>
-        <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <CardHeader className="flex flex-col gap-3 pb-3">
           <div>
-            <CardTitle>Reconciliation Grid ({dateRange.start} to {dateRange.end})</CardTitle>
-            <CardDescription>
-              Qty Sold automatically synced from Reach Sales uploads. Remaining stock drives Red/Yellow flags.
+            <CardTitle className="text-sm sm:text-base">
+              Reconciliation Grid ({dateRange.start} to {dateRange.end})
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Qty Sold automatically synced from Reach Sales uploads.
             </CardDescription>
           </div>
+          {/* Search, Filter, Export, Save */}
           <div className="flex flex-wrap items-center gap-2">
-            <div className="relative">
+            <div className="relative flex-1 min-w-[120px]">
               <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Search items..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-8 w-[160px] h-9 text-xs"
+                className="pl-8 h-9 text-xs w-full"
               />
             </div>
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-[140px] h-9 text-xs"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-auto min-w-[110px] h-9 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Categories</SelectItem>
                 {categories.map((cat) => (
@@ -411,114 +540,141 @@ export default function StockCount() {
                 ))}
               </SelectContent>
             </Select>
-            <Button variant="outline" size="sm" onClick={handleExport} disabled={computed.length === 0}>
-              <Download className="mr-1.5 h-4 w-4" /> Export CSV
+            <Button variant="outline" size="sm" onClick={handleExport} disabled={computed.length === 0} className="h-9">
+              <Download className="mr-1.5 h-4 w-4" />
+              <span className="hidden sm:inline">Export CSV</span>
+              <span className="sm:hidden">CSV</span>
             </Button>
-            <Button size="sm" onClick={handleSave} disabled={dirty.size === 0 || saveStockCount.isPending}>
-              <Save className="mr-1.5 h-4 w-4" /> Save ({dirty.size})
+            <Button size="sm" onClick={handleSave} disabled={dirty.size === 0 || saveStockCount.isPending} className="h-9">
+              <Save className="mr-1.5 h-4 w-4" />
+              Save ({dirty.size})
             </Button>
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="min-w-[180px]">Item</TableHead>
-                  <TableHead>Dept</TableHead>
-                  <TableHead className="text-right">Qty Received</TableHead>
-                  <TableHead className="text-right">Opening Stock</TableHead>
-                  <TableHead className="text-right">Issuance</TableHead>
-                  <TableHead className="text-right">Transfer</TableHead>
-                  <TableHead className="text-right font-bold text-primary">Reach Qty Sold</TableHead>
-                  <TableHead className="text-right min-w-[80px]">Damages</TableHead>
-                  <TableHead className="text-right font-bold">Stock Balance</TableHead>
-                  <TableHead className="text-right min-w-[90px]">Phy. Count</TableHead>
-                  <TableHead className="text-right">Variance</TableHead>
-                  <TableHead className="text-right">Unit Cost ($)</TableHead>
-                  <TableHead className="text-right">Variance Val ($)</TableHead>
-                  <TableHead className="min-w-[140px]">Comment</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={14} className="text-center py-12 text-muted-foreground">
-                      Loading inventory reconciliation...
-                    </TableCell>
-                  </TableRow>
-                ) : grouped.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={14} className="text-center py-12 text-muted-foreground">
-                      No items match current filters.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  grouped.map(([category, entries]) => (
-                    <Fragment key={category}>
-                      <TableRow className="bg-muted/50 hover:bg-muted/50">
-                        <TableCell colSpan={14} className="font-bold py-2 text-xs uppercase tracking-wider">
-                          {category} ({entries.length})
-                        </TableCell>
-                      </TableRow>
-                      {entries.map(({ row, edit, sold, balance, phyCount, variance, varianceValue, status }) => (
-                        <TableRow key={row.item_id} className={statusStyles[status]}>
-                          <TableCell className="font-medium">
-                            <div className="flex items-center gap-1.5">
-                              {status === 'out' && <span className="text-destructive font-bold">🔴</span>}
-                              {status === 'low' && <span className="text-amber-500 font-bold">🟡</span>}
-                              <span>{row.item_name}</span>
-                            </div>
-                            <div className="text-xs text-muted-foreground">{row.unit_of_measure}</div>
-                          </TableCell>
-                          <TableCell className="text-xs text-muted-foreground">{row.department}</TableCell>
-                          <TableCell className="text-right">{row.qty_received}</TableCell>
-                          <TableCell className="text-right">{row.opening_stock}</TableCell>
-                          <TableCell className="text-right">{row.qty_issued}</TableCell>
-                          <TableCell className="text-right">{row.qty_transferred}</TableCell>
-                          <TableCell className="text-right font-semibold text-primary">{sold}</TableCell>
-                          <TableCell>
-                            <Input
-                              type="number"
-                              value={edit.damages}
-                              onChange={(e) => updateField(row.item_id, 'damages', e.target.value)}
-                              className="h-8 w-16 text-right ml-auto text-xs"
-                              placeholder="0"
-                            />
-                          </TableCell>
-                          <TableCell className={cn('text-right font-bold text-sm', statusBadge[status])}>
-                            {balance}
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              type="number"
-                              value={edit.phy_count}
-                              onChange={(e) => updateField(row.item_id, 'phy_count', e.target.value)}
-                              className="h-8 w-20 text-right ml-auto text-xs"
-                              placeholder="-"
-                            />
-                          </TableCell>
-                          <TableCell className="text-right">{variance ?? '-'}</TableCell>
-                          <TableCell className="text-right">{row.unit_cost.toFixed(2)}</TableCell>
-                          <TableCell className="text-right">
-                            {varianceValue !== null ? varianceValue.toFixed(2) : '-'}
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              value={edit.comment}
-                              onChange={(e) => updateField(row.item_id, 'comment', e.target.value)}
-                              className="h-8 text-xs"
-                              placeholder="Comment"
-                            />
+        <CardContent className="p-3 sm:p-6 pt-0">
+          {isLoading ? (
+            <div className="text-center py-12 text-muted-foreground text-sm">
+              Loading inventory reconciliation...
+            </div>
+          ) : grouped.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground text-sm">
+              No items match current filters.
+            </div>
+          ) : (
+            <>
+              {/* Mobile Card Layout — shown on small screens */}
+              <div className="space-y-3 md:hidden">
+                {grouped.map(([category, entries]) => (
+                  <div key={category} className="space-y-2">
+                    <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-1 py-1 bg-muted/50 rounded">
+                      {category} ({entries.length})
+                    </div>
+                    {entries.map(({ row, edit, sold, balance, phyCount, variance, varianceValue, status }) => (
+                      <MobileStockCard
+                        key={row.item_id}
+                        row={row}
+                        edit={edit}
+                        sold={sold}
+                        balance={balance}
+                        phyCount={phyCount}
+                        variance={variance}
+                        varianceValue={varianceValue}
+                        status={status}
+                        onUpdate={(field, value) => updateField(row.item_id, field, value)}
+                      />
+                    ))}
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop Table — hidden on small screens, shown md+ */}
+              <div className="overflow-x-auto rounded-md border hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="min-w-[180px]">Item</TableHead>
+                      <TableHead>Dept</TableHead>
+                      <TableHead className="text-right">Qty Received</TableHead>
+                      <TableHead className="text-right">Opening Stock</TableHead>
+                      <TableHead className="text-right">Issuance</TableHead>
+                      <TableHead className="text-right">Transfer</TableHead>
+                      <TableHead className="text-right font-bold text-primary">Reach Qty Sold</TableHead>
+                      <TableHead className="text-right min-w-[80px]">Damages</TableHead>
+                      <TableHead className="text-right font-bold">Stock Balance</TableHead>
+                      <TableHead className="text-right min-w-[90px]">Phy. Count</TableHead>
+                      <TableHead className="text-right">Variance</TableHead>
+                      <TableHead className="text-right">Unit Cost ($)</TableHead>
+                      <TableHead className="text-right">Variance Val ($)</TableHead>
+                      <TableHead className="min-w-[140px]">Comment</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {grouped.map(([category, entries]) => (
+                      <Fragment key={category}>
+                        <TableRow className="bg-muted/50 hover:bg-muted/50">
+                          <TableCell colSpan={14} className="font-bold py-2 text-xs uppercase tracking-wider">
+                            {category} ({entries.length})
                           </TableCell>
                         </TableRow>
-                      ))}
-                    </Fragment>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                        {entries.map(({ row, edit, sold, balance, phyCount, variance, varianceValue, status }) => (
+                          <TableRow key={row.item_id} className={statusStyles[status]}>
+                            <TableCell className="font-medium">
+                              <div className="flex items-center gap-1.5">
+                                {status === 'out' && <span className="text-destructive font-bold">🔴</span>}
+                                {status === 'low' && <span className="text-amber-500 font-bold">🟡</span>}
+                                <span>{row.item_name}</span>
+                              </div>
+                              <div className="text-xs text-muted-foreground">{row.unit_of_measure}</div>
+                            </TableCell>
+                            <TableCell className="text-xs text-muted-foreground">{row.department}</TableCell>
+                            <TableCell className="text-right">{row.qty_received}</TableCell>
+                            <TableCell className="text-right">{row.opening_stock}</TableCell>
+                            <TableCell className="text-right">{row.qty_issued}</TableCell>
+                            <TableCell className="text-right">{row.qty_transferred}</TableCell>
+                            <TableCell className="text-right font-semibold text-primary">{sold}</TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                value={edit.damages}
+                                onChange={(e) => updateField(row.item_id, 'damages', e.target.value)}
+                                className="h-8 w-16 text-right ml-auto text-xs"
+                                placeholder="0"
+                              />
+                            </TableCell>
+                            <TableCell className={cn('text-right font-bold text-sm', statusBadge[status])}>
+                              {balance}
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                value={edit.phy_count}
+                                onChange={(e) => updateField(row.item_id, 'phy_count', e.target.value)}
+                                className="h-8 w-20 text-right ml-auto text-xs"
+                                placeholder="-"
+                              />
+                            </TableCell>
+                            <TableCell className="text-right">{variance ?? '-'}</TableCell>
+                            <TableCell className="text-right">{row.unit_cost.toFixed(2)}</TableCell>
+                            <TableCell className="text-right">
+                              {varianceValue !== null ? varianceValue.toFixed(2) : '-'}
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                value={edit.comment}
+                                onChange={(e) => updateField(row.item_id, 'comment', e.target.value)}
+                                className="h-8 text-xs"
+                                placeholder="Comment"
+                              />
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </Fragment>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
     </div>
