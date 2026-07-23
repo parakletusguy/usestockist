@@ -44,6 +44,7 @@ interface ItemRow {
 interface LedgerRow {
   item_id: string;
   quantity?: number;
+  date?: string;
 }
 
 interface SheetRow {
@@ -53,12 +54,14 @@ interface SheetRow {
   close_qty?: number;
   sales_qty?: number;
   remark?: string | null;
+  date?: string;
 }
 
 interface TxRow {
   item_id: string;
   type: string;
   quantity: number;
+  transaction_date?: string;
   department?: string | null;
 }
 
@@ -66,7 +69,7 @@ export function useDailyStockCount(startDate: string, endDate?: string, departme
   const deptParam = department && department !== 'all' ? department : undefined;
   return useQuery({
     queryKey: ['stock_count', startDate, endDate || startDate, deptParam || 'all'],
-    staleTime: 10_000,
+    staleTime: 5_000,
     refetchOnWindowFocus: true,
     queryFn: async () => {
       const startD = startDate;
@@ -90,18 +93,27 @@ export function useDailyStockCount(startDate: string, endDate?: string, departme
         deptMap.set(row.item_id, existing);
       });
 
-      // 2. Fetch transactions & ledgers for the date range
-      const [issuanceRes, receivedRes, transferRes, sheetsRes, txRes] = await Promise.all([
+      // 2. Fetch current period ledgers & transactions (date >= startD AND date <= endD)
+      // AND prior period ledgers & transactions (date < startD) for carry-forward Opening Stock
+      const [
+        issuanceCurrRes, receivedCurrRes, transferCurrRes, sheetsCurrRes, txCurrRes,
+        issuancePriorRes, receivedPriorRes, transferPriorRes, txPriorRes
+      ] = await Promise.all([
         supabase.from('issuance_ledger').select('item_id, quantity').gte('date', startD).lte('date', endD),
         supabase.from('received_ledger').select('item_id, quantity').gte('date', startD).lte('date', endD),
         supabase.from('transfer_ledger').select('item_id, quantity').gte('date', startD).lte('date', endD),
         supabase.from('daily_stock_sheets')
-          .select('item_id, open_qty, qty_in, close_qty, sales_qty, remark')
+          .select('item_id, open_qty, qty_in, close_qty, sales_qty, remark, date')
           .gte('date', startD).lte('date', endD),
         supabase.from('inventory_transactions')
           .select('item_id, type, quantity, department')
           .gte('transaction_date', startD)
           .lte('transaction_date', endD),
+        // Prior queries for automatic opening stock calculation
+        supabase.from('issuance_ledger').select('item_id, quantity').lt('date', startD),
+        supabase.from('received_ledger').select('item_id, quantity').lt('date', startD),
+        supabase.from('transfer_ledger').select('item_id, quantity').lt('date', startD),
+        supabase.from('inventory_transactions').select('item_id, type, quantity').lt('transaction_date', startD),
       ]);
 
       const sum = (rows: LedgerRow[] | null, id: string) =>
@@ -109,11 +121,11 @@ export function useDailyStockCount(startDate: string, endDate?: string, departme
 
       const sumTx = (rows: TxRow[] | null, id: string, type: string) =>
         (rows || [])
-          .filter(r => r.item_id === id && r.type === type && (!deptParam || !r.department || r.department === deptParam))
+          .filter(r => r.item_id === id && r.type === type)
           .reduce((s, r) => s + Number(r.quantity || 0), 0);
 
       const sheetsByItem = new Map<string, SheetRow[]>();
-      ((sheetsRes.data as SheetRow[]) || []).forEach((s) => {
+      ((sheetsCurrRes.data as SheetRow[]) || []).forEach((s) => {
         const arr = sheetsByItem.get(s.item_id) || [];
         arr.push(s);
         sheetsByItem.set(s.item_id, arr);
@@ -121,7 +133,7 @@ export function useDailyStockCount(startDate: string, endDate?: string, departme
 
       const catalogItems = (itemsRes.data as ItemRow[]) || [];
 
-      // Filter catalog items by department if specified (matching primary or junction departments)
+      // Filter catalog items by department if specified
       const filteredCatalogItems = deptParam
         ? catalogItems.filter(item => {
             const depts = deptMap.get(item.id) || [item.department || 'Retail'];
@@ -129,29 +141,40 @@ export function useDailyStockCount(startDate: string, endDate?: string, departme
           })
         : catalogItems;
 
-      const txData = (txRes.data as TxRow[]) || [];
+      const txCurrData = (txCurrRes.data as TxRow[]) || [];
+      const txPriorData = (txPriorRes.data as TxRow[]) || [];
 
       return filteredCatalogItems
         .map((item): DailyStockCountRow => {
           const depts = deptMap.get(item.id) || [item.department || 'Retail'];
           const sheets = sheetsByItem.get(item.id) || [];
-          const opening = sheets.reduce((s, r) => s + Number(r.open_qty || 0), 0);
+          const sheetOpening = sheets.reduce((s, r) => s + Number(r.open_qty || 0), 0);
           const qtyIn = sheets.reduce((s, r) => s + Number(r.qty_in || 0), 0);
           const closing = sheets.reduce((s, r) => s + Number(r.close_qty || 0), 0);
           const sheetSold = sheets.reduce((s, r) => s + Number(r.sales_qty || 0), 0);
           const comment = sheets.map(r => r.remark).filter(Boolean).join('; ');
 
-          const txReceived = sumTx(txData, item.id, 'receive');
-          const txIssued = sumTx(txData, item.id, 'issuance');
-          const txTransferred = sumTx(txData, item.id, 'transfer');
-          const txSold = sumTx(txData, item.id, 'sale');
-          const txDamages = sumTx(txData, item.id, 'damage');
+          // Prior period carry-forward opening stock calculation
+          const priorRec = Math.max(sumTx(txPriorData, item.id, 'receive'), sum(receivedPriorRes.data as LedgerRow[], item.id));
+          const priorIss = Math.max(sumTx(txPriorData, item.id, 'issuance'), sum(issuancePriorRes.data as LedgerRow[], item.id));
+          const priorTrans = Math.max(sumTx(txPriorData, item.id, 'transfer'), sum(transferPriorRes.data as LedgerRow[], item.id));
+          const priorSold = sumTx(txPriorData, item.id, 'sale');
+          const priorDamages = sumTx(txPriorData, item.id, 'damage');
 
-          const ledgerReceived = sum(receivedRes.data as LedgerRow[], item.id);
-          const ledgerIssued = sum(issuanceRes.data as LedgerRow[], item.id);
-          const ledgerTransferred = sum(transferRes.data as LedgerRow[], item.id);
+          const calculatedOpening = Math.max(0, priorRec - priorIss - priorTrans - priorSold - priorDamages);
+          const finalOpening = sheetOpening > 0 ? sheetOpening : calculatedOpening;
 
-          // Use total sales from inventory_transactions (Reach PDF / AI Assistant) + daily_stock_sheets
+          // Current period movements
+          const txReceived = sumTx(txCurrData, item.id, 'receive');
+          const txIssued = sumTx(txCurrData, item.id, 'issuance');
+          const txTransferred = sumTx(txCurrData, item.id, 'transfer');
+          const txSold = sumTx(txCurrData, item.id, 'sale');
+          const txDamages = sumTx(txCurrData, item.id, 'damage');
+
+          const ledgerReceived = sum(receivedCurrRes.data as LedgerRow[], item.id);
+          const ledgerIssued = sum(issuanceCurrRes.data as LedgerRow[], item.id);
+          const ledgerTransferred = sum(transferCurrRes.data as LedgerRow[], item.id);
+
           const totalSold = txSold + sheetSold;
           const totalReceived = Math.max(txReceived, ledgerReceived) + qtyIn;
           const totalIssued = Math.max(txIssued, ledgerIssued);
@@ -166,7 +189,7 @@ export function useDailyStockCount(startDate: string, endDate?: string, departme
             unit_of_measure: item.unit_of_measure,
             unit_cost: Number(item.unit_cost) || 0,
             low_stock_threshold: Number(item.low_stock_threshold) || 0,
-            opening_stock: opening,
+            opening_stock: finalOpening,
             qty_received: totalReceived,
             qty_issued: totalIssued,
             qty_transferred: totalTransferred,
@@ -214,7 +237,6 @@ export async function saveDailyStockEntries(entries: DailyStockEntryInput[]) {
       if (error) throw error;
     }
 
-    // Sync sales entry into inventory_transactions if sales_qty > 0
     if (entry.qty_sold && entry.qty_sold > 0) {
       await supabase.from('inventory_transactions').insert({
         item_id: entry.item_id,
