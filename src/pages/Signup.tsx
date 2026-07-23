@@ -10,7 +10,6 @@ import { toast } from '@/hooks/use-toast';
 import { Package } from 'lucide-react';
 import { PasswordSchema, firstError } from '@/lib/validation';
 
-
 function safeNext(next: string | null): string {
   if (!next) return '/';
   if (!next.startsWith('/') || next.startsWith('//')) return '/';
@@ -53,18 +52,32 @@ const Signup = () => {
 
     setIsLoading(true);
 
-    // Send the confirmation email back to the same next-target so OAuth consent flows resume there.
     const emailRedirectTo = window.location.origin + nextPath;
-    const { error } = await supabase.auth.signUp({
+    const { error: signUpError } = await supabase.auth.signUp({
       email,
       password,
       options: { emailRedirectTo },
     });
 
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    if (signUpError) {
+      toast({ title: 'Signup Error', description: signUpError.message, variant: 'destructive' });
+      setIsLoading(false);
+      return;
+    }
+
+    // Auto sign-in after creation
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (signInError) {
+      toast({
+        title: 'Account Created',
+        description: 'Account created successfully! Please sign in with your email and password.',
+      });
     } else {
-      toast({ title: 'Success', description: 'Account created! You can now sign in.' });
+      toast({ title: 'Welcome!', description: 'Account created and signed in successfully.' });
     }
 
     setIsLoading(false);
