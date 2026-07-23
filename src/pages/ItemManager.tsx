@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -297,17 +297,21 @@ const ItemManager = () => {
         </Table>
       </div>
 
-      {/* Add/Edit Dialog — full screen on mobile */}
+      {/* Add/Edit Dialog — full screen on mobile, modal on desktop */}
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="w-full h-full sm:h-auto sm:max-w-lg rounded-none sm:rounded-lg overflow-y-auto p-4 sm:p-6 flex flex-col justify-between">
-          <div>
-            <DialogHeader>
-              <DialogTitle className="text-xl">{editingItem ? 'Edit Item' : 'Add New Item'}</DialogTitle>
-              <DialogDescription className="text-xs sm:text-sm">
-                {editingItem ? 'Update item details. You can assign it to multiple departments.' : 'Fill in item details and select which departments stock this item.'}
-              </DialogDescription>
-            </DialogHeader>
-            <form id="item-form" onSubmit={handleSubmit} className="space-y-4 py-4">
+        <DialogContent className="flex flex-col w-full max-w-lg rounded-none sm:rounded-lg p-0 gap-0 h-dvh sm:h-auto sm:max-h-[90vh]">
+          {/* Scrollable header + form */}
+          <div className="flex-1 overflow-y-auto">
+            <div className="px-4 pt-4 pb-2 sm:px-6 sm:pt-6 border-b">
+              <DialogHeader>
+                <DialogTitle className="text-xl">{editingItem ? 'Edit Item' : 'Add New Item'}</DialogTitle>
+                <DialogDescription className="text-xs sm:text-sm">
+                  {editingItem ? 'Update item details. You can assign it to multiple departments.' : 'Fill in item details and select which departments stock this item.'}
+                </DialogDescription>
+              </DialogHeader>
+            </div>
+
+            <form id="item-form" onSubmit={handleSubmit} className="space-y-4 px-4 py-4 sm:px-6">
               <div className="space-y-2">
                 <Label htmlFor="name" className="text-sm">Item Name</Label>
                 <Input
@@ -320,7 +324,7 @@ const ItemManager = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label htmlFor="category" className="text-sm">Category</Label>
                   <Select
@@ -339,7 +343,7 @@ const ItemManager = () => {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="unit" className="text-sm">Unit of Measure</Label>
+                  <Label htmlFor="unit" className="text-sm">Unit</Label>
                   <Select
                     value={formData.unit_of_measure}
                     onValueChange={(value) => setFormData({ ...formData, unit_of_measure: value })}
@@ -363,7 +367,7 @@ const ItemManager = () => {
                   Departments
                   <span className="ml-1.5 text-xs text-muted-foreground font-normal">(select all that apply)</span>
                 </Label>
-                <div className="grid grid-cols-2 gap-2 border rounded-md p-3">
+                <div className="grid grid-cols-2 gap-1 border rounded-md p-3">
                   {DEPARTMENTS.map(dept => (
                     <div key={dept} className="flex items-center gap-2.5 min-h-[44px]">
                       <Checkbox
@@ -391,7 +395,7 @@ const ItemManager = () => {
                 )}
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label htmlFor="low_stock_threshold" className="text-sm">Low Stock Threshold</Label>
                   <Input
@@ -420,8 +424,10 @@ const ItemManager = () => {
               </div>
             </form>
           </div>
-          <DialogFooter className="flex-col sm:flex-row gap-2 pt-4 border-t">
-            <Button type="button" variant="outline" onClick={() => setIsFormOpen(false)} className="w-full sm:w-auto h-11 sm:h-9 text-base sm:text-xs">
+
+          {/* Sticky footer — always visible at bottom */}
+          <div className="shrink-0 flex flex-col sm:flex-row gap-2 p-4 sm:px-6 border-t bg-background">
+            <Button type="button" variant="outline" onClick={() => setIsFormOpen(false)} className="w-full sm:w-auto h-11 sm:h-9 text-base sm:text-xs order-last sm:order-first">
               Cancel
             </Button>
             <Button
@@ -430,9 +436,9 @@ const ItemManager = () => {
               disabled={createItem.isPending || updateItem.isPending || !formData.departments?.length}
               className="w-full sm:w-auto h-11 sm:h-9 text-base sm:text-xs"
             >
-              {editingItem ? 'Update' : 'Create'}
+              {editingItem ? 'Update Item' : 'Create Item'}
             </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 
