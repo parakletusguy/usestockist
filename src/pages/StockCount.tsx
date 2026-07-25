@@ -165,11 +165,11 @@ function MobileStockCard({
           </div>
           <div className="text-center">
             <div className="text-muted-foreground">Unit Cost</div>
-            <div className="font-medium">${(Number(row.unit_cost) || 0).toFixed(2)}</div>
+            <div className="font-medium">₦{(Number(row.unit_cost) || 0).toFixed(2)}</div>
           </div>
           <div className="text-center col-span-2">
             <div className="text-muted-foreground">Variance Value</div>
-            <div className="font-medium">{varianceValue !== null ? `$${varianceValue.toFixed(2)}` : '-'}</div>
+            <div className="font-medium">{varianceValue !== null ? `₦${varianceValue.toFixed(2)}` : '-'}</div>
           </div>
         </div>
       )}
@@ -603,8 +603,8 @@ export default function StockCount() {
                       <TableHead className="text-right font-bold">Stock Balance</TableHead>
                       <TableHead className="text-right min-w-[90px]">Phy. Count</TableHead>
                       <TableHead className="text-right">Variance</TableHead>
-                      <TableHead className="text-right">Unit Cost ($)</TableHead>
-                      <TableHead className="text-right">Variance Val ($)</TableHead>
+                      <TableHead className="text-right">Unit Cost (₦)</TableHead>
+                      <TableHead className="text-right">Variance Val (₦)</TableHead>
                       <TableHead className="min-w-[140px]">Comment</TableHead>
                     </TableRow>
                   </TableHeader>

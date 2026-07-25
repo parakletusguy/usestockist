@@ -208,7 +208,7 @@ export default function DepartmentView() {
                   <div><p className="text-muted-foreground">Sold</p><p className="font-medium text-primary">-{item.qty_sold}</p></div>
                   <div><p className="text-muted-foreground">Issued</p><p className="font-medium text-destructive">-{item.qty_issued}</p></div>
                   <div><p className="text-muted-foreground">Threshold</p><p className="font-medium">{item.low_stock_threshold}</p></div>
-                  <div><p className="text-muted-foreground">Cost</p><p className="font-medium">${(Number(item.unit_cost) || 0).toFixed(2)}</p></div>
+                  <div><p className="text-muted-foreground">Cost</p><p className="font-medium">₦{(Number(item.unit_cost) || 0).toFixed(2)}</p></div>
                 </div>
               </div>
             ))}
@@ -227,7 +227,7 @@ export default function DepartmentView() {
                   <TableHead className="text-right font-bold text-primary whitespace-nowrap">Sold</TableHead>
                   <TableHead className="text-right font-bold whitespace-nowrap">Current Stock</TableHead>
                   <TableHead className="text-right whitespace-nowrap">Threshold</TableHead>
-                  <TableHead className="text-right whitespace-nowrap">Unit Cost ($)</TableHead>
+                  <TableHead className="text-right whitespace-nowrap">Unit Cost (₦)</TableHead>
                   <TableHead className="text-center whitespace-nowrap">Status</TableHead>
                 </TableRow>
               </TableHeader>
@@ -262,7 +262,7 @@ export default function DepartmentView() {
                       <TableCell className="text-right font-semibold text-primary">{item.qty_sold}</TableCell>
                       <TableCell className="text-right font-extrabold text-sm">{item.balance}</TableCell>
                       <TableCell className="text-right text-xs text-muted-foreground">{item.low_stock_threshold}</TableCell>
-                      <TableCell className="text-right">${(Number(item.unit_cost) || 0).toFixed(2)}</TableCell>
+                      <TableCell className="text-right">₦{(Number(item.unit_cost) || 0).toFixed(2)}</TableCell>
                       <TableCell className="text-center whitespace-nowrap">
                         {item.status === 'out' && (
                           <span className="px-2 py-1 rounded-full text-xs font-bold bg-destructive/20 text-destructive">
