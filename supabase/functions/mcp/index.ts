@@ -10,7 +10,7 @@ import { defineTool } from "npm:@lovable.dev/mcp-js@0.23.0";
 import { z } from "npm:zod@^4.4.3";
 
 // src/lib/mcp/supabase.ts
-import { createClient } from "npm:@supabase/supabase-js@^2.93.2";
+import { createClient } from "npm:@supabase/supabase-js@^2.110.8";
 function supabaseAsUser(ctx) {
   const url = process.env.SUPABASE_URL;
   const anon = process.env.SUPABASE_PUBLISHABLE_KEY;
@@ -266,7 +266,7 @@ var record_transfer_default = defineTool9({
 });
 
 // src/lib/mcp/index.ts
-var projectRef = "mqeqopnzopriuzckjjiz";
+var projectRef = "xbglpojlhjrhmkqwelgu";
 var mcp_default = defineMcp({
   name: "stockist-mcp",
   title: "Stockist MCP",
