@@ -223,7 +223,7 @@ const ItemManager = () => {
                 </div>
                 <div>
                   <span className="text-muted-foreground">Unit Cost: </span>
-                  <span className="font-medium">${(Number(item.unit_cost) || 0).toFixed(2)}</span>
+                  <span className="font-medium">₦{(Number(item.unit_cost) || 0).toFixed(2)}</span>
                 </div>
               </div>
             </div>
@@ -241,7 +241,7 @@ const ItemManager = () => {
               <TableHead>Departments</TableHead>
               <TableHead>Unit</TableHead>
               <TableHead className="text-right">Low Stock Threshold</TableHead>
-              <TableHead className="text-right">Unit Cost ($)</TableHead>
+              <TableHead className="text-right">Unit Cost (₦)</TableHead>
               <TableHead className="w-20">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -271,7 +271,7 @@ const ItemManager = () => {
                   </TableCell>
                   <TableCell>{item.unit_of_measure}</TableCell>
                   <TableCell className="text-right">{item.low_stock_threshold}</TableCell>
-                  <TableCell className="text-right">${(Number(item.unit_cost) || 0).toFixed(2)}</TableCell>
+                  <TableCell className="text-right">₦{(Number(item.unit_cost) || 0).toFixed(2)}</TableCell>
                   <TableCell>
                     <div className="flex gap-1">
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenForm(item)}>
@@ -410,7 +410,7 @@ const ItemManager = () => {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="unit_cost" className="text-xs sm:text-sm">Unit Cost ($)</Label>
+                  <Label htmlFor="unit_cost" className="text-xs sm:text-sm">Unit Cost (₦)</Label>
                   <Input
                     id="unit_cost"
                     type="number"

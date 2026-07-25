@@ -351,7 +351,7 @@ export default function ItemSalesReport() {
                     <strong className="text-foreground">{totalQty}</strong> units sold
                   </span>
                 </div>
-                <span className="font-bold text-primary text-sm">${totalValue.toFixed(2)}</span>
+                <span className="font-bold text-primary text-sm">₦{totalValue.toFixed(2)}</span>
               </div>
             )}
 
@@ -371,7 +371,7 @@ export default function ItemSalesReport() {
                         <TableHead className="min-w-[160px]">Item</TableHead>
                         <TableHead className="w-24 text-right min-w-[80px]">Qty Sold</TableHead>
                         <TableHead className="w-24 text-right min-w-[90px]">Unit Price</TableHead>
-                        <TableHead className="w-24 text-right min-w-[90px]">Total ($)</TableHead>
+                        <TableHead className="w-24 text-right min-w-[90px]">Total (₦)</TableHead>
                         <TableHead className="w-12" />
                       </TableRow>
                     </TableHeader>
@@ -468,7 +468,7 @@ export default function ItemSalesReport() {
                       </div>
                     </div>
                     <div className="text-right shrink-0">
-                      <div className="font-bold text-primary">${(rep.total_sales_value || 0).toFixed(2)}</div>
+                      <div className="font-bold text-primary">₦{(rep.total_sales_value || 0).toFixed(2)}</div>
                       <div className="text-[10px] text-muted-foreground truncate max-w-[100px]">{rep.file_name}</div>
                     </div>
                   </div>
