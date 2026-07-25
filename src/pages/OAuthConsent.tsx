@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Package } from "lucide-react";
 
 // Beta namespace not in the SDK's public types yet.
-type OAuthResponse = { data: Record<string, unknown> | null; error: { message?: string } | null };
+type OAuthResponse = { data: any; error: { message?: string } | null };
 type SupabaseOAuth = {
   getAuthorizationDetails: (id: string) => Promise<OAuthResponse>;
   approveAuthorization: (id: string) => Promise<OAuthResponse>;
