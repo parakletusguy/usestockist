@@ -197,7 +197,7 @@ export default function ItemSalesReport() {
       const next = [...prev];
       if (field === 'itemId') {
         const item = items?.find(it => it.id === value);
-        next[index] = { ...next[index], itemId: value, itemName: item?.name || '', unitPrice: item?.unit_cost ?? next[index].unitPrice };
+        next[index] = { ...next[index], itemId: value as string, itemName: item?.name || '', unitPrice: item?.unit_cost ?? next[index].unitPrice };
       } else {
         next[index] = { ...next[index], [field]: value };
       }
