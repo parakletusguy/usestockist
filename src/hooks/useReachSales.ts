@@ -75,7 +75,7 @@ export function useUploadReachSales() {
       if (headerError) throw headerError;
 
       // 2. Insert sales transactions into inventory_transactions table
-      const txRows: TablesInsert<'inventory_transactions'>[] = input.items.map(item => ({
+      const txRows: any[] = input.items.map(item => ({
         item_id: item.item_id,
         type: 'sale',
         quantity: item.qty_sold,

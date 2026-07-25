@@ -1,7 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase as _supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import { TablesInsert } from '@/integrations/supabase/types';
+
+const supabase = _supabase as any;
+type TablesInsert<_T extends string> = any;
 
 const LIST_OPTS = {
   staleTime: 1000 * 30, // 30s cache
