@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 
 /** Clean currency symbols (₦, $, N) and commas from numbers */
 function cleanNumber(str: string): number | null {
-  const cleaned = str.replace(/[₦\$N\s]/gi, '').replace(/,/g, '').trim();
+  const cleaned = str.replace(/[₦$N\s]/gi, '').replace(/,/g, '').trim();
   if (!cleaned) return null;
   const num = parseFloat(cleaned);
   return isNaN(num) ? null : num;
@@ -10,7 +10,7 @@ function cleanNumber(str: string): number | null {
 
 /** Check if token is a currency symbol */
 function isCurrencySymbol(token: string): boolean {
-  return /^[₦\$N]$/i.test(token.trim());
+  return /^[₦$N]$/i.test(token.trim());
 }
 
 /** Check if line is a skip keyword line */
@@ -62,7 +62,7 @@ function parseLineToRow(tokens: string[]): { item_name: string; quantity: number
     if (!tok || isCurrencySymbol(tok)) continue;
 
     const num = cleanNumber(tok);
-    if (num !== null && /^[\d,₦\$N\.\s]+$/i.test(tok)) {
+    if (num !== null && /^[\d,₦$N.\s]+$/i.test(tok)) {
       numTokens.push(num);
     } else {
       if (numTokens.length === 0) {
