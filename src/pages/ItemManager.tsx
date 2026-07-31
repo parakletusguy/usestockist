@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useItems, useCreateItem, useUpdateItem, useDeleteItem, Item, CreateItemInput } from '@/hooks/useItems';
+import { useAuth } from '@/contexts/AuthContext';
 import { DEPARTMENTS } from '@/lib/validation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,13 +10,14 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Plus, Pencil, Trash2, Search, Building2, Info } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, Building2, Info, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const CATEGORIES = ['Beverages', 'Food', 'Supplies', 'Cleaning', 'Equipment', 'Other'];
 const UNITS = ['pcs', 'kg', 'ltr', 'box', 'pack', 'bottle', 'can', 'roll'];
 
 const ItemManager = () => {
+  const { canManageItems } = useAuth();
   const [departmentFilter, setDepartmentFilter] = useState<string>('all');
   const { data: items, isLoading } = useItems(departmentFilter);
   const createItem = useCreateItem();
@@ -123,10 +125,17 @@ const ItemManager = () => {
             Manage your master inventory catalog — items can be shared across multiple departments
           </p>
         </div>
-        <Button onClick={() => handleOpenForm()} className="w-full sm:w-auto h-11 sm:h-9 text-base sm:text-xs">
-          <Plus className="mr-2 h-4 w-4" />
-          Add Item
-        </Button>
+        {canManageItems ? (
+          <Button onClick={() => handleOpenForm()} className="w-full sm:w-auto h-11 sm:h-9 text-base sm:text-xs">
+            <Plus className="mr-2 h-4 w-4" />
+            Add Item
+          </Button>
+        ) : (
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted px-3 py-1.5 rounded-md border">
+            <Lock className="h-3.5 w-3.5" />
+            <span>Manager access required to edit items</span>
+          </div>
+        )}
       </div>
 
       {/* Info Banner: Multi-Department Items */}
@@ -177,7 +186,7 @@ const ItemManager = () => {
       <div className="space-y-3 md:hidden">
         {!filteredItems || filteredItems.length === 0 ? (
           <div className="text-center text-muted-foreground py-8 text-sm border rounded-lg p-4">
-            No items found. Add your first item to get started.
+            No items found.
           </div>
         ) : (
           filteredItems.map(item => (
@@ -187,22 +196,24 @@ const ItemManager = () => {
                   <h3 className="font-semibold text-base">{item.name}</h3>
                   <p className="text-xs text-muted-foreground">{item.category} · {item.unit_of_measure}</p>
                 </div>
-                <div className="flex gap-1 shrink-0">
-                  <Button variant="ghost" size="icon" className="h-10 w-10" onClick={() => handleOpenForm(item)}>
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-10 w-10 text-destructive"
-                    onClick={() => {
-                      setDeletingItem(item);
-                      setIsDeleteOpen(true);
-                    }}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
+                {canManageItems && (
+                  <div className="flex gap-1 shrink-0">
+                    <Button variant="ghost" size="icon" className="h-10 w-10" onClick={() => handleOpenForm(item)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-10 w-10 text-destructive"
+                      onClick={() => {
+                        setDeletingItem(item);
+                        setIsDeleteOpen(true);
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
               </div>
 
               <div className="flex flex-wrap gap-1">
@@ -242,14 +253,14 @@ const ItemManager = () => {
               <TableHead>Unit</TableHead>
               <TableHead className="text-right">Low Stock Threshold</TableHead>
               <TableHead className="text-right">Unit Cost (₦)</TableHead>
-              <TableHead className="w-20">Actions</TableHead>
+              {canManageItems && <TableHead className="w-20">Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {!filteredItems || filteredItems.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                  No items found. Add your first item to get started.
+                <TableCell colSpan={canManageItems ? 7 : 6} className="text-center text-muted-foreground py-8">
+                  No items found.
                 </TableCell>
               </TableRow>
             ) : (
@@ -272,24 +283,26 @@ const ItemManager = () => {
                   <TableCell>{item.unit_of_measure}</TableCell>
                   <TableCell className="text-right">{item.low_stock_threshold}</TableCell>
                   <TableCell className="text-right">₦{(Number(item.unit_cost) || 0).toFixed(2)}</TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenForm(item)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => {
-                          setDeletingItem(item);
-                          setIsDeleteOpen(true);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </TableCell>
+                  {canManageItems && (
+                    <TableCell>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenForm(item)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => {
+                            setDeletingItem(item);
+                            setIsDeleteOpen(true);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))
             )}

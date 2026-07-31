@@ -18,7 +18,7 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 export function AppHeader() {
-  const { user, signOut } = useAuth();
+  const { user, role, signOut } = useAuth();
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
@@ -41,6 +41,13 @@ export function AppHeader() {
   const getInitials = (email: string) => {
     return email.substring(0, 2).toUpperCase();
   };
+
+  const roleLabel = role === 'manager' ? 'Manager' : role === 'inventory' ? 'Inventory' : 'Viewer';
+  const roleBadgeStyle = role === 'manager'
+    ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30'
+    : role === 'inventory'
+    ? 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30'
+    : 'bg-muted text-muted-foreground border-border';
 
   return (
     <>
@@ -91,8 +98,13 @@ export function AppHeader() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-56 bg-background" align="end" forceMount>
-              <div className="flex flex-col space-y-1 p-2">
+              <div className="flex flex-col space-y-1.5 p-2">
                 <p className="text-sm font-medium leading-none truncate">{user?.email}</p>
+                <div className="flex items-center gap-1.5">
+                  <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border ${roleBadgeStyle}`}>
+                    {roleLabel}
+                  </span>
+                </div>
               </div>
               <DropdownMenuItem onClick={signOut} className="cursor-pointer">
                 <LogOut className="mr-2 h-4 w-4" />

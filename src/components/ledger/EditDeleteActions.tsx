@@ -1,5 +1,6 @@
 import { Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,6 +20,12 @@ interface EditDeleteActionsProps {
 }
 
 export function EditDeleteActions({ onEdit, onDelete, isDeleting }: EditDeleteActionsProps) {
+  const { canWriteLedgers } = useAuth();
+
+  if (!canWriteLedgers) {
+    return null;
+  }
+
   return (
     <div className="flex items-center gap-1">
       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onEdit}>
@@ -51,3 +58,4 @@ export function EditDeleteActions({ onEdit, onDelete, isDeleting }: EditDeleteAc
     </div>
   );
 }
+

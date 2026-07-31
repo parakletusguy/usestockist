@@ -16,7 +16,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { CalendarIcon, Plus, Download } from 'lucide-react';
+import { CalendarIcon, Plus, Download, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { exportToCSV } from '@/lib/export';
 import { EditDeleteActions } from '@/components/ledger/EditDeleteActions';
@@ -26,7 +26,7 @@ import { DEPARTMENTS } from '@/lib/validation';
 const RECIPIENT_GROUPS = DEPARTMENTS;
 
 const Issuance = () => {
-  const { user } = useAuth();
+  const { user, canWriteLedgers } = useAuth();
   const [date, setDate] = useState<Date>(new Date());
   const [recipientGroup, setRecipientGroup] = useState<string>('');
   const [selectedItem, setSelectedItem] = useState<string>('');
@@ -124,62 +124,69 @@ const Issuance = () => {
       </div>
 
       {/* Entry Form */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base sm:text-lg">New Issuance</CardTitle>
-          <CardDescription className="text-xs sm:text-sm">Record a new item issuance</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Date</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal h-11 sm:h-9 text-base sm:text-xs")}>
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {format(date, 'PPP')}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar mode="single" selected={date} onSelect={(d) => d && setDate(d)} initialFocus className="pointer-events-auto" />
-                  </PopoverContent>
-                </Popover>
+      {canWriteLedgers ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base sm:text-lg">New Issuance</CardTitle>
+            <CardDescription className="text-xs sm:text-sm">Record a new item issuance</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className={cn("w-full justify-start text-left font-normal h-11 sm:h-9 text-base sm:text-xs")}>
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {format(date, 'PPP')}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar mode="single" selected={date} onSelect={(d) => d && setDate(d)} initialFocus className="pointer-events-auto" />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Recipient Group</Label>
+                  <Select value={recipientGroup} onValueChange={setRecipientGroup}>
+                    <SelectTrigger className="h-11 sm:h-9 text-base sm:text-xs"><SelectValue placeholder="Select group" /></SelectTrigger>
+                    <SelectContent className="bg-background">
+                      {RECIPIENT_GROUPS.map(group => (
+                        <SelectItem key={group} value={group}>{group}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Item</Label>
+                  <Select value={selectedItem} onValueChange={setSelectedItem}>
+                    <SelectTrigger className="h-11 sm:h-9 text-base sm:text-xs"><SelectValue placeholder="Select item" /></SelectTrigger>
+                    <SelectContent className="bg-background">
+                      {items?.map(item => (
+                        <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Quantity</Label>
+                  <Input type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="0" className="h-11 sm:h-9 text-base sm:text-xs" required />
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Recipient Group</Label>
-                <Select value={recipientGroup} onValueChange={setRecipientGroup}>
-                  <SelectTrigger className="h-11 sm:h-9 text-base sm:text-xs"><SelectValue placeholder="Select group" /></SelectTrigger>
-                  <SelectContent className="bg-background">
-                    {RECIPIENT_GROUPS.map(group => (
-                      <SelectItem key={group} value={group}>{group}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Item</Label>
-                <Select value={selectedItem} onValueChange={setSelectedItem}>
-                  <SelectTrigger className="h-11 sm:h-9 text-base sm:text-xs"><SelectValue placeholder="Select item" /></SelectTrigger>
-                  <SelectContent className="bg-background">
-                    {items?.map(item => (
-                      <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Quantity</Label>
-                <Input type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="0" className="h-11 sm:h-9 text-base sm:text-xs" required />
-              </div>
-            </div>
-            <Button type="submit" disabled={createIssuance.isPending || !selectedItem || !recipientGroup} className="w-full sm:w-auto h-11 sm:h-9 text-base sm:text-xs">
-              <Plus className="mr-2 h-4 w-4" />
-              Record Issuance
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+              <Button type="submit" disabled={createIssuance.isPending || !selectedItem || !recipientGroup} className="w-full sm:w-auto h-11 sm:h-9 text-base sm:text-xs">
+                <Plus className="mr-2 h-4 w-4" />
+                Record Issuance
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="flex items-center gap-2 p-3 rounded-lg border bg-muted text-xs text-muted-foreground">
+          <Lock className="h-4 w-4" />
+          <span>You have read-only access to this ledger.</span>
+        </div>
+      )}
 
       {/* History Table */}
       <Card>

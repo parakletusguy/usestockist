@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { useItems } from '@/hooks/useItems';
+import { useAuth } from '@/contexts/AuthContext';
 import { useReceivedLedger, useCreateReceived, useUpdateReceived, useDeleteReceived, ReceivedLedger } from '@/hooks/useLedgers';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,12 +16,13 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { CalendarIcon, Plus, Download } from 'lucide-react';
+import { CalendarIcon, Plus, Download, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { exportToCSV } from '@/lib/export';
 import { EditDeleteActions } from '@/components/ledger/EditDeleteActions';
 
 const Received = () => {
+  const { canWriteLedgers } = useAuth();
   const [date, setDate] = useState<Date>(new Date());
   const [supplier, setSupplier] = useState('');
   const [selectedItem, setSelectedItem] = useState('');
@@ -115,55 +117,62 @@ const Received = () => {
         <p className="text-muted-foreground text-xs sm:text-sm">Record items received from suppliers</p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base sm:text-lg">New Receipt</CardTitle>
-          <CardDescription className="text-xs sm:text-sm">Record items received from a supplier</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Date</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal h-11 sm:h-9 text-base sm:text-xs")}>
-                      <CalendarIcon className="mr-2 h-4 w-4" />{format(date, 'PPP')}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar mode="single" selected={date} onSelect={(d) => d && setDate(d)} initialFocus className="pointer-events-auto" />
-                  </PopoverContent>
-                </Popover>
+      {canWriteLedgers ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base sm:text-lg">New Receipt</CardTitle>
+            <CardDescription className="text-xs sm:text-sm">Record items received from a supplier</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className={cn("w-full justify-start text-left font-normal h-11 sm:h-9 text-base sm:text-xs")}>
+                        <CalendarIcon className="mr-2 h-4 w-4" />{format(date, 'PPP')}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar mode="single" selected={date} onSelect={(d) => d && setDate(d)} initialFocus className="pointer-events-auto" />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Supplier</Label>
+                  <Input value={supplier} onChange={(e) => setSupplier(e.target.value)} placeholder="Supplier name" className="h-11 sm:h-9 text-base sm:text-xs" required />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Item</Label>
+                  <Select value={selectedItem} onValueChange={setSelectedItem}>
+                    <SelectTrigger className="h-11 sm:h-9 text-base sm:text-xs"><SelectValue placeholder="Select item" /></SelectTrigger>
+                    <SelectContent className="bg-background">
+                      {items?.map(item => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Quantity</Label>
+                  <Input type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="0" className="h-11 sm:h-9 text-base sm:text-xs" required />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Invoice # (Optional)</Label>
+                  <Input value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} placeholder="INV-001" className="h-11 sm:h-9 text-base sm:text-xs" />
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Supplier</Label>
-                <Input value={supplier} onChange={(e) => setSupplier(e.target.value)} placeholder="Supplier name" className="h-11 sm:h-9 text-base sm:text-xs" required />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Item</Label>
-                <Select value={selectedItem} onValueChange={setSelectedItem}>
-                  <SelectTrigger className="h-11 sm:h-9 text-base sm:text-xs"><SelectValue placeholder="Select item" /></SelectTrigger>
-                  <SelectContent className="bg-background">
-                    {items?.map(item => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Quantity</Label>
-                <Input type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="0" className="h-11 sm:h-9 text-base sm:text-xs" required />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Invoice # (Optional)</Label>
-                <Input value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} placeholder="INV-001" className="h-11 sm:h-9 text-base sm:text-xs" />
-              </div>
-            </div>
-            <Button type="submit" disabled={createReceived.isPending || !selectedItem || !supplier} className="w-full sm:w-auto h-11 sm:h-9 text-base sm:text-xs">
-              <Plus className="mr-2 h-4 w-4" />Record Receipt
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+              <Button type="submit" disabled={createReceived.isPending || !selectedItem || !supplier} className="w-full sm:w-auto h-11 sm:h-9 text-base sm:text-xs">
+                <Plus className="mr-2 h-4 w-4" />Record Receipt
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="flex items-center gap-2 p-3 rounded-lg border bg-muted text-xs text-muted-foreground">
+          <Lock className="h-4 w-4" />
+          <span>You have read-only access to this ledger.</span>
+        </div>
+      )}
 
       <Card>
         <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">

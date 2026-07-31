@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import { useDailyStockCount, useSaveDailyStockCount, DailyStockCountRow, DailyStockEntryInput } from '@/hooks/useDailyStockCount';
 import { useOfflineSync } from '@/hooks/useOfflineSync';
+import { useAuth } from '@/contexts/AuthContext';
 import { DEPARTMENTS } from '@/lib/validation';
 import { exportToCSV } from '@/lib/export';
 import { Button } from '@/components/ui/button';
@@ -12,7 +13,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { CalendarIcon, Download, Save, Search, Wifi, WifiOff, CloudOff, PackageX, AlertTriangle, CheckCircle2, Building2, ChevronDown, ChevronUp } from 'lucide-react';
+import { CalendarIcon, Download, Save, Search, Wifi, WifiOff, CloudOff, PackageX, AlertTriangle, CheckCircle2, Building2, ChevronDown, ChevronUp, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type PeriodType = 'daily' | 'weekly' | 'monthly' | 'custom';
@@ -64,6 +65,7 @@ function MobileStockCard({
   varianceValue,
   status,
   onUpdate,
+  readOnly,
 }: {
   row: DailyStockCountRow;
   edit: RowEdit;
@@ -74,6 +76,7 @@ function MobileStockCard({
   varianceValue: number | null;
   status: Status;
   onUpdate: (field: keyof RowEdit, value: string) => void;
+  readOnly?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -105,6 +108,7 @@ function MobileStockCard({
             onChange={(e) => onUpdate('damages', e.target.value)}
             className="h-9 text-sm text-right"
             placeholder="0"
+            disabled={readOnly}
           />
         </div>
         <div>
@@ -115,6 +119,7 @@ function MobileStockCard({
             onChange={(e) => onUpdate('phy_count', e.target.value)}
             className="h-9 text-sm text-right"
             placeholder="-"
+            disabled={readOnly}
           />
         </div>
       </div>
@@ -125,6 +130,7 @@ function MobileStockCard({
         onChange={(e) => onUpdate('comment', e.target.value)}
         className="h-9 text-sm"
         placeholder="Comment..."
+        disabled={readOnly}
       />
 
       {/* Expand to see all columns */}
@@ -178,6 +184,7 @@ function MobileStockCard({
 }
 
 export default function StockCount() {
+  const { canWriteLedgers } = useAuth();
   const [searchParams] = useSearchParams();
   const [period, setPeriod] = useState<PeriodType>('daily');
   const [singleDate, setSingleDate] = useState<Date>(new Date());
@@ -545,10 +552,17 @@ export default function StockCount() {
               <span className="hidden sm:inline">Export CSV</span>
               <span className="sm:hidden">CSV</span>
             </Button>
-            <Button size="sm" onClick={handleSave} disabled={dirty.size === 0 || saveStockCount.isPending} className="h-9">
-              <Save className="mr-1.5 h-4 w-4" />
-              Save ({dirty.size})
-            </Button>
+            {canWriteLedgers ? (
+              <Button size="sm" onClick={handleSave} disabled={dirty.size === 0 || saveStockCount.isPending} className="h-9">
+                <Save className="mr-1.5 h-4 w-4" />
+                Save ({dirty.size})
+              </Button>
+            ) : (
+              <div className="flex items-center gap-1 text-xs text-muted-foreground bg-muted px-2.5 py-1.5 rounded border">
+                <Lock className="h-3.5 w-3.5" />
+                <span>Read-only</span>
+              </div>
+            )}
           </div>
         </CardHeader>
         <CardContent className="p-3 sm:p-6 pt-0">
@@ -581,6 +595,7 @@ export default function StockCount() {
                         varianceValue={varianceValue}
                         status={status}
                         onUpdate={(field, value) => updateField(row.item_id, field, value)}
+                        readOnly={!canWriteLedgers}
                       />
                     ))}
                   </div>
@@ -639,6 +654,7 @@ export default function StockCount() {
                                 onChange={(e) => updateField(row.item_id, 'damages', e.target.value)}
                                 className="h-8 w-16 text-right ml-auto text-xs"
                                 placeholder="0"
+                                disabled={!canWriteLedgers}
                               />
                             </TableCell>
                             <TableCell className={cn('text-right font-bold text-sm', statusBadge[status])}>
@@ -651,6 +667,7 @@ export default function StockCount() {
                                 onChange={(e) => updateField(row.item_id, 'phy_count', e.target.value)}
                                 className="h-8 w-20 text-right ml-auto text-xs"
                                 placeholder="-"
+                                disabled={!canWriteLedgers}
                               />
                             </TableCell>
                             <TableCell className="text-right">{variance ?? '-'}</TableCell>
@@ -664,6 +681,7 @@ export default function StockCount() {
                                 onChange={(e) => updateField(row.item_id, 'comment', e.target.value)}
                                 className="h-8 text-xs"
                                 placeholder="Comment"
+                                disabled={!canWriteLedgers}
                               />
                             </TableCell>
                           </TableRow>

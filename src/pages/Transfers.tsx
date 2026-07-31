@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { useItems } from '@/hooks/useItems';
+import { useAuth } from '@/contexts/AuthContext';
 import { useTransferLedger, useCreateTransfer, useUpdateTransfer, useDeleteTransfer, TransferLedger } from '@/hooks/useLedgers';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,7 +17,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { CalendarIcon, Plus, Download } from 'lucide-react';
+import { CalendarIcon, Plus, Download, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { exportToCSV } from '@/lib/export';
 import { EditDeleteActions } from '@/components/ledger/EditDeleteActions';
@@ -26,6 +27,7 @@ import { DEPARTMENTS } from '@/lib/validation';
 const DESTINATIONS = DEPARTMENTS;
 
 const Transfers = () => {
+  const { canWriteLedgers } = useAuth();
   const [date, setDate] = useState<Date>(new Date());
   const [destination, setDestination] = useState('');
   const [selectedItem, setSelectedItem] = useState('');
@@ -120,11 +122,12 @@ const Transfers = () => {
         <p className="text-muted-foreground text-xs sm:text-sm">Record items transferred to other locations</p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base sm:text-lg">New Transfer</CardTitle>
-          <CardDescription className="text-xs sm:text-sm">Record a new item transfer</CardDescription>
-        </CardHeader>
+      {canWriteLedgers ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base sm:text-lg">New Transfer</CardTitle>
+            <CardDescription className="text-xs sm:text-sm">Record a new item transfer</CardDescription>
+          </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
@@ -174,6 +177,12 @@ const Transfers = () => {
           </form>
         </CardContent>
       </Card>
+      ) : (
+        <div className="flex items-center gap-2 p-3 rounded-lg border bg-muted text-xs text-muted-foreground">
+          <Lock className="h-4 w-4" />
+          <span>You have read-only access to this ledger.</span>
+        </div>
+      )}
 
       <Card>
         <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
