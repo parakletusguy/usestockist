@@ -19,6 +19,7 @@ import AIAssistantPage from "./pages/AIAssistantPage";
 import NotFound from "./pages/NotFound";
 import Install from "./pages/Install";
 import OAuthConsent from "./pages/OAuthConsent";
+import Settings from "./pages/Settings";
 
 const queryClient = new QueryClient();
 
@@ -61,6 +62,7 @@ const App = () => (
               <Route path="/reports" element={<Navigate to="/ledgers/item-sales" replace />} />
               <Route path="/insights" element={<Navigate to="/ai-assistant" replace />} />
             </Route>
+            <Route path="/settings" element={<Settings />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

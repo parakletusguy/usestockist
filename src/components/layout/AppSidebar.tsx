@@ -11,6 +11,7 @@ import {
   Sparkles,
   Menu,
   X,
+  Settings,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import {
@@ -134,6 +135,22 @@ export function MobileNavDrawer({
             <Sparkles className="h-5 w-5 shrink-0 text-primary" />
             AI Assistant
           </NavLink>
+
+          {/* Account */}
+          <div className="pt-3 pb-1 mt-auto">
+            <p className="px-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+              Account
+            </p>
+          </div>
+          <NavLink
+            to="/settings"
+            className={linkClass}
+            activeClassName={activeLinkClass}
+            onClick={onClose}
+          >
+            <Settings className="h-5 w-5 shrink-0" />
+            Settings
+          </NavLink>
         </nav>
       </SheetContent>
     </Sheet>
@@ -228,6 +245,27 @@ export function AppSidebar() {
                   >
                     <Sparkles className="h-4 w-4 text-primary" />
                     {!collapsed && <span>AI Assistant</span>}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* Account */}
+        <SidebarGroup className="mt-auto">
+          <SidebarGroupLabel>{!collapsed && 'Account'}</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild tooltip="Settings">
+                  <NavLink 
+                    to="/settings" 
+                    className="flex items-center gap-2 hover:bg-muted/50" 
+                    activeClassName="bg-muted text-primary font-medium"
+                  >
+                    <Settings className="h-4 w-4" />
+                    {!collapsed && <span>Settings</span>}
                   </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>

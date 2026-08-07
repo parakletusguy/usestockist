@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Package, LogOut, Menu, Download } from 'lucide-react';
+import { Package, LogOut, Menu, Download, Settings } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { SidebarTrigger } from '@/components/ui/sidebar';
@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { MobileNavDrawer } from './AppSidebar';
+import { useNavigate } from 'react-router-dom';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
@@ -19,6 +20,7 @@ interface BeforeInstallPromptEvent extends Event {
 
 export function AppHeader() {
   const { user, role, signOut } = useAuth();
+  const navigate = useNavigate();
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
@@ -106,6 +108,10 @@ export function AppHeader() {
                   </span>
                 </div>
               </div>
+              <DropdownMenuItem onClick={() => navigate('/settings')} className="cursor-pointer">
+                <Settings className="mr-2 h-4 w-4" />
+                <span>Settings</span>
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={signOut} className="cursor-pointer">
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Log out</span>
