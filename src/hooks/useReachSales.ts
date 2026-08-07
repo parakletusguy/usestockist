@@ -109,3 +109,90 @@ export function useUploadReachSales() {
     },
   });
 }
+
+export interface ReachSalesReportDetailItem {
+  id: string;
+  item_id: string;
+  item_name: string;
+  quantity: number;
+  unit_price: number;
+  category: string;
+}
+
+export function useReachSalesReportDetails(reportId: string | null) {
+  return useQuery({
+    queryKey: ['reach_sales_report_details', reportId],
+    enabled: !!reportId,
+    queryFn: async () => {
+      if (!reportId) return [];
+      
+      const { data, error } = await supabase
+        .from('inventory_transactions')
+        .select(`
+          id,
+          item_id,
+          quantity,
+          metadata,
+          items (
+            name,
+            category
+          )
+        `)
+        .eq('type', 'sale')
+        .eq('metadata->>report_id', reportId);
+
+      if (error) {
+        console.error('Error fetching report details:', error);
+        throw error;
+      }
+
+      return (data || []).map(tx => {
+        const items = tx.items as any;
+        const meta = tx.metadata as any;
+        return {
+          id: tx.id,
+          item_id: tx.item_id,
+          item_name: items?.name || 'Unknown Item',
+          category: items?.category || 'General',
+          quantity: Number(tx.quantity),
+          unit_price: Number(meta?.unit_price || 0)
+        } as ReachSalesReportDetailItem;
+      });
+    }
+  });
+}
+
+export function useDeleteReachSalesReport() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (reportId: string) => {
+      const { error: txError } = await supabase
+        .from('inventory_transactions')
+        .delete()
+        .eq('type', 'sale')
+        .eq('metadata->>report_id', reportId);
+
+      if (txError) throw txError;
+
+      const { error: headerError } = await supabase
+        .from('reach_sales_reports')
+        .delete()
+        .eq('id', reportId);
+
+      if (headerError) throw headerError;
+
+      return reportId;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reach_sales_reports'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory_transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['stock_count'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      toast({ title: 'Success', description: 'Sales report deleted successfully' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Delete Error', description: error.message, variant: 'destructive' });
+    }
+  });
+}

@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { format } from 'date-fns';
 import { useItems } from '@/hooks/useItems';
-import { useReachSalesReports, useUploadReachSales } from '@/hooks/useReachSales';
+import { useReachSalesReports, useUploadReachSales, useReachSalesReportDetails, useDeleteReachSalesReport, ReachSalesReport } from '@/hooks/useReachSales';
 import { parsePdfSalesReport } from '@/lib/parsePdf';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,9 +10,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import {
   CalendarIcon, Upload, FileSpreadsheet, FileScan,
-  CheckCircle2, ShoppingBag, Plus, Trash2, Loader2,
+  CheckCircle2, ShoppingBag, Plus, Trash2, Loader2, FileText,
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -39,6 +40,10 @@ export default function ItemSalesReport() {
   const { data: items } = useItems();
   const { data: reportsHistory, isLoading: isLoadingHistory } = useReachSalesReports();
   const uploadSales = useUploadReachSales();
+  
+  const [selectedReport, setSelectedReport] = useState<ReachSalesReport | null>(null);
+  const deleteReport = useDeleteReachSalesReport();
+  const { data: reportDetails, isLoading: isLoadingDetails } = useReachSalesReportDetails(selectedReport?.id || null);
 
   /** Match a raw name from PDF/CSV against the catalog */
   const matchToCatalog = useCallback((rawName: string): { id: string; name: string; unit_cost: number } | null => {
@@ -450,7 +455,7 @@ export default function ItemSalesReport() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base sm:text-lg">Recent Uploads</CardTitle>
-            <CardDescription className="text-xs sm:text-sm">Reach daily reports history</CardDescription>
+            <CardDescription className="text-xs sm:text-sm">Reach daily reports history (Click to view details)</CardDescription>
           </CardHeader>
           <CardContent>
             {isLoadingHistory ? (
@@ -460,7 +465,11 @@ export default function ItemSalesReport() {
             ) : (
               <div className="space-y-3">
                 {reportsHistory.map(rep => (
-                  <div key={rep.id} className="p-3 border rounded-lg flex items-center justify-between text-xs sm:text-sm gap-2">
+                  <div 
+                    key={rep.id} 
+                    onClick={() => setSelectedReport(rep)}
+                    className="p-3 border rounded-lg flex items-center justify-between text-xs sm:text-sm gap-2 cursor-pointer transition-all hover:bg-accent/40 active:bg-accent/70 hover:border-primary/50 shadow-sm hover:shadow-md"
+                  >
                     <div className="min-w-0">
                       <div className="font-semibold truncate">{rep.retail_member_name}</div>
                       <div className="text-xs text-muted-foreground">
@@ -478,6 +487,140 @@ export default function ItemSalesReport() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Detailed report modal */}
+      <Dialog open={!!selectedReport} onOpenChange={(open) => !open && setSelectedReport(null)}>
+        <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] flex flex-col p-4 sm:p-6 overflow-hidden">
+          {selectedReport && (
+            <>
+              <DialogHeader className="space-y-1">
+                <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
+                  <FileText className="h-5 w-5 text-primary" />
+                  Sales Report Details
+                </DialogTitle>
+                <DialogDescription className="text-xs sm:text-sm">
+                  Uploaded by <strong className="text-foreground">{selectedReport.retail_member_name}</strong> on {format(new Date(selectedReport.report_date), 'PPP')}
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="flex-1 overflow-y-auto my-4 pr-1">
+                {isLoadingDetails ? (
+                  <div className="flex flex-col items-center justify-center py-12 gap-2">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <span className="text-sm text-muted-foreground">Loading sales items...</span>
+                  </div>
+                ) : !reportDetails || reportDetails.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground text-sm">
+                    No items found in this sales report.
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="border rounded-md overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="text-xs sm:text-sm">Item Name</TableHead>
+                            <TableHead className="text-right text-xs sm:text-sm">Qty Sold</TableHead>
+                            <TableHead className="text-right text-xs sm:text-sm">Price</TableHead>
+                            <TableHead className="text-right text-xs sm:text-sm">Subtotal</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {reportDetails.map((det) => (
+                            <TableRow key={det.id}>
+                              <TableCell className="font-medium text-xs sm:text-sm">
+                                <div>{det.item_name}</div>
+                                <div className="text-[10px] text-muted-foreground">{det.category}</div>
+                              </TableCell>
+                              <TableCell className="text-right text-xs sm:text-sm">{det.quantity}</TableCell>
+                              <TableCell className="text-right text-xs sm:text-sm">₦{det.unit_price.toFixed(2)}</TableCell>
+                              <TableCell className="text-right font-medium text-xs sm:text-sm">
+                                ₦{(det.quantity * det.unit_price).toFixed(2)}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+
+                    <div className="bg-accent/30 p-3 sm:p-4 rounded-lg flex flex-col sm:flex-row sm:justify-between gap-3 text-xs sm:text-sm border">
+                      <div>
+                        <div className="text-muted-foreground">Source File:</div>
+                        <div className="font-semibold truncate max-w-[250px]">{selectedReport.file_name || 'Manual Entry'}</div>
+                      </div>
+                      <div className="sm:text-right">
+                        <div className="text-muted-foreground">Total Sales Value:</div>
+                        <div className="text-xl sm:text-2xl font-bold text-primary">
+                          ₦{(selectedReport.total_sales_value || 0).toFixed(2)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-between w-full pt-2 border-t mt-auto">
+                <Button 
+                  variant="destructive" 
+                  size="sm"
+                  className="w-full sm:w-auto text-xs"
+                  disabled={deleteReport.isPending}
+                  onClick={async () => {
+                    if (window.confirm("Are you sure you want to delete and void this sales report? This will restore the items' inventory levels by reversing the sales.")) {
+                      await deleteReport.mutateAsync(selectedReport.id);
+                      setSelectedReport(null);
+                    }
+                  }}
+                >
+                  {deleteReport.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4 mr-2" />
+                  )}
+                  Void/Delete Report
+                </Button>
+
+                <div className="flex gap-2 w-full sm:w-auto">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex-1 sm:flex-initial text-xs"
+                    onClick={() => setSelectedReport(null)}
+                  >
+                    Close
+                  </Button>
+                  
+                  <Button 
+                    variant="default" 
+                    size="sm" 
+                    className="flex-1 sm:flex-initial text-xs"
+                    disabled={!reportDetails || reportDetails.length === 0}
+                    onClick={() => {
+                      if (!reportDetails) return;
+                      // Generate CSV content
+                      const headers = "Item Name,Category,Quantity Sold,Unit Price,Subtotal\n";
+                      const rows = reportDetails.map(d => 
+                        `"${d.item_name}","${d.category}",${d.quantity},${d.unit_price},${(d.quantity * d.unit_price).toFixed(2)}`
+                      ).join("\n");
+                      const blob = new Blob([headers + rows], { type: 'text/csv;charset=utf-8;' });
+                      const url = URL.createObjectURL(blob);
+                      const link = document.createElement("a");
+                      link.setAttribute("href", url);
+                      link.setAttribute("download", `sales_report_${selectedReport.retail_member_name}_${selectedReport.report_date}.csv`);
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                    }}
+                  >
+                    <FileSpreadsheet className="h-4 w-4 mr-2" />
+                    Export CSV
+                  </Button>
+                </div>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

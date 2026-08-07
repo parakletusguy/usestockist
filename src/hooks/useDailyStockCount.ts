@@ -74,6 +74,8 @@ export function useDailyStockCount(startDate: string, endDate?: string, departme
     queryFn: async () => {
       const startD = startDate;
       const endD = endDate || startDate;
+      const startTxD = startD.includes('T') ? startD : `${startD}T00:00:00`;
+      const endTxD = endD.includes('T') ? endD : `${endD}T23:59:59.999Z`;
 
       // 1. Fetch catalog items & department junction table
       const [itemsRes, itemDeptsRes] = await Promise.all([
@@ -107,13 +109,13 @@ export function useDailyStockCount(startDate: string, endDate?: string, departme
           .gte('date', startD).lte('date', endD),
         supabase.from('inventory_transactions')
           .select('item_id, type, quantity, department')
-          .gte('transaction_date', startD)
-          .lte('transaction_date', endD),
+          .gte('transaction_date', startTxD)
+          .lte('transaction_date', endTxD),
         // Prior queries for automatic opening stock calculation
         supabase.from('issuance_ledger').select('item_id, quantity').lt('date', startD),
         supabase.from('received_ledger').select('item_id, quantity').lt('date', startD),
         supabase.from('transfer_ledger').select('item_id, quantity').lt('date', startD),
-        supabase.from('inventory_transactions').select('item_id, type, quantity').lt('transaction_date', startD),
+        supabase.from('inventory_transactions').select('item_id, type, quantity').lt('transaction_date', startTxD),
       ]);
 
       const sum = (rows: LedgerRow[] | null, id: string) =>
