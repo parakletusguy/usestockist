@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from '@/hooks/use-toast';
-import { Package, Eye, EyeOff } from 'lucide-react';
+import { Package } from 'lucide-react';
 
 // Only accept same-origin relative paths as `next`, to prevent open redirects.
 function safeNext(next: string | null): string {
@@ -21,7 +21,6 @@ const Login = () => {
   const nextPath = safeNext(params.get('next'));
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   if (loading) {
@@ -40,16 +39,16 @@ const Login = () => {
     e.preventDefault();
     setIsLoading(true);
 
-    const cleanEmail = email.trim();
-    const { error } = await signIn(cleanEmail, password);
+    const { error } = await signIn(email, password);
 
     if (error) {
       toast({
-        title: 'Sign In Failed',
-        description: error.message || 'Invalid login credentials. Please check your email and password.',
+        title: 'Error',
+        description: error.message,
         variant: 'destructive',
       });
     }
+    // On success, the `user` guard above handles the redirect to nextPath on next render.
 
     setIsLoading(false);
   };
@@ -82,25 +81,15 @@ const Login = () => {
             </div>
             <div className="space-y-2">
               <Label htmlFor="password" className="text-sm">Password</Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="h-11 sm:h-9 text-base sm:text-sm pr-10"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1"
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
+              <Input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="h-11 sm:h-9 text-base sm:text-sm"
+                required
+              />
             </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-4 p-4 sm:p-6 pt-0 sm:pt-0">

@@ -12,11 +12,8 @@ import {
   Menu,
   X,
   Settings,
-  ShoppingCart,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
-import { useAuth } from '@/contexts/AuthContext';
-import { useRole } from '@/hooks/useRole';
 import {
   Sidebar,
   SidebarContent,
@@ -33,7 +30,7 @@ import { Button } from '@/components/ui/button';
 import { Package as PackageIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const baseLedgerItems = [
+const ledgerItems = [
   { title: 'Received', url: '/ledgers/received', icon: PackageCheck },
   { title: 'Transfer', url: '/ledgers/transfers', icon: ArrowLeftRight },
   { title: 'Issuance', url: '/ledgers/issuance', icon: Send },
@@ -59,15 +56,8 @@ export function MobileNavDrawer({
   open: boolean;
   onClose: () => void;
 }) {
-  const { session } = useAuth();
-  const { canManageReorders } = useRole(session);
   const linkClass = 'flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors hover:bg-muted/60 min-h-[44px]';
   const activeLinkClass = 'bg-muted text-primary font-semibold';
-
-  const ledgerItems = [
-    ...baseLedgerItems,
-    ...(canManageReorders ? [{ title: 'Purchase Orders', url: '/ledgers/purchase-orders', icon: ShoppingCart }] : []),
-  ];
 
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
@@ -170,14 +160,7 @@ export function MobileNavDrawer({
 /** Desktop sidebar — uses shadcn Sidebar with collapsible icon mode */
 export function AppSidebar() {
   const { state } = useSidebar();
-  const { session } = useAuth();
-  const { canManageReorders } = useRole(session);
   const collapsed = state === 'collapsed';
-
-  const ledgerItems = [
-    ...baseLedgerItems,
-    ...(canManageReorders ? [{ title: 'Purchase Orders', url: '/ledgers/purchase-orders', icon: ShoppingCart }] : []),
-  ];
 
   return (
     <Sidebar collapsible="icon" className="hidden md:flex">
