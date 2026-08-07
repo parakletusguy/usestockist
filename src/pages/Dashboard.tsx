@@ -1,9 +1,13 @@
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { useRole } from '@/hooks/useRole';
+import { usePredictiveReordering } from '@/hooks/usePredictiveReordering';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Package, TrendingUp, ArrowRightLeft, PackageCheck, Send, ClipboardList, Plus, AlertTriangle } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Package, TrendingUp, ArrowRightLeft, PackageCheck, Send, ClipboardList, Plus, AlertTriangle, Sparkles, ShoppingCart } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 
 const COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
@@ -79,6 +83,11 @@ function useDashboardData() {
 
 const Dashboard = () => {
   const { data, isLoading } = useDashboardData();
+  const { session } = useAuth();
+  const { canManageReorders } = useRole(session);
+  const { purchaseOrders } = usePredictiveReordering();
+
+  const draftPOs = purchaseOrders.filter((po) => po.status === 'draft');
 
   if (isLoading) {
     return (
@@ -226,6 +235,64 @@ const Dashboard = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Manager Predictive Reorders Alert Card */}
+      {canManageReorders && (
+        <Card className="border-indigo-200 dark:border-indigo-900 bg-gradient-to-r from-indigo-50/50 via-background to-violet-50/50 dark:from-indigo-950/20 dark:to-violet-950/20">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <div>
+              <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                Predictive Reorder Pipeline
+              </CardTitle>
+              <CardDescription>
+                Automated demand forecasting &amp; velocity alerts
+              </CardDescription>
+            </div>
+            <Button asChild size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white">
+              <Link to="/ledgers/purchase-orders">
+                <ShoppingCart className="h-4 w-4 mr-2" />
+                Manage POs ({draftPOs.length})
+              </Link>
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {draftPOs.length > 0 ? (
+              <div className="space-y-2 mt-1">
+                <p className="text-xs text-muted-foreground font-medium">
+                  {draftPOs.length} item{draftPOs.length === 1 ? '' : 's'} predicted to reach stockout thresholds soon:
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {draftPOs.slice(0, 3).map((po) => (
+                    <div
+                      key={po.id}
+                      className="p-2.5 rounded-lg border bg-card/60 flex items-center justify-between text-xs"
+                    >
+                      <div className="min-w-0 pr-2">
+                        <div className="font-medium truncate">{po.items?.name}</div>
+                        <div className="text-[10px] text-muted-foreground">
+                          {po.days_to_stockout !== null && po.days_to_stockout <= 3 ? (
+                            <span className="text-rose-600 font-semibold">Stockout in {po.days_to_stockout}d</span>
+                          ) : (
+                            <span>Velocity: {po.daily_velocity}/day</span>
+                          )}
+                        </div>
+                      </div>
+                      <Badge variant="outline" className="shrink-0 text-[10px]">
+                        Order {po.suggested_quantity}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground py-1">
+                No critical stockout predictions currently pending. All items operating within safe inventory thresholds.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Quick Actions */}
       <Card>

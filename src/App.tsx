@@ -16,6 +16,7 @@ import Transfers from "./pages/Transfers";
 import Received from "./pages/Received";
 import DepartmentView from "./pages/DepartmentView";
 import AIAssistantPage from "./pages/AIAssistantPage";
+import PurchaseOrders from "./pages/PurchaseOrders";
 import NotFound from "./pages/NotFound";
 import Install from "./pages/Install";
 import OAuthConsent from "./pages/OAuthConsent";
@@ -46,6 +47,7 @@ const App = () => (
               <Route path="/ledgers/stock-count" element={<StockCount />} />
               <Route path="/ledgers/item-sales" element={<ItemSalesReport />} />
               <Route path="/ledgers/items" element={<ItemManager />} />
+              <Route path="/ledgers/purchase-orders" element={<PurchaseOrders />} />
               
               {/* Departments Group */}
               <Route path="/departments/:departmentId" element={<DepartmentView />} />
@@ -60,6 +62,7 @@ const App = () => (
               <Route path="/issuance" element={<Navigate to="/ledgers/issuance" replace />} />
               <Route path="/daily-stock-count" element={<Navigate to="/ledgers/stock-count" replace />} />
               <Route path="/reports" element={<Navigate to="/ledgers/item-sales" replace />} />
+              <Route path="/purchase-orders" element={<Navigate to="/ledgers/purchase-orders" replace />} />
               <Route path="/insights" element={<Navigate to="/ai-assistant" replace />} />
             </Route>
             <Route path="/settings" element={<Settings />} />
