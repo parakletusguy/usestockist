@@ -14,7 +14,374 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      daily_stock_sheets: {
+        Row: {
+          close_qty: number
+          created_at: string
+          date: string
+          id: string
+          item_id: string
+          open_qty: number
+          os_status: string | null
+          qty_in: number
+          reach: number
+          remark: string | null
+          retail_team_name: string
+          sales_qty: number
+          updated_at: string
+        }
+        Insert: {
+          close_qty?: number
+          created_at?: string
+          date: string
+          id?: string
+          item_id: string
+          open_qty?: number
+          os_status?: string | null
+          qty_in?: number
+          reach?: number
+          remark?: string | null
+          retail_team_name: string
+          sales_qty?: number
+          updated_at?: string
+        }
+        Update: {
+          close_qty?: number
+          created_at?: string
+          date?: string
+          id?: string
+          item_id?: string
+          open_qty?: number
+          os_status?: string | null
+          qty_in?: number
+          reach?: number
+          remark?: string | null
+          retail_team_name?: string
+          sales_qty?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_stock_sheets_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_transactions: {
+        Row: {
+          created_at: string
+          department: string
+          id: string
+          item_id: string
+          metadata: Json
+          quantity: number
+          transaction_date: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          department?: string
+          id?: string
+          item_id: string
+          metadata?: Json
+          quantity?: number
+          transaction_date?: string
+          type: string
+        }
+        Update: {
+          created_at?: string
+          department?: string
+          id?: string
+          item_id?: string
+          metadata?: Json
+          quantity?: number
+          transaction_date?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_transactions_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      issuance_ledger: {
+        Row: {
+          created_at: string
+          date: string
+          id: string
+          issued_by: string
+          item_id: string
+          quantity: number
+          recipient_group: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          id?: string
+          issued_by: string
+          item_id: string
+          quantity: number
+          recipient_group: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: string
+          issued_by?: string
+          item_id?: string
+          quantity?: number
+          recipient_group?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "issuance_ledger_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      item_departments: {
+        Row: {
+          created_at: string
+          department: string
+          id: string
+          item_id: string
+        }
+        Insert: {
+          created_at?: string
+          department: string
+          id?: string
+          item_id: string
+        }
+        Update: {
+          created_at?: string
+          department?: string
+          id?: string
+          item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "item_departments_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      items: {
+        Row: {
+          category: string
+          created_at: string
+          department: string
+          id: string
+          low_stock_threshold: number
+          name: string
+          unit_cost: number
+          unit_of_measure: string
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          department?: string
+          id?: string
+          low_stock_threshold?: number
+          name: string
+          unit_cost?: number
+          unit_of_measure: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          department?: string
+          id?: string
+          low_stock_threshold?: number
+          name?: string
+          unit_cost?: number
+          unit_of_measure?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      received_ledger: {
+        Row: {
+          created_at: string
+          date: string
+          id: string
+          invoice_number: string | null
+          item_id: string
+          quantity: number
+          supplier: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          id?: string
+          invoice_number?: string | null
+          item_id: string
+          quantity: number
+          supplier: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: string
+          invoice_number?: string | null
+          item_id?: string
+          quantity?: number
+          supplier?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "received_ledger_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transfer_ledger: {
+        Row: {
+          created_at: string
+          date: string
+          destination: string
+          id: string
+          item_id: string
+          quantity: number
+          reason: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          destination: string
+          id?: string
+          item_id: string
+          quantity: number
+          reason?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          destination?: string
+          id?: string
+          item_id?: string
+          quantity?: number
+          reason?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transfer_ledger_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_teams: {
+        Row: {
+          created_at: string
+          id: string
+          team_name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          team_name: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          team_name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      weekly_stock_counts: {
+        Row: {
+          created_at: string
+          date: string
+          id: string
+          item_id: string
+          location: string
+          notes: string | null
+          physical_count: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          id?: string
+          item_id: string
+          location: string
+          notes?: string | null
+          physical_count?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: string
+          item_id?: string
+          location?: string
+          notes?: string | null
+          physical_count?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weekly_stock_counts_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +390,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "moderator" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +517,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "moderator", "user"],
+    },
   },
 } as const
