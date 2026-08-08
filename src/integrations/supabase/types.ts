@@ -454,6 +454,10 @@ export type Database = {
           existing_count: number
         }[]
       }
+      clear_purchase_orders: {
+        Args: Record<string, never>
+        Returns: Json
+      }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"

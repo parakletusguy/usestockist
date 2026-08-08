@@ -1,26 +1,23 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRole } from '@/hooks/useRole';
-import { usePredictiveReordering, PurchaseOrder, PurchaseOrderStatus } from '@/hooks/usePredictiveReordering';
+import { usePredictiveReordering, PurchaseOrder } from '@/hooks/usePredictiveReordering';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   Sparkles,
-  ShoppingCart,
+  ClipboardList,
   AlertTriangle,
-  TrendingUp,
-  CheckCircle2,
-  PackageCheck,
-  XCircle,
+  PackageX,
   RefreshCw,
   ShieldAlert,
-  Clock,
   Building2,
   Download,
+  Trash2,
+  TrendingDown,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -32,14 +29,11 @@ export default function PurchaseOrders() {
     isLoading,
     runAnalysis,
     isAnalyzing,
-    updatePO,
-    markAsReceived,
-    isFulfilling,
+    clearList,
+    isClearing,
   } = usePredictiveReordering();
 
-  const [selectedTab, setSelectedTab] = useState<string>('all');
-  const [editingQuantities, setEditingQuantities] = useState<Record<string, number>>({});
-  const [editingSuppliers, setEditingSuppliers] = useState<Record<string, string>>({});
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // Non-manager role protection guard
   if (!canManageReorders) {
@@ -52,7 +46,7 @@ export default function PurchaseOrders() {
             </div>
             <CardTitle className="text-xl">Manager Access Required</CardTitle>
             <CardDescription>
-              Predictive Automated Reordering and Purchase Order approvals are restricted to Manager roles.
+              The Requisition Planner is restricted to Manager roles.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -65,210 +59,275 @@ export default function PurchaseOrders() {
     );
   }
 
-  // Filter purchase orders based on active tab
-  const filteredOrders = purchaseOrders.filter((po) => {
-    if (selectedTab === 'drafts') return po.status === 'draft';
-    if (selectedTab === 'active') return po.status === 'approved' || po.status === 'ordered';
-    if (selectedTab === 'received') return po.status === 'received';
-    if (selectedTab === 'cancelled') return po.status === 'cancelled';
-    return true;
-  });
+  // Categorise items
+  const outOfStock = purchaseOrders.filter(
+    (po) => po.days_to_stockout !== null && po.days_to_stockout <= 0
+  );
+  const lowStock = purchaseOrders.filter(
+    (po) => po.days_to_stockout !== null && po.days_to_stockout > 0 && po.days_to_stockout <= 7
+  );
+  const watchList = purchaseOrders.filter(
+    (po) => po.days_to_stockout === null || po.days_to_stockout > 7
+  );
 
-  // KPI Calculations
-  const draftCount = purchaseOrders.filter((po) => po.status === 'draft').length;
-  const criticalCount = purchaseOrders.filter(
-    (po) => po.days_to_stockout !== null && po.days_to_stockout <= 3 && po.status !== 'received'
-  ).length;
-  const totalValue = purchaseOrders
-    .filter((po) => po.status === 'draft' || po.status === 'approved' || po.status === 'ordered')
-    .reduce((sum, po) => {
-      const qty = po.ordered_quantity ?? po.suggested_quantity;
-      return sum + qty * Number(po.unit_cost || 0);
-    }, 0);
+  // Checkbox helpers
+  const allIds = purchaseOrders.map((po) => po.id);
+  const allSelected = allIds.length > 0 && allIds.every((id) => selectedIds.has(id));
+  const someSelected = allIds.some((id) => selectedIds.has(id));
 
-  const handleQtyChange = (id: string, value: string) => {
-    const num = parseFloat(value);
-    setEditingQuantities((prev) => ({
-      ...prev,
-      [id]: isNaN(num) ? 0 : num,
-    }));
+  const toggleAll = () => {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(allIds));
+    }
   };
 
-  const handleSupplierChange = (id: string, value: string) => {
-    setEditingSuppliers((prev) => ({
-      ...prev,
-      [id]: value,
-    }));
-  };
-
-  const handleSavePO = (po: PurchaseOrder, newStatus?: PurchaseOrderStatus) => {
-    const updatedQty = editingQuantities[po.id] ?? po.ordered_quantity ?? po.suggested_quantity;
-    const updatedSupplier = editingSuppliers[po.id] ?? po.supplier ?? '';
-
-    updatePO({
-      id: po.id,
-      updates: {
-        ordered_quantity: updatedQty,
-        supplier: updatedSupplier,
-        ...(newStatus ? { status: newStatus } : {}),
-      },
+  const toggleOne = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
     });
   };
 
+  const handleClear = () => {
+    if (confirm('Clear the entire requisition list? This cannot be undone. Run analysis again to regenerate.')) {
+      clearList();
+      setSelectedIds(new Set());
+    }
+  };
+
   const generateRequisitionList = async () => {
-    const approvedOrders = purchaseOrders.filter(po => po.status === 'approved');
-    
-    if (approvedOrders.length === 0) {
-      alert("No approved purchase orders found to generate a requisition list.");
+    const selected = purchaseOrders.filter((po) => selectedIds.has(po.id));
+
+    if (selected.length === 0) {
+      alert('Please select at least one item to include in the Requisition List.');
       return;
     }
 
     try {
-      // Dynamically import to avoid large bundle size and Vite React Context issues
       const { jsPDF } = await import('jspdf');
       const { default: autoTable } = await import('jspdf-autotable');
 
       const doc = new jsPDF();
-      const dateStr = format(new Date(), 'yyyy-MM-dd HH:mm');
-      
-      doc.setFontSize(18);
+      const dateStr = format(new Date(), 'dd MMM yyyy, HH:mm');
+
+      // Header
+      doc.setFontSize(20);
+      doc.setTextColor(30, 30, 60);
       doc.text('Requisition List', 14, 22);
-      
-      doc.setFontSize(11);
+
+      doc.setFontSize(10);
       doc.setTextColor(100);
       doc.text(`Generated: ${dateStr}`, 14, 30);
-      doc.text(`Total Items: ${approvedOrders.length}`, 14, 36);
+      doc.text(`Total Items: ${selected.length}`, 14, 36);
 
-      const tableColumn = [
-        "Item Name", 
-        "Category", 
-        "Dept",
-        "Qty", 
-        "Supplier", 
-        "Unit Cost", 
-        "Total Cost"
-      ];
-      
-      const tableRows = approvedOrders.map(po => {
-        const qty = po.ordered_quantity ?? po.suggested_quantity;
-        const totalCost = qty * (po.unit_cost || 0);
-        return [
-          po.items?.name || 'Unknown Item',
-          po.items?.category || '',
-          po.department || 'Retail',
-          `${qty} ${po.items?.unit_of_measure || ''}`.trim(),
-          po.supplier || 'Auto-Reorder Vendor',
-          `N${po.unit_cost || 0}`,
-          `N${totalCost}`
-        ];
-      });
+      const tableColumn = ['Item', 'Category', 'Dept', 'Est. Days Left', 'Suggested Qty', 'Supplier'];
+
+      const tableRows = selected.map((po) => [
+        po.items?.name || 'Unknown Item',
+        po.items?.category || '',
+        po.department || 'Retail',
+        po.days_to_stockout !== null && po.days_to_stockout <= 0
+          ? 'OUT OF STOCK'
+          : po.days_to_stockout !== null
+          ? `${po.days_to_stockout} days`
+          : '—',
+        `${po.suggested_quantity} ${po.items?.unit_of_measure || ''}`.trim(),
+        po.supplier || '—',
+      ]);
 
       autoTable(doc, {
         head: [tableColumn],
         body: tableRows,
-        startY: 45,
+        startY: 44,
         theme: 'grid',
         styles: { fontSize: 9 },
-        headStyles: { fillColor: [79, 70, 229] } // Indigo-600 matching UI theme
+        headStyles: { fillColor: [79, 70, 229] },
+        didParseCell: (data) => {
+          // Highlight out-of-stock rows
+          if (data.section === 'body' && data.row.raw[3] === 'OUT OF STOCK') {
+            data.cell.styles.textColor = [220, 38, 38];
+            data.cell.styles.fontStyle = 'bold';
+          }
+        },
       });
 
       doc.save(`Requisition_List_${format(new Date(), 'yyyy-MM-dd_HHmm')}.pdf`);
     } catch (error) {
-      console.error("Failed to generate PDF:", error);
-      alert("Failed to generate PDF. Check console for details.");
+      console.error('Failed to generate PDF:', error);
+      alert('Failed to generate PDF. Check console for details.');
     }
+  };
+
+  const renderSection = (title: string, items: PurchaseOrder[], badgeVariant: 'destructive' | 'outline' | 'secondary', icon: React.ReactNode) => {
+    if (items.length === 0) return null;
+
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center gap-2 px-1">
+          {icon}
+          <span className="text-sm font-semibold">{title}</span>
+          <Badge variant={badgeVariant} className="text-[11px]">{items.length}</Badge>
+        </div>
+        {items.map((po) => {
+          const isCritical = po.days_to_stockout !== null && po.days_to_stockout <= 0;
+          const isLow = po.days_to_stockout !== null && po.days_to_stockout > 0 && po.days_to_stockout <= 7;
+
+          return (
+            <TableRow
+              key={po.id}
+              className={`cursor-pointer transition-colors ${
+                selectedIds.has(po.id) ? 'bg-primary/5 dark:bg-primary/10' : 'hover:bg-muted/50'
+              } ${isCritical ? 'border-l-4 border-l-rose-500' : isLow ? 'border-l-4 border-l-amber-500' : ''}`}
+              onClick={() => toggleOne(po.id)}
+            >
+              <TableCell className="w-10" onClick={(e) => e.stopPropagation()}>
+                <Checkbox
+                  checked={selectedIds.has(po.id)}
+                  onCheckedChange={() => toggleOne(po.id)}
+                />
+              </TableCell>
+              <TableCell>
+                <div className="font-medium text-sm">{po.items?.name || 'Item'}</div>
+                <div className="text-xs text-muted-foreground">{po.items?.category}</div>
+              </TableCell>
+              <TableCell className="text-xs text-muted-foreground">
+                <span className="inline-flex items-center gap-1">
+                  <Building2 className="h-3 w-3" />
+                  {po.department || 'Retail'}
+                </span>
+              </TableCell>
+              <TableCell className="text-center">
+                {isCritical ? (
+                  <Badge variant="destructive" className="text-[10px]">Out of Stock</Badge>
+                ) : isLow ? (
+                  <Badge variant="outline" className="text-[10px] border-amber-500 text-amber-600 dark:text-amber-400">
+                    {po.days_to_stockout} days left
+                  </Badge>
+                ) : (
+                  <Badge variant="secondary" className="text-[10px]">
+                    {po.days_to_stockout !== null ? `${po.days_to_stockout} days` : 'Watch'}
+                  </Badge>
+                )}
+              </TableCell>
+              <TableCell className="text-center text-sm font-semibold">
+                {po.suggested_quantity}{' '}
+                <span className="text-xs font-normal text-muted-foreground">
+                  {po.items?.unit_of_measure}
+                </span>
+              </TableCell>
+              <TableCell className="text-xs text-muted-foreground">
+                {po.supplier || '—'}
+              </TableCell>
+            </TableRow>
+          );
+        })}
+      </div>
+    );
   };
 
   return (
     <div className="space-y-6">
-      {/* Header Title & Primary Action */}
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
-            <ShoppingCart className="h-7 w-7 text-primary" />
-            Predictive Automated Reordering
+            <ClipboardList className="h-7 w-7 text-primary" />
+            Requisition Planner
           </h1>
           <p className="text-muted-foreground text-sm">
-            AI-assisted demand forecasting, velocity tracking, and automated Purchase Orders.
+            Low &amp; out-of-stock alerts based on sales velocity. Select items and generate a Requisition List PDF.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Button
             variant="outline"
-            onClick={generateRequisitionList}
+            onClick={handleClear}
+            disabled={isClearing || purchaseOrders.length === 0}
+            className="gap-2 text-destructive hover:text-destructive border-destructive/30 hover:border-destructive/60 hover:bg-destructive/5"
+          >
+            {isClearing ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+            Clear List
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => generateRequisitionList()}
+            disabled={selectedIds.size === 0}
             className="gap-2"
           >
             <Download className="h-4 w-4" />
-            Requisition List
+            Requisition List {selectedIds.size > 0 && `(${selectedIds.size})`}
           </Button>
           <Button
             onClick={() => runAnalysis(30)}
             disabled={isAnalyzing}
             className="gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white shadow-md"
           >
-            {isAnalyzing ? (
-              <RefreshCw className="h-4 w-4 animate-spin" />
-            ) : (
-              <Sparkles className="h-4 w-4" />
-            )}
-            Run Predictive Analysis
+            {isAnalyzing ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+            Run Analysis
           </Button>
         </div>
       </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="border-l-4 border-l-amber-500">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Pending Draft POs</CardTitle>
-            <Clock className="h-4 w-4 text-amber-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{draftCount}</div>
-            <p className="text-xs text-muted-foreground">Draft orders awaiting manager review</p>
-          </CardContent>
-        </Card>
-
         <Card className="border-l-4 border-l-rose-500">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Critical Stockouts (&le; 3 Days)</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-rose-500" />
+            <CardTitle className="text-sm font-medium">Out of Stock</CardTitle>
+            <PackageX className="h-4 w-4 text-rose-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-rose-600 dark:text-rose-400">{criticalCount}</div>
-            <p className="text-xs text-muted-foreground">High priority stockout warnings</p>
+            <div className="text-2xl font-bold text-rose-600 dark:text-rose-400">{outOfStock.length}</div>
+            <p className="text-xs text-muted-foreground">Requires immediate reorder</p>
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-emerald-500">
+        <Card className="border-l-4 border-l-amber-500">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Estimated Pipeline Value</CardTitle>
-            <span className="font-bold text-emerald-500 text-base leading-none">₦</span>
+            <CardTitle className="text-sm font-medium">Low Stock (≤ 7 Days)</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-amber-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">₦{totalValue.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">Active & draft PO capital commitment</p>
+            <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">{lowStock.length}</div>
+            <p className="text-xs text-muted-foreground">Running low based on velocity</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-blue-400">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">On Watch</CardTitle>
+            <TrendingDown className="h-4 w-4 text-blue-400" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{watchList.length}</div>
+            <p className="text-xs text-muted-foreground">Flagged for monitoring</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Filter Tabs & Orders Table */}
+      {/* Main Table */}
       <Card>
         <CardHeader className="pb-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <CardTitle className="text-lg font-semibold">Purchase Orders</CardTitle>
-              <CardDescription>Review velocity predictions, edit quantities, and fulfill orders.</CardDescription>
+              <CardTitle className="text-lg font-semibold">Flagged Items</CardTitle>
+              <CardDescription>
+                {purchaseOrders.length === 0
+                  ? 'Run Analysis to detect low and out-of-stock items.'
+                  : `${purchaseOrders.length} item${purchaseOrders.length !== 1 ? 's' : ''} flagged — ${selectedIds.size} selected for requisition.`}
+              </CardDescription>
             </div>
-            <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full sm:w-auto">
-              <TabsList className="grid grid-cols-5 w-full sm:w-auto text-xs">
-                <TabsTrigger value="all">All</TabsTrigger>
-                <TabsTrigger value="drafts">Drafts ({draftCount})</TabsTrigger>
-                <TabsTrigger value="active">Approved</TabsTrigger>
-                <TabsTrigger value="received">Received</TabsTrigger>
-                <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
-              </TabsList>
-            </Tabs>
+            {purchaseOrders.length > 0 && (
+              <Button variant="ghost" size="sm" onClick={toggleAll} className="text-xs self-start sm:self-center">
+                {allSelected ? 'Deselect All' : 'Select All'}
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent>
@@ -276,12 +335,13 @@ export default function PurchaseOrders() {
             <div className="flex items-center justify-center py-12">
               <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
-          ) : filteredOrders.length === 0 ? (
+          ) : purchaseOrders.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground space-y-3">
-              <ShoppingCart className="h-10 w-10 mx-auto opacity-40" />
-              <p>No purchase orders found matching this filter.</p>
+              <ClipboardList className="h-10 w-10 mx-auto opacity-40" />
+              <p className="text-sm">No items flagged yet.</p>
               <Button variant="outline" size="sm" onClick={() => runAnalysis(30)} disabled={isAnalyzing}>
-                <Sparkles className="h-4 w-4 mr-2" /> Run Analysis Now
+                <Sparkles className="h-4 w-4 mr-2" />
+                Run Analysis Now
               </Button>
             </div>
           ) : (
@@ -289,163 +349,41 @@ export default function PurchaseOrders() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-10">
+                      <Checkbox
+                        checked={allSelected}
+                        ref={(el) => {
+                          if (el) (el as HTMLButtonElement & { indeterminate?: boolean }).indeterminate = someSelected && !allSelected;
+                        }}
+                        onCheckedChange={toggleAll}
+                      />
+                    </TableHead>
                     <TableHead>Item &amp; Category</TableHead>
-                    <TableHead>Dept</TableHead>
-                    <TableHead className="text-center">Velocity / Stockout</TableHead>
+                    <TableHead>Department</TableHead>
+                    <TableHead className="text-center">Stock Status</TableHead>
                     <TableHead className="text-center">Suggested Qty</TableHead>
-                    <TableHead className="w-[120px]">Order Qty</TableHead>
-                    <TableHead className="w-[180px]">Supplier</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead>Supplier</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredOrders.map((po) => {
-                    const currentQty = editingQuantities[po.id] ?? po.ordered_quantity ?? po.suggested_quantity;
-                    const currentSupplier = editingSuppliers[po.id] ?? po.supplier ?? '';
-                    const isCritical = po.days_to_stockout !== null && po.days_to_stockout <= 3;
-                    const isWarning = po.days_to_stockout !== null && po.days_to_stockout > 3 && po.days_to_stockout <= 7;
-
-                    return (
-                      <TableRow key={po.id} className="hover:bg-muted/50">
-                        {/* Item Name */}
-                        <TableCell>
-                          <div className="font-medium text-sm">{po.items?.name || 'Item'}</div>
-                          <div className="text-xs text-muted-foreground flex items-center gap-1">
-                            <span>{po.items?.category || 'General'}</span>
-                            {po.items?.unit_of_measure && <span>({po.items.unit_of_measure})</span>}
-                          </div>
-                        </TableCell>
-
-                        {/* Dept */}
-                        <TableCell className="text-xs text-muted-foreground">
-                          <span className="inline-flex items-center gap-1">
-                            <Building2 className="h-3 w-3" />
-                            {po.department || 'Retail'}
-                          </span>
-                        </TableCell>
-
-                        {/* Velocity & Days to Stockout */}
-                        <TableCell className="text-center">
-                          <div className="flex flex-col items-center gap-1">
-                            <span className="text-xs font-semibold flex items-center gap-1">
-                              <TrendingUp className="h-3 w-3 text-blue-500" />
-                              {po.daily_velocity || 0}/day
-                            </span>
-                            {po.days_to_stockout !== null && (
-                              <Badge
-                                variant={isCritical ? 'destructive' : isWarning ? 'outline' : 'secondary'}
-                                className={`text-[10px] ${
-                                  isWarning ? 'border-amber-500 text-amber-600 dark:text-amber-400' : ''
-                                }`}
-                              >
-                                {po.days_to_stockout <= 0
-                                  ? 'Out of stock'
-                                  : `${po.days_to_stockout} days left`}
-                              </Badge>
-                            )}
-                          </div>
-                        </TableCell>
-
-                        {/* Suggested Qty */}
-                        <TableCell className="text-center text-sm font-semibold">
-                          {po.suggested_quantity}
-                        </TableCell>
-
-                        {/* Editable Order Qty */}
-                        <TableCell>
-                          <Input
-                            type="number"
-                            min="1"
-                            value={currentQty}
-                            disabled={po.status === 'received' || po.status === 'cancelled'}
-                            onChange={(e) => handleQtyChange(po.id, e.target.value)}
-                            className="h-8 text-xs font-medium w-full text-center"
-                          />
-                        </TableCell>
-
-                        {/* Editable Supplier */}
-                        <TableCell>
-                          <Input
-                            type="text"
-                            placeholder="Supplier name"
-                            value={currentSupplier}
-                            disabled={po.status === 'received' || po.status === 'cancelled'}
-                            onChange={(e) => handleSupplierChange(po.id, e.target.value)}
-                            className="h-8 text-xs w-full"
-                          />
-                        </TableCell>
-
-                        {/* Status Badge */}
-                        <TableCell>
-                          {po.status === 'draft' && (
-                            <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950 dark:text-amber-300">
-                              Draft
-                            </Badge>
-                          )}
-                          {po.status === 'approved' && (
-                            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300 dark:bg-blue-950 dark:text-blue-300">
-                              Approved
-                            </Badge>
-                          )}
-                          {po.status === 'ordered' && (
-                            <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-300 dark:bg-indigo-950 dark:text-indigo-300">
-                              Ordered
-                            </Badge>
-                          )}
-                          {po.status === 'received' && (
-                            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 flex items-center gap-1 w-fit">
-                              <CheckCircle2 className="h-3 w-3" /> Received
-                            </Badge>
-                          )}
-                          {po.status === 'cancelled' && (
-                            <Badge variant="secondary" className="text-muted-foreground">
-                              Cancelled
-                            </Badge>
-                          )}
-                        </TableCell>
-
-                        {/* Actions */}
-                        <TableCell className="text-right space-x-1">
-                          {po.status === 'draft' && (
-                            <>
-                              <Button
-                                size="sm"
-                                variant="default"
-                                className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
-                                onClick={() => handleSavePO(po, 'approved')}
-                              >
-                                Approve
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-7 text-xs text-destructive hover:bg-destructive/10"
-                                onClick={() => handleSavePO(po, 'cancelled')}
-                              >
-                                <XCircle className="h-3.5 w-3.5" />
-                              </Button>
-                            </>
-                          )}
-
-                          {(po.status === 'approved' || po.status === 'ordered') && (
-                            <Button
-                              size="sm"
-                              variant="default"
-                              disabled={isFulfilling}
-                              className="h-7 text-xs bg-blue-600 hover:bg-blue-700 text-white gap-1"
-                              onClick={() => {
-                                handleSavePO(po);
-                                markAsReceived(po);
-                              }}
-                            >
-                              <PackageCheck className="h-3.5 w-3.5" /> Receive Stock
-                            </Button>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
+                  {renderSection(
+                    'Out of Stock',
+                    outOfStock,
+                    'destructive',
+                    <PackageX className="h-4 w-4 text-rose-500" />
+                  )}
+                  {renderSection(
+                    'Low Stock',
+                    lowStock,
+                    'outline',
+                    <AlertTriangle className="h-4 w-4 text-amber-500" />
+                  )}
+                  {renderSection(
+                    'On Watch',
+                    watchList,
+                    'secondary',
+                    <TrendingDown className="h-4 w-4 text-blue-400" />
+                  )}
                 </TableBody>
               </Table>
             </div>
