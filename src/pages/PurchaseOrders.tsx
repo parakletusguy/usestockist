@@ -20,7 +20,6 @@ import {
   ShieldAlert,
   Clock,
   Building2,
-  DollarSign,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -169,7 +168,7 @@ export default function PurchaseOrders() {
         <Card className="border-l-4 border-l-emerald-500">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Estimated Pipeline Value</CardTitle>
-            <DollarSign className="h-4 w-4 text-emerald-500" />
+            <span className="font-bold text-emerald-500 text-base leading-none">₦</span>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">₦{totalValue.toLocaleString()}</div>
