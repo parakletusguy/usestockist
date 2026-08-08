@@ -381,16 +381,28 @@ export default function ItemSalesReport() {
       return;
     }
 
+    // Build items list — kitchen items are attributed to BOTH Retail and Kitchen,
+    // so we expand them into two separate sale transactions to deduct from each department.
+    const saleItems = parsedRows.flatMap(r => {
+      const base = {
+        item_id: r.itemId,
+        qty_sold: r.qtySold,
+        unit_price: r.unitPrice,
+      };
+      if (r.department === 'Kitchen') {
+        return [
+          { ...base, department: 'Retail' },
+          { ...base, department: 'Kitchen' },
+        ];
+      }
+      return [{ ...base, department: r.department || 'Retail' }];
+    });
+
     await uploadSales.mutateAsync({
       report_date: dateStr,
       retail_member_name: retailMember.trim(),
       file_name: fileName || 'Reach_Sales_Upload',
-      items: parsedRows.map(r => ({
-        item_id: r.itemId,
-        qty_sold: r.qtySold,
-        unit_price: r.unitPrice,
-        department: r.department || 'Retail',
-      })),
+      items: saleItems,
     });
 
     setParsedRows([]);

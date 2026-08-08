@@ -23,8 +23,8 @@ import { exportToCSV } from '@/lib/export';
 import { EditDeleteActions } from '@/components/ledger/EditDeleteActions';
 
 
-// Transfer destinations are distinct from internal departments —
-// items are transferred out to Nox (event venue) or PPK (another branch)
+// Transfer destinations are external locations —
+// Nox (event venue) or PPK (Pleasure Park branch)
 const DESTINATIONS = ['Nox', 'PPK'] as const;
 
 
