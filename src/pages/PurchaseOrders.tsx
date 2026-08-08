@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRole } from '@/hooks/useRole';
-import { exportToCSV } from '@/lib/export';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { usePredictiveReordering, PurchaseOrder, PurchaseOrderStatus } from '@/hooks/usePredictiveReordering';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -124,22 +125,51 @@ export default function PurchaseOrders() {
       return;
     }
 
-    const exportData = approvedOrders.map(po => ({
-      'Item Name': po.items?.name || 'Unknown Item',
-      'Category': po.items?.category || '',
-      'Department': po.department || 'Retail',
-      'Unit': po.items?.unit_of_measure || '',
-      'Requested Quantity': po.ordered_quantity ?? po.suggested_quantity,
-      'Supplier': po.supplier || 'Auto-Reorder Vendor',
-      'Estimated Unit Cost': po.unit_cost,
-      'Total Estimated Cost': (po.ordered_quantity ?? po.suggested_quantity) * (po.unit_cost || 0),
-      'Date Approved': format(new Date(po.updated_at), 'yyyy-MM-dd HH:mm'),
-    }));
+    const doc = new jsPDF();
+    const dateStr = format(new Date(), 'yyyy-MM-dd HH:mm');
+    
+    doc.setFontSize(18);
+    doc.text('Requisition List', 14, 22);
+    
+    doc.setFontSize(11);
+    doc.setTextColor(100);
+    doc.text(`Generated: ${dateStr}`, 14, 30);
+    doc.text(`Total Items: ${approvedOrders.length}`, 14, 36);
 
-    exportToCSV(
-      exportData, 
-      `Requisition_List_${format(new Date(), 'yyyy-MM-dd_HHmm')}`
-    );
+    const tableColumn = [
+      "Item Name", 
+      "Category", 
+      "Dept",
+      "Qty", 
+      "Supplier", 
+      "Unit Cost", 
+      "Total Cost"
+    ];
+    
+    const tableRows = approvedOrders.map(po => {
+      const qty = po.ordered_quantity ?? po.suggested_quantity;
+      const totalCost = qty * (po.unit_cost || 0);
+      return [
+        po.items?.name || 'Unknown Item',
+        po.items?.category || '',
+        po.department || 'Retail',
+        `${qty} ${po.items?.unit_of_measure || ''}`.trim(),
+        po.supplier || 'Auto-Reorder Vendor',
+        `N${po.unit_cost || 0}`,
+        `N${totalCost}`
+      ];
+    });
+
+    autoTable(doc, {
+      head: [tableColumn],
+      body: tableRows,
+      startY: 45,
+      theme: 'grid',
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [79, 70, 229] } // Indigo-600 matching UI theme
+    });
+
+    doc.save(`Requisition_List_${format(new Date(), 'yyyy-MM-dd_HHmm')}.pdf`);
   };
 
   return (
