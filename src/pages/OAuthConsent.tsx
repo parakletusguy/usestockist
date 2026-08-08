@@ -42,7 +42,7 @@ export default function OAuthConsent() {
         return;
       }
       const d = data as any;
-      const immediate = d?.redirect_url ?? data?.redirect_to;
+      const immediate = d?.redirect_url ?? d?.redirect_to;
       if (immediate && !d?.client) {
         window.location.href = immediate;
         return;
