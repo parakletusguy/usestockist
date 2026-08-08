@@ -94,8 +94,9 @@ export default function Settings() {
       const { error } = await supabase.auth.updateUser({ data: { full_name: displayName } });
       if (error) throw error;
       toast({ title: 'Profile saved', description: 'Your display name has been updated.' });
-    } catch (err: any) {
-      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'An error occurred';
+      toast({ title: 'Error', description: message, variant: 'destructive' });
     } finally {
       setIsSavingProfile(false);
     }
@@ -117,8 +118,9 @@ export default function Settings() {
       toast({ title: 'Password updated', description: 'Your password has been changed successfully.' });
       setNewPassword('');
       setConfirmPassword('');
-    } catch (err: any) {
-      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'An error occurred';
+      toast({ title: 'Error', description: message, variant: 'destructive' });
     } finally {
       setIsSavingPassword(false);
     }

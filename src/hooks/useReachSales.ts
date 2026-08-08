@@ -75,7 +75,7 @@ export function useUploadReachSales() {
       if (headerError) throw headerError;
 
       // 2. Insert sales transactions into inventory_transactions table
-      const txRows: any[] = input.items.map(item => ({
+      const txRows = input.items.map(item => ({
         item_id: item.item_id,
         type: 'sale',
         quantity: item.qty_sold,
@@ -147,8 +147,8 @@ export function useReachSalesReportDetails(reportId: string | null) {
       }
 
       return (data || []).map(tx => {
-        const items = tx.items as any;
-        const meta = tx.metadata as any;
+        const items = tx.items as unknown as { name?: string; category?: string } | null;
+        const meta = tx.metadata as Record<string, unknown> | null;
         return {
           id: tx.id,
           item_id: tx.item_id,

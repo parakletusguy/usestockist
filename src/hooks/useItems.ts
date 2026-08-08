@@ -91,7 +91,7 @@ async function syncItemDepartments(itemId: string, departments: string[]) {
   if (!departments || departments.length === 0) return;
 
   // Insert new assignments
-  const rows: any[] = departments.map(dept => ({
+  const rows = departments.map(dept => ({
     item_id: itemId,
     department: dept,
   }));
