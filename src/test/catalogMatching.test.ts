@@ -74,10 +74,11 @@ describe('Catalog Matching Algorithm', () => {
     { id: '4', name: 'Shawarma (2 Sausages)', unit_cost: 5000 },
     { id: '5', name: 'Tiger Nut Drink', unit_cost: 2500 },
     { id: '6', name: 'Box-Signatr Access (Couple Seat)', unit_cost: 7000 },
-    { id: '7', name: 'Cube Soda Drink', unit_cost: 1200 },
-    { id: '8', name: 'Maltina', unit_cost: 1500 },
-    { id: '9', name: 'Large Popcorn', unit_cost: 5500 },
-    { id: '10', name: 'Small Chops', unit_cost: 4000 },
+    { id: '7', name: 'Soda', unit_cost: 1200 },
+    { id: '8', name: 'Water', unit_cost: 1000 },
+    { id: '9', name: 'Maltina', unit_cost: 1500 },
+    { id: '10', name: 'Large Popcorn', unit_cost: 5500 },
+    { id: '11', name: 'Small Chops', unit_cost: 4000 },
   ];
 
   it('matches BLACKBULLET to Black Bullet', () => {
@@ -110,9 +111,14 @@ describe('Catalog Matching Algorithm', () => {
     expect(res?.name).toBe('Maltina');
   });
 
-  it('matches SODA to Cube Soda Drink', () => {
+  it('matches SODA to Soda', () => {
     const res = matchToCatalog('SODA', catalog);
-    expect(res?.name).toBe('Cube Soda Drink');
+    expect(res?.name).toBe('Soda');
+  });
+
+  it('matches WATER to Water', () => {
+    const res = matchToCatalog('WATER', catalog);
+    expect(res?.name).toBe('Water');
   });
 
   it('returns null for completely uncatalogued items without defaulting', () => {
