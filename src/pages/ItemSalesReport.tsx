@@ -265,7 +265,7 @@ export default function ItemSalesReport() {
     const first = items[0];
     setParsedRows(prev => [
       ...prev,
-      { itemId: first.id, itemName: first.name, qtySold: 1, unitPrice: first.unit_cost },
+      { itemId: first.id, itemName: first.name, qtySold: 1, unitPrice: first.unit_cost, department: 'Retail' },
     ]);
     toast({ title: 'Manual Row Added', description: `Added ${first.name} to sales entry table.` });
   };
