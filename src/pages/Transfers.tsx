@@ -22,9 +22,11 @@ import { cn } from '@/lib/utils';
 import { exportToCSV } from '@/lib/export';
 import { EditDeleteActions } from '@/components/ledger/EditDeleteActions';
 
-import { DEPARTMENTS } from '@/lib/validation';
 
-const DESTINATIONS = DEPARTMENTS;
+// Transfer destinations are distinct from internal departments —
+// items are transferred out to Nox (event venue) or PPK (another branch)
+const DESTINATIONS = ['Nox', 'PPK'] as const;
+
 
 const Transfers = () => {
   const { canWriteLedgers } = useAuth();

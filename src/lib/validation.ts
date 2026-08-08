@@ -4,9 +4,10 @@ export const DEPARTMENTS = [
   'Retail',
   'Cube',
   'Bar',
-  'Nox',
+  'Kitchen',
   'Housekeeping',
-  'Kitchen (Nox)',
+  'PPK',
+  'Nox',
 ] as const;
 
 export type DepartmentType = typeof DEPARTMENTS[number];

@@ -46,9 +46,10 @@ const departmentItems = [
   { title: 'Retail', url: '/departments/retail' },
   { title: 'Cube', url: '/departments/cube' },
   { title: 'Bar', url: '/departments/bar' },
-  { title: 'Nox', url: '/departments/nox' },
+  { title: 'Kitchen', url: '/departments/kitchen' },
   { title: 'Housekeeping', url: '/departments/housekeeping' },
-  { title: 'Kitchen (Nox)', url: '/departments/kitchen-nox' },
+  { title: 'PPK', url: '/departments/ppk' },
+  { title: 'Nox', url: '/departments/nox' },
 ];
 
 /** Mobile slide-out drawer — renders all nav links inside a Sheet */

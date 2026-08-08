@@ -15,9 +15,11 @@ const DEPARTMENT_MAP: Record<string, string> = {
   retail: 'Retail',
   cube: 'Cube',
   bar: 'Bar',
-  nox: 'Nox',
+  kitchen: 'Kitchen',
+  'kitchen-nox': 'Kitchen',
   housekeeping: 'Housekeeping',
-  'kitchen-nox': 'Kitchen (Nox)',
+  ppk: 'PPK',
+  nox: 'Nox',
 };
 
 export default function DepartmentView() {

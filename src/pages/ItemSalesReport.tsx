@@ -24,6 +24,7 @@ interface ParsedSaleRow {
   itemName: string;
   qtySold: number;
   unitPrice: number;
+  department: string;
 }
 
 type FileStatus = 'idle' | 'parsing' | 'done' | 'error';
@@ -38,6 +39,12 @@ const tokenizeStr = (str: string) =>
     .replace(/[^a-z0-9\s]/g, ' ')
     .split(/\s+/)
     .filter(w => w.length > 1 && !['can', 'bottle', 'pack', 'pcs', 'drink', 'item', 'product'].includes(w));
+
+/** Identify kitchen items (e.g. Shawarma, Chicken, Sausages) to route to Kitchen department */
+const isKitchenItemName = (name: string) => {
+  const lower = name.toLowerCase();
+  return ['shawarma', 'chicken', 'sausage', 'burger', 'meat pie', 'doughnut', 'bbq', 'ketchup', 'curry', 'pepper', 'corn dog'].some(k => lower.includes(k));
+};
 
 export default function ItemSalesReport() {
   const [reportDate, setReportDate] = useState<Date>(new Date());
@@ -135,12 +142,14 @@ export default function ItemSalesReport() {
       if (!rawName || qty <= 0) continue;
 
       const matched = matchToCatalog(rawName);
+      const dept = isKitchenItemName(rawName) ? 'Kitchen' : 'Retail';
       if (matched) {
         newRows.push({
           itemId: matched.id,
           itemName: matched.name,
           qtySold: qty,
           unitPrice: price || matched.unit_cost,
+          department: dept,
         });
       } else {
         unmatched++;
@@ -149,6 +158,7 @@ export default function ItemSalesReport() {
           itemName: rawName,
           qtySold: qty,
           unitPrice: price || 0,
+          department: dept,
         });
       }
     }
@@ -186,12 +196,14 @@ export default function ItemSalesReport() {
         let unmatched = 0;
         newRows = pdfResult.rows.map(row => {
           const matched = matchToCatalog(row.item_name);
+          const dept = isKitchenItemName(row.item_name) ? 'Kitchen' : 'Retail';
           if (matched) {
             return {
               itemId: matched.id,
               itemName: matched.name,
               qtySold: row.quantity,
               unitPrice: row.unit_price || matched.unit_cost,
+              department: dept,
             };
           } else {
             unmatched++;
@@ -200,6 +212,7 @@ export default function ItemSalesReport() {
               itemName: row.item_name, // Preserves exact raw PDF item name
               qtySold: row.quantity,
               unitPrice: row.unit_price || 0,
+              department: dept,
             };
           }
         });
@@ -376,7 +389,7 @@ export default function ItemSalesReport() {
         item_id: r.itemId,
         qty_sold: r.qtySold,
         unit_price: r.unitPrice,
-        department: 'Retail',
+        department: r.department || 'Retail',
       })),
     });
 
