@@ -217,10 +217,67 @@ export type Database = {
         }
         Relationships: []
       }
+      purchase_orders: {
+        Row: {
+          created_at: string
+          daily_velocity: number | null
+          days_to_stockout: number | null
+          department: string | null
+          id: string
+          item_id: string
+          ordered_quantity: number | null
+          reorder_reason: string | null
+          status: string
+          suggested_quantity: number
+          supplier: string | null
+          unit_cost: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          daily_velocity?: number | null
+          days_to_stockout?: number | null
+          department?: string | null
+          id?: string
+          item_id: string
+          ordered_quantity?: number | null
+          reorder_reason?: string | null
+          status?: string
+          suggested_quantity?: number
+          supplier?: string | null
+          unit_cost?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          daily_velocity?: number | null
+          days_to_stockout?: number | null
+          department?: string | null
+          id?: string
+          item_id?: string
+          ordered_quantity?: number | null
+          reorder_reason?: string | null
+          status?: string
+          suggested_quantity?: number
+          supplier?: string | null
+          unit_cost?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_orders_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       received_ledger: {
         Row: {
           created_at: string
           date: string
+          department: string | null
           id: string
           invoice_number: string | null
           item_id: string
@@ -231,6 +288,7 @@ export type Database = {
         Insert: {
           created_at?: string
           date: string
+          department?: string | null
           id?: string
           invoice_number?: string | null
           item_id: string
@@ -241,6 +299,7 @@ export type Database = {
         Update: {
           created_at?: string
           date?: string
+          department?: string | null
           id?: string
           invoice_number?: string | null
           item_id?: string
@@ -387,7 +446,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      calculate_predictive_reorders: {
+        Args: { p_lookback_days?: number }
+        Returns: {
+          analyzed_items_count: number
+          created_count: number
+          existing_count: number
+        }[]
+      }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
