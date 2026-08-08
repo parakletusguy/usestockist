@@ -99,7 +99,7 @@ export function useDailyStockCount(startDate: string, endDate?: string, departme
       // AND prior period ledgers & transactions (date < startD) for carry-forward Opening Stock
       const [
         issuanceCurrRes, receivedCurrRes, transferCurrRes, sheetsCurrRes, txCurrRes,
-        issuancePriorRes, receivedPriorRes, transferPriorRes, txPriorRes
+        issuancePriorRes, receivedPriorRes, transferPriorRes, txPriorRes, sheetsPriorRes
       ] = await Promise.all([
         supabase.from('issuance_ledger').select('item_id, quantity').gte('date', startD).lte('date', endD),
         supabase.from('received_ledger').select('item_id, quantity').gte('date', startD).lte('date', endD),
@@ -116,6 +116,10 @@ export function useDailyStockCount(startDate: string, endDate?: string, departme
         supabase.from('received_ledger').select('item_id, quantity').lt('date', startD),
         supabase.from('transfer_ledger').select('item_id, quantity').lt('date', startD),
         supabase.from('inventory_transactions').select('item_id, type, quantity').lt('transaction_date', startTxD),
+        supabase.from('daily_stock_sheets')
+          .select('item_id, close_qty, date')
+          .lt('date', startD)
+          .order('date', { ascending: false }),
       ]);
 
       const sum = (rows: LedgerRow[] | null, id: string) =>
@@ -131,6 +135,14 @@ export function useDailyStockCount(startDate: string, endDate?: string, departme
         const arr = sheetsByItem.get(s.item_id) || [];
         arr.push(s);
         sheetsByItem.set(s.item_id, arr);
+      });
+
+      // Build map of most recent prior closing count by item_id
+      const priorCloseByItem = new Map<string, number>();
+      ((sheetsPriorRes.data as SheetRow[]) || []).forEach((s) => {
+        if (!priorCloseByItem.has(s.item_id) && s.close_qty !== null && s.close_qty !== undefined) {
+          priorCloseByItem.set(s.item_id, Number(s.close_qty));
+        }
       });
 
       const catalogItems = (itemsRes.data as ItemRow[]) || [];
@@ -164,7 +176,10 @@ export function useDailyStockCount(startDate: string, endDate?: string, departme
           const priorDamages = sumTx(txPriorData, item.id, 'damage');
 
           const calculatedOpening = Math.max(0, priorRec - priorIss - priorTrans - priorSold - priorDamages);
-          const finalOpening = sheetOpening > 0 ? sheetOpening : calculatedOpening;
+          const priorClose = priorCloseByItem.get(item.id);
+          const finalOpening = sheetOpening > 0
+            ? sheetOpening
+            : (priorClose !== undefined ? priorClose : calculatedOpening);
 
           // Current period movements
           const txReceived = sumTx(txCurrData, item.id, 'receive');
