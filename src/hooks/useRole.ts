@@ -9,6 +9,7 @@ export interface RoleInfo {
   isInventory: boolean;
   canWriteLedgers: boolean;
   canManageItems: boolean;
+  canManageReorders: boolean;
 }
 
 export function getUserRoleFromSession(session: Session | null): UserRole {
@@ -26,6 +27,7 @@ export function useRole(session: Session | null): RoleInfo {
     const isInventory = role === 'inventory';
     const canWriteLedgers = isManager || isInventory;
     const canManageItems = isManager;
+    const canManageReorders = isManager;
 
     return {
       role,
@@ -33,6 +35,7 @@ export function useRole(session: Session | null): RoleInfo {
       isInventory,
       canWriteLedgers,
       canManageItems,
+      canManageReorders,
     };
   }, [session]);
 }
