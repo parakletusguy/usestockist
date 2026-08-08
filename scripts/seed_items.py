@@ -14,7 +14,6 @@ HEADERS = {
 
 ITEMS_CATALOG: List[Dict[str, Any]] = [
     # 1. Print items
-    {'name': 'Cube Pack', 'category': 'Supplies', 'unit': 'pcs', 'departments': ['Cube', 'Retail'], 'cost': 0},
     {'name': 'Castilo Grande', 'category': 'Beverages', 'unit': 'bottle', 'departments': ['Bar'], 'cost': 0},
     {'name': 'Bombay', 'category': 'Beverages', 'unit': 'bottle', 'departments': ['Bar'], 'cost': 0},
     {'name': 'Hennesy XO', 'category': 'Beverages', 'unit': 'bottle', 'departments': ['Bar'], 'cost': 0},
@@ -29,7 +28,6 @@ ITEMS_CATALOG: List[Dict[str, Any]] = [
     {'name': 'Pulpy', 'category': 'Beverages', 'unit': 'bottle', 'departments': ['Retail'], 'cost': 0},
     {'name': 'Schweppes Chapman Can', 'category': 'Beverages', 'unit': 'can', 'departments': ['Retail', 'Bar'], 'cost': 2000},
     {'name': 'Black Bullet', 'category': 'Beverages', 'unit': 'can', 'departments': ['Bar'], 'cost': 0},
-    {'name': 'Eva Water 75cl', 'category': 'Beverages', 'unit': 'bottle', 'departments': ['Retail', 'Bar'], 'cost': 1000},
 
     # 3. Other Concessions & Kitchen Foods
     {'name': 'BBQ Sauce', 'category': 'Food', 'unit': 'bottle', 'departments': ['Kitchen (Nox)', 'Retail'], 'cost': 0},
