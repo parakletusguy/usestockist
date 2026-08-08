@@ -41,12 +41,13 @@ export default function OAuthConsent() {
         setError(error.message ?? "Failed to load authorization request.");
         return;
       }
-      const immediate = data?.redirect_url ?? data?.redirect_to;
-      if (immediate && !data?.client) {
+      const d = data as any;
+      const immediate = d?.redirect_url ?? d?.redirect_to;
+      if (immediate && !d?.client) {
         window.location.href = immediate;
         return;
       }
-      setDetails(data);
+      setDetails(d);
     })();
     return () => {
       active = false;
@@ -64,7 +65,7 @@ export default function OAuthConsent() {
       setError(error.message ?? "Authorization decision failed.");
       return;
     }
-    const target = data?.redirect_url ?? data?.redirect_to;
+    const target = (data as any)?.redirect_url ?? (data as any)?.redirect_to;
     if (!target) {
       setBusy(false);
       setError("No redirect returned by the authorization server.");

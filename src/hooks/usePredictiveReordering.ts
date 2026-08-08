@@ -82,7 +82,7 @@ export function usePredictiveReordering() {
         .update({
           ...updates,
           updated_at: new Date().toISOString(),
-        })
+        } as never)
         .eq('id', id)
         .select()
         .single();
