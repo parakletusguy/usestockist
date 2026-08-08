@@ -23,9 +23,9 @@ import { exportToCSV } from '@/lib/export';
 import { EditDeleteActions } from '@/components/ledger/EditDeleteActions';
 
 
-// Transfer destinations are external locations —
-// Nox (event venue) or PPK (Pleasure Park branch)
-const DESTINATIONS = ['Nox', 'PPK'] as const;
+// Transfer destinations: Nox, PPK, or Cube (restricted to water, soda, regular popcorn)
+const DESTINATIONS = ['Nox', 'PPK', 'Cube'] as const;
+const CUBE_ALLOWED_ITEMS = ['water', 'soda', 'regular popcorn'];
 
 
 const Transfers = () => {
@@ -160,7 +160,9 @@ const Transfers = () => {
                 <Select value={selectedItem} onValueChange={setSelectedItem}>
                   <SelectTrigger className="h-11 sm:h-9 text-base sm:text-xs"><SelectValue placeholder="Select item" /></SelectTrigger>
                   <SelectContent className="bg-background">
-                    {items?.map(item => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}
+                    {items
+                      ?.filter(item => destination !== 'Cube' || CUBE_ALLOWED_ITEMS.includes(item.name.toLowerCase()))
+                      .map(item => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
