@@ -108,8 +108,8 @@ function isCurrencySymbol(token: string): boolean {
 
 /** Lines to skip (headers, footers, total rows, summary sections) */
 function isSkipLine(lineStr: string): boolean {
-  const lower = lineStr.toLowerCase();
-  const skipKeywords = [
+  const lower = lineStr.toLowerCase().trim();
+  const skipExactOrStart = [
     'cash reconciliation report',
     'box office',
     'username:',
@@ -122,8 +122,6 @@ function isSkipLine(lineStr: string): boolean {
     'price',
     'quantity',
     'value',
-    'total',
-    'subtotal',
     'ticket sales by price cards',
     'concession sales',
     'admin actions occurrences',
@@ -133,13 +131,10 @@ function isSkipLine(lineStr: string): boolean {
     'expected amount',
     'amount remitted',
     'variance',
-    'card',
-    'transfer',
-    'ext. voucher',
   ];
 
   if (lower.includes('total')) return true;
-  if (skipKeywords.some(k => lower === k || lower.startsWith(k))) return true;
+  if (skipExactOrStart.some(k => lower === k || lower.startsWith(k))) return true;
 
   return false;
 }

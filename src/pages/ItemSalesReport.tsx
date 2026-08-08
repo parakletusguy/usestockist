@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { format } from 'date-fns';
-import { useItems } from '@/hooks/useItems';
+import { useItems, useCreateItem } from '@/hooks/useItems';
 import { useReachSalesReports, useUploadReachSales, useReachSalesReportDetails, useDeleteReachSalesReport, ReachSalesReport } from '@/hooks/useReachSales';
 import { parsePdfSalesReport } from '@/lib/parsePdf';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import {
   CalendarIcon, Upload, FileSpreadsheet, FileScan,
   CheckCircle2, ShoppingBag, Plus, Trash2, Loader2, FileText,
+  AlertTriangle, Sparkles,
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -27,6 +28,17 @@ interface ParsedSaleRow {
 
 type FileStatus = 'idle' | 'parsing' | 'done' | 'error';
 
+/** Normalize string by stripping non-alphanumeric chars */
+const normalizeStr = (str: string) => str.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+/** Tokenize string into clean words */
+const tokenizeStr = (str: string) =>
+  str
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length > 1 && !['can', 'bottle', 'pack', 'pcs', 'drink', 'item', 'product'].includes(w));
+
 export default function ItemSalesReport() {
   const [reportDate, setReportDate] = useState<Date>(new Date());
   const dateStr = format(reportDate, 'yyyy-MM-dd');
@@ -36,8 +48,10 @@ export default function ItemSalesReport() {
   const [fileStatus, setFileStatus] = useState<FileStatus>('idle');
   const [unmatchedCount, setUnmatchedCount] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [isCreatingItems, setIsCreatingItems] = useState(false);
 
   const { data: items } = useItems();
+  const createItemMutation = useCreateItem();
   const { data: reportsHistory, isLoading: isLoadingHistory } = useReachSalesReports();
   const uploadSales = useUploadReachSales();
   
@@ -45,16 +59,56 @@ export default function ItemSalesReport() {
   const deleteReport = useDeleteReachSalesReport();
   const { data: reportDetails, isLoading: isLoadingDetails } = useReachSalesReportDetails(selectedReport?.id || null);
 
-  /** Match a raw name from PDF/CSV against the catalog */
+  /** Advanced 4-stage matching algorithm */
   const matchToCatalog = useCallback((rawName: string): { id: string; name: string; unit_cost: number } | null => {
-    if (!items) return null;
-    const lower = rawName.toLowerCase().trim();
-    return (
-      items.find(it => it.name.toLowerCase() === lower) ||
-      items.find(it => lower.includes(it.name.toLowerCase())) ||
-      items.find(it => it.name.toLowerCase().includes(lower)) ||
-      null
-    );
+    if (!items || items.length === 0 || !rawName) return null;
+
+    const rawLower = rawName.toLowerCase().trim();
+    const rawNorm = normalizeStr(rawName);
+    const rawTokens = tokenizeStr(rawName);
+
+    // Stage 1: Exact lowercase match
+    const exact = items.find(it => it.name.toLowerCase().trim() === rawLower);
+    if (exact) return exact;
+
+    // Stage 2: Normalized exact match (strips spaces/punctuation e.g. "BLACKBULLET" -> "blackbullet")
+    const normExact = items.find(it => normalizeStr(it.name) === rawNorm);
+    if (normExact) return normExact;
+
+    // Stage 3: Substring match
+    const substringMatch = items.find(it => {
+      const itLower = it.name.toLowerCase().trim();
+      const itNorm = normalizeStr(it.name);
+      return (
+        rawLower.includes(itLower) ||
+        itLower.includes(rawLower) ||
+        (rawNorm.length >= 4 && itNorm.length >= 4 && (rawNorm.includes(itNorm) || itNorm.includes(rawNorm)))
+      );
+    });
+    if (substringMatch) return substringMatch;
+
+    // Stage 4: Token/Word overlap match
+    if (rawTokens.length > 0) {
+      let bestItem: (typeof items)[0] | null = null;
+      let bestScore = 0;
+
+      for (const item of items) {
+        const itemTokens = tokenizeStr(item.name);
+        if (itemTokens.length === 0) continue;
+
+        const common = rawTokens.filter(t => itemTokens.includes(t));
+        const score = common.length / Math.max(rawTokens.length, itemTokens.length);
+
+        if (score > 0.3 && score > bestScore) {
+          bestScore = score;
+          bestItem = item;
+        }
+      }
+
+      if (bestItem) return bestItem;
+    }
+
+    return null;
   }, [items]);
 
   /** Parse a CSV/TXT file */
@@ -90,6 +144,12 @@ export default function ItemSalesReport() {
         });
       } else {
         unmatched++;
+        newRows.push({
+          itemId: '',
+          itemName: rawName,
+          qtySold: qty,
+          unitPrice: price || 0,
+        });
       }
     }
 
@@ -136,8 +196,8 @@ export default function ItemSalesReport() {
           } else {
             unmatched++;
             return {
-              itemId: items?.[0]?.id || '',
-              itemName: row.item_name, // Raw name from PDF as hint
+              itemId: '', // Safe unmatched state — will prompt user to select/create item
+              itemName: row.item_name, // Preserves exact raw PDF item name
               qtySold: row.quantity,
               unitPrice: row.unit_price || 0,
             };
@@ -197,12 +257,88 @@ export default function ItemSalesReport() {
     toast({ title: 'Manual Row Added', description: `Added ${first.name} to sales entry table.` });
   };
 
+  const handleQuickCreateItem = async (index: number) => {
+    const row = parsedRows[index];
+    if (!row || !row.itemName) return;
+
+    try {
+      const newItem = await createItemMutation.mutateAsync({
+        name: row.itemName,
+        category: 'Retail',
+        unit_of_measure: 'pcs',
+        low_stock_threshold: 10,
+        unit_cost: row.unitPrice || 0,
+        departments: ['Retail'],
+      });
+
+      setParsedRows(prev => {
+        const next = [...prev];
+        next[index] = {
+          ...next[index],
+          itemId: newItem.id,
+          itemName: newItem.name,
+        };
+        return next;
+      });
+
+      setUnmatchedCount(prev => Math.max(0, prev - 1));
+      toast({ title: 'Item Created', description: `Created "${newItem.name}" in catalog.` });
+    } catch (err: unknown) {
+      toast({ title: 'Creation Failed', description: err instanceof Error ? err.message : 'Could not create item', variant: 'destructive' });
+    }
+  };
+
+  const handleQuickCreateAllMissing = async () => {
+    const missingIndices = parsedRows
+      .map((r, i) => (!r.itemId ? i : -1))
+      .filter(i => i !== -1);
+
+    if (missingIndices.length === 0) return;
+
+    setIsCreatingItems(true);
+    let createdCount = 0;
+    const newRows = [...parsedRows];
+
+    for (const idx of missingIndices) {
+      const row = newRows[idx];
+      if (!row || !row.itemName) continue;
+
+      try {
+        const newItem = await createItemMutation.mutateAsync({
+          name: row.itemName,
+          category: 'Retail',
+          unit_of_measure: 'pcs',
+          low_stock_threshold: 10,
+          unit_cost: row.unitPrice || 0,
+          departments: ['Retail'],
+        });
+
+        newRows[idx] = {
+          ...newRows[idx],
+          itemId: newItem.id,
+          itemName: newItem.name,
+        };
+        createdCount++;
+      } catch {
+        // continue creating remaining items
+      }
+    }
+
+    setParsedRows(newRows);
+    setUnmatchedCount(prev => Math.max(0, prev - createdCount));
+    setIsCreatingItems(false);
+    toast({ title: 'Missing Items Created', description: `Successfully created ${createdCount} new item(s) in catalog.` });
+  };
+
   const handleRowChange = (index: number, field: keyof ParsedSaleRow, value: string | number) => {
     setParsedRows(prev => {
       const next = [...prev];
       if (field === 'itemId') {
         const item = items?.find(it => it.id === value);
         next[index] = { ...next[index], itemId: value as string, itemName: item?.name || '', unitPrice: item?.unit_cost ?? next[index].unitPrice };
+        if (value && !prev[index].itemId) {
+          setUnmatchedCount(count => Math.max(0, count - 1));
+        }
       } else {
         next[index] = { ...next[index], [field]: value };
       }
@@ -219,6 +355,16 @@ export default function ItemSalesReport() {
     }
     if (parsedRows.length === 0) {
       toast({ title: 'Validation Error', description: 'Please add at least one item sale', variant: 'destructive' });
+      return;
+    }
+
+    const missingRows = parsedRows.filter(r => !r.itemId);
+    if (missingRows.length > 0) {
+      toast({
+        title: 'Unmatched Items Found',
+        description: `Please select catalog items or click "Create Missing Items" for the ${missingRows.length} unmatched row(s) before saving.`,
+        variant: 'destructive',
+      });
       return;
     }
 
@@ -363,6 +509,32 @@ export default function ItemSalesReport() {
             {/* Items Table */}
             {parsedRows.length > 0 && (
               <div className="space-y-3 pt-1">
+                {/* Unmatched Alert Banner & Bulk Creation Button */}
+                {unmatchedCount > 0 && (
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-200 text-xs">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                      <span>
+                        <strong>{unmatchedCount} item{unmatchedCount !== 1 ? 's' : ''}</strong> in report not matched to catalog. Select matching items below or auto-create them.
+                      </span>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={handleQuickCreateAllMissing}
+                      disabled={isCreatingItems}
+                      className="h-8 text-xs shrink-0 bg-amber-600 text-white hover:bg-amber-700 dark:bg-amber-700 dark:hover:bg-amber-600 border-none"
+                    >
+                      {isCreatingItems ? (
+                        <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-3.5 w-3.5 mr-1" />
+                      )}
+                      Create {unmatchedCount} Missing Item{unmatchedCount !== 1 ? 's' : ''} in Catalog
+                    </Button>
+                  </div>
+                )}
+
                 <div className="flex items-center justify-between">
                   <h3 className="font-semibold text-xs sm:text-sm">Review & Edit Rows</h3>
                   <Button size="sm" variant="outline" onClick={handleAddManualRow} className="h-9 text-xs">
@@ -373,28 +545,47 @@ export default function ItemSalesReport() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="min-w-[160px]">Item</TableHead>
+                        <TableHead className="min-w-[220px]">Item</TableHead>
                         <TableHead className="w-24 text-right min-w-[80px]">Qty Sold</TableHead>
                         <TableHead className="w-24 text-right min-w-[90px]">Unit Price</TableHead>
                         <TableHead className="w-24 text-right min-w-[90px]">Total (₦)</TableHead>
-                        <TableHead className="w-12" />
+                        <TableHead className="w-24 text-center">Action</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {parsedRows.map((row, idx) => (
-                        <TableRow key={idx}>
+                        <TableRow
+                          key={idx}
+                          className={cn(!row.itemId && 'bg-amber-500/5 hover:bg-amber-500/10 border-l-4 border-l-amber-500')}
+                        >
                           <TableCell>
-                            <select
-                              value={row.itemId}
-                              onChange={e => handleRowChange(idx, 'itemId', e.target.value)}
-                              className="w-full h-9 text-xs sm:text-sm rounded-md border bg-background px-2"
-                            >
-                              {items?.map(it => (
-                                <option key={it.id} value={it.id}>
-                                  {it.name} ({it.category})
-                                </option>
-                              ))}
-                            </select>
+                            <div className="space-y-1">
+                              <select
+                                value={row.itemId}
+                                onChange={e => handleRowChange(idx, 'itemId', e.target.value)}
+                                className={cn(
+                                  "w-full h-9 text-xs sm:text-sm rounded-md border bg-background px-2",
+                                  !row.itemId && "border-amber-500/70 text-amber-700 dark:text-amber-400 font-medium"
+                                )}
+                              >
+                                {!row.itemId && (
+                                  <option value="" disabled>
+                                    ⚠️ Unmatched: "{row.itemName}" — (Select catalog item...)
+                                  </option>
+                                )}
+                                {items?.map(it => (
+                                  <option key={it.id} value={it.id}>
+                                    {it.name} ({it.category})
+                                  </option>
+                                ))}
+                              </select>
+                              {!row.itemId && (
+                                <div className="text-[11px] text-amber-700 dark:text-amber-400 flex items-center gap-1 font-medium pl-0.5">
+                                  <AlertTriangle className="h-3 w-3 inline shrink-0" />
+                                  <span>Raw PDF Item: <strong>{row.itemName}</strong></span>
+                                </div>
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell>
                             <Input
@@ -416,9 +607,22 @@ export default function ItemSalesReport() {
                             {((Number(row.qtySold) || 0) * (Number(row.unitPrice) || 0)).toFixed(2)}
                           </TableCell>
                           <TableCell>
-                            <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handleRemoveRow(idx)}>
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
+                            <div className="flex items-center justify-center gap-1">
+                              {!row.itemId && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleQuickCreateItem(idx)}
+                                  className="h-8 px-2 text-[11px] border-amber-500/50 text-amber-700 hover:bg-amber-500/10 dark:text-amber-300"
+                                  title="Add this item to catalog"
+                                >
+                                  <Plus className="h-3.5 w-3.5 mr-1" /> Create
+                                </Button>
+                              )}
+                              <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handleRemoveRow(idx)}>
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
