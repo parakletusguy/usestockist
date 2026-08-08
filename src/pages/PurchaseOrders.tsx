@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRole } from '@/hooks/useRole';
+import { exportToCSV } from '@/lib/export';
 import { usePredictiveReordering, PurchaseOrder, PurchaseOrderStatus } from '@/hooks/usePredictiveReordering';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,6 +21,7 @@ import {
   ShieldAlert,
   Clock,
   Building2,
+  Download,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -114,6 +116,32 @@ export default function PurchaseOrders() {
     });
   };
 
+  const generateRequisitionList = () => {
+    const approvedOrders = purchaseOrders.filter(po => po.status === 'approved');
+    
+    if (approvedOrders.length === 0) {
+      alert("No approved purchase orders found to generate a requisition list.");
+      return;
+    }
+
+    const exportData = approvedOrders.map(po => ({
+      'Item Name': po.items?.name || 'Unknown Item',
+      'Category': po.items?.category || '',
+      'Department': po.department || 'Retail',
+      'Unit': po.items?.unit_of_measure || '',
+      'Requested Quantity': po.ordered_quantity ?? po.suggested_quantity,
+      'Supplier': po.supplier || 'Auto-Reorder Vendor',
+      'Estimated Unit Cost': po.unit_cost,
+      'Total Estimated Cost': (po.ordered_quantity ?? po.suggested_quantity) * (po.unit_cost || 0),
+      'Date Approved': format(new Date(po.updated_at), 'yyyy-MM-dd HH:mm'),
+    }));
+
+    exportToCSV(
+      exportData, 
+      `Requisition_List_${format(new Date(), 'yyyy-MM-dd_HHmm')}`
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* Header Title & Primary Action */}
@@ -127,18 +155,28 @@ export default function PurchaseOrders() {
             AI-assisted demand forecasting, velocity tracking, and automated Purchase Orders.
           </p>
         </div>
-        <Button
-          onClick={() => runAnalysis(30)}
-          disabled={isAnalyzing}
-          className="gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white shadow-md"
-        >
-          {isAnalyzing ? (
-            <RefreshCw className="h-4 w-4 animate-spin" />
-          ) : (
-            <Sparkles className="h-4 w-4" />
-          )}
-          Run Predictive Analysis
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={generateRequisitionList}
+            className="gap-2"
+          >
+            <Download className="h-4 w-4" />
+            Requisition List
+          </Button>
+          <Button
+            onClick={() => runAnalysis(30)}
+            disabled={isAnalyzing}
+            className="gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white shadow-md"
+          >
+            {isAnalyzing ? (
+              <RefreshCw className="h-4 w-4 animate-spin" />
+            ) : (
+              <Sparkles className="h-4 w-4" />
+            )}
+            Run Predictive Analysis
+          </Button>
+        </div>
       </div>
 
       {/* KPI Cards */}
