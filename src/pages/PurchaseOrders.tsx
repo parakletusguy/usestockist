@@ -172,7 +172,7 @@ export default function PurchaseOrders() {
             <DollarSign className="h-4 w-4 text-emerald-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${totalValue.toLocaleString()}</div>
+            <div className="text-2xl font-bold">₦{totalValue.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">Active & draft PO capital commitment</p>
           </CardContent>
         </Card>

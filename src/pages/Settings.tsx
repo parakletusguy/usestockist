@@ -64,7 +64,7 @@ export default function Settings() {
   const { data: allUsers, isLoading: isLoadingUsers } = useQuery({
     queryKey: ['all-users'],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_all_users');
+      const { data, error } = await (supabase as any).rpc('get_all_users');
       if (error) throw error;
       return data as AppUser[];
     },
@@ -73,7 +73,7 @@ export default function Settings() {
 
   const updateRoleMutation = useMutation({
     mutationFn: async ({ userId, newRole }: { userId: string; newRole: AppRole }) => {
-      const { error } = await supabase.rpc('set_user_role', {
+      const { error } = await (supabase as any).rpc('set_user_role', {
         p_user_id: userId,
         p_role: newRole,
       });

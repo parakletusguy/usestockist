@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import type { TablesInsert } from '@/integrations/supabase/types';
 
 const LIST_OPTS = {
   staleTime: 1000 * 30, // 30s cache
@@ -104,7 +105,7 @@ export function useUpdateIssuance() {
     mutationFn: async ({ id, ...input }: Partial<CreateIssuanceInput> & { id: string }) => {
       const { data, error } = await supabase
         .from('issuance_ledger')
-        .update(input)
+        .update(input as never)
         .eq('id', id)
         .select()
         .single();
@@ -239,7 +240,7 @@ export function useUpdateTransfer() {
     mutationFn: async ({ id, ...input }: Partial<CreateTransferInput> & { id: string }) => {
       const { data, error } = await supabase
         .from('transfer_ledger')
-        .update(input)
+        .update(input as never)
         .eq('id', id)
         .select()
         .single();
@@ -374,7 +375,7 @@ export function useUpdateReceived() {
     mutationFn: async ({ id, ...input }: Partial<CreateReceivedInput> & { id: string }) => {
       const { data, error } = await supabase
         .from('received_ledger')
-        .update(input)
+        .update(input as never)
         .eq('id', id)
         .select()
         .single();
