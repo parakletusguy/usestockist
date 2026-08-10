@@ -99,7 +99,7 @@ export function useDailyStockCount(startDate: string, endDate?: string, departme
       // AND prior period ledgers & transactions (date < startD) for carry-forward Opening Stock
       const [
         issuanceCurrRes, receivedCurrRes, transferCurrRes, sheetsCurrRes, txCurrRes,
-        issuancePriorRes, receivedPriorRes, transferPriorRes, txPriorRes, sheetsPriorRes
+        issuancePriorRes, receivedPriorRes, transferPriorRes, txPriorRes, sheetsPriorRes, txPriorDatedRes
       ] = await Promise.all([
         supabase.from('issuance_ledger').select('item_id, quantity').gte('date', startD).lte('date', endD),
         supabase.from('received_ledger').select('item_id, quantity').gte('date', startD).lte('date', endD),
@@ -120,6 +120,10 @@ export function useDailyStockCount(startDate: string, endDate?: string, departme
           .select('item_id, close_qty, date')
           .lt('date', startD)
           .order('date', { ascending: false }),
+        // Transactions WITH their dates for gap-filling between last sheet and today
+        supabase.from('inventory_transactions')
+          .select('item_id, type, quantity, transaction_date')
+          .lt('transaction_date', startTxD),
       ]);
 
       const sum = (rows: LedgerRow[] | null, id: string) =>
@@ -137,13 +141,28 @@ export function useDailyStockCount(startDate: string, endDate?: string, departme
         sheetsByItem.set(s.item_id, arr);
       });
 
-      // Build map of most recent prior closing count by item_id
+      // Build map of most recent prior closing count AND date by item_id
       const priorCloseByItem = new Map<string, number>();
+      const priorCloseDateByItem = new Map<string, string>(); // item_id -> last sheet date
       ((sheetsPriorRes.data as SheetRow[]) || []).forEach((s) => {
         if (!priorCloseByItem.has(s.item_id) && s.close_qty !== null && s.close_qty !== undefined) {
           priorCloseByItem.set(s.item_id, Number(s.close_qty));
+          priorCloseDateByItem.set(s.item_id, s.date || '');
         }
       });
+
+      // Build dated prior transactions for gap-filling
+      interface DatedTxRow { item_id: string; type: string; quantity: number; transaction_date: string; }
+      const txPriorDated = (txPriorDatedRes.data as DatedTxRow[]) || [];
+
+      // Sum transactions that occurred AFTER the last sheet date and BEFORE startDate
+      const sumGapTx = (itemId: string, type: string): number => {
+        const lastSheetDate = priorCloseDateByItem.get(itemId);
+        if (!lastSheetDate) return 0;
+        return txPriorDated
+          .filter(r => r.item_id === itemId && r.type === type && r.transaction_date > `${lastSheetDate}T23:59:59`)
+          .reduce((s, r) => s + Number(r.quantity || 0), 0);
+      };
 
       const catalogItems = (itemsRes.data as ItemRow[]) || [];
 
@@ -177,9 +196,22 @@ export function useDailyStockCount(startDate: string, endDate?: string, departme
 
           const calculatedOpening = Math.max(0, priorRec - priorIss - priorTrans - priorSold - priorDamages);
           const priorClose = priorCloseByItem.get(item.id);
-          const finalOpening = sheetOpening > 0
-            ? sheetOpening
-            : (priorClose !== undefined ? priorClose : calculatedOpening);
+
+          // Gap-fill: apply any transactions that happened AFTER the last sheet date
+          // so that days without a submitted stock count still carry forward correctly
+          let finalOpening: number;
+          if (sheetOpening > 0) {
+            finalOpening = sheetOpening;
+          } else if (priorClose !== undefined) {
+            const gapRec   = sumGapTx(item.id, 'receive');
+            const gapSold  = sumGapTx(item.id, 'sale');
+            const gapIss   = sumGapTx(item.id, 'issuance');
+            const gapTrans = sumGapTx(item.id, 'transfer');
+            const gapDmg   = sumGapTx(item.id, 'damage');
+            finalOpening = Math.max(0, priorClose + gapRec - gapSold - gapIss - gapTrans - gapDmg);
+          } else {
+            finalOpening = calculatedOpening;
+          }
 
           // Current period movements
           const txReceived = sumTx(txCurrData, item.id, 'receive');
