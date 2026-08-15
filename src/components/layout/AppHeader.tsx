@@ -3,6 +3,7 @@ import { Package, LogOut, Menu, Download, Settings } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { SidebarTrigger } from '@/components/ui/sidebar';
+import { BranchSwitcher } from './BranchSwitcher';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -75,6 +76,11 @@ export function AppHeader() {
         <div className="flex items-center gap-2">
           <Package className="h-6 w-6 text-primary" />
           <span className="text-lg font-semibold">Stockist</span>
+        </div>
+
+        {/* Branch Switcher */}
+        <div className="ml-4">
+          <BranchSwitcher />
         </div>
 
         <div className="ml-auto flex items-center gap-2">

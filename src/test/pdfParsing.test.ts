@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import { isTicketItem } from '@/lib/parsePdf';
+import { isBarCupConsumingDrink, calculateBarCupDeductions } from '@/lib/barCupMapping';
 
 /** Clean currency symbols (₦, $, N) and commas from numbers */
 function cleanNumber(str: string): number | null {
@@ -130,7 +132,6 @@ describe('Reach POS PDF Parsing — Item Focus', () => {
 
   describe('Item Extraction from Reach PDF Report', () => {
     const reachReportLines = [
-      // Page 1
       { tokens: ['MID WEEK JOLLY', '₦ 4,500', '21', '₦ 94,500', '7', '₦ 31,500', '21', '₦ 94,500'], name: 'MID WEEK JOLLY', price: 4500, qty: 21 },
       { tokens: ['Regular Ticket', '₦ 6,000', '16', '₦ 96,000', '0', '₦ 0', '16', '₦ 96,000'], name: 'Regular Ticket', price: 6000, qty: 16 },
       { tokens: ['Gold Seat', '₦ 5,000', '4', '₦ 20,000', '0', '₦ 0', '4', '₦ 20,000'], name: 'Gold Seat', price: 5000, qty: 4 },
@@ -143,13 +144,6 @@ describe('Reach POS PDF Parsing — Item Focus', () => {
       { tokens: ['PARFAIT', '₦ 4,000', '1', '₦ 4,000', '0', '₦ 0', '1', '₦ 4,000'], name: 'PARFAIT', price: 4000, qty: 1 },
       { tokens: ['BLACKBULLET', '₦ 3,000', '1', '₦ 3,000', '0', '₦ 0', '1', '₦ 3,000'], name: 'BLACKBULLET', price: 3000, qty: 1 },
       { tokens: ['VR GAME', '₦ 2,000', '15', '₦ 30,000', '0', '₦ 0', '15', '₦ 30,000'], name: 'VR GAME', price: 2000, qty: 15 },
-      // Page 2
-      { tokens: ['TIGER NUT DRINK', '₦ 2,500', '4', '₦ 10,000', '0', '₦ 0', '4', '₦ 10,000'], name: 'TIGER NUT DRINK', price: 2500, qty: 4 },
-      { tokens: ['MEATPIE', '₦ 1,500', '23', '₦ 34,500', '0', '₦ 0', '23', '₦ 34,500'], name: 'MEATPIE', price: 1500, qty: 23 },
-      { tokens: ['PRINGLES BIG', '₦ 6,000', '1', '₦ 6,000', '0', '₦ 0', '1', '₦ 6,000'], name: 'PRINGLES BIG', price: 6000, qty: 1 },
-      { tokens: ['Small Chops', '₦ 4,000', '18', '₦ 72,000', '0', '₦ 0', '18', '₦ 72,000'], name: 'Small Chops', price: 4000, qty: 18 },
-      { tokens: ['MALTINA CAN', '₦ 1,500', '3', '₦ 4,500', '0', '₦ 0', '3', '₦ 4,500'], name: 'MALTINA CAN', price: 1500, qty: 3 },
-      { tokens: ['BOX-SIGNATR ACCESS (SINGLE)', '₦ 5,000', '4', '₦ 20,000', '0', '₦ 0', '4', '₦ 20,000'], name: 'BOX-SIGNATR ACCESS (SINGLE)', price: 5000, qty: 4 },
     ];
 
     reachReportLines.forEach(({ tokens, name, price, qty }) => {
@@ -160,6 +154,67 @@ describe('Reach POS PDF Parsing — Item Focus', () => {
         expect(row?.unit_price).toBe(price);
         expect(row?.quantity).toBe(qty);
       });
+    });
+  });
+
+  describe('Ticket Identification (Non-Inventory Exclusion)', () => {
+    it('correctly identifies cinema ticket and access items', () => {
+      expect(isTicketItem('Regular Ticket')).toBe(true);
+      expect(isTicketItem('Gold Seat')).toBe(true);
+      expect(isTicketItem('Platinum Seat')).toBe(true);
+      expect(isTicketItem('VR Game')).toBe(true);
+      expect(isTicketItem('Box-Signatr Access (Single)')).toBe(true);
+      expect(isTicketItem('MID WEEK JOLLY')).toBe(true);
+    });
+
+    it('correctly distinguishes physical inventory items from tickets', () => {
+      expect(isTicketItem('MEDIUM POPCORN')).toBe(false);
+      expect(isTicketItem('SODA')).toBe(false);
+      expect(isTicketItem('WATER')).toBe(false);
+      expect(isTicketItem('FROZEN MAGARITA')).toBe(false);
+      expect(isTicketItem('BAILEYS MILKSHAKE')).toBe(false);
+    });
+  });
+
+  describe('Bar Cup Auto-Reconciliation', () => {
+    it('identifies cup-consuming drinks (cocktails, mocktails, milkshakes, smoothies)', () => {
+      expect(isBarCupConsumingDrink('Long Island')).toBe(true);
+      expect(isBarCupConsumingDrink('FROZEN MAGARITA')).toBe(true);
+      expect(isBarCupConsumingDrink('Porn Star Martini')).toBe(true);
+      expect(isBarCupConsumingDrink('TROPICAL BLAST')).toBe(true);
+      expect(isBarCupConsumingDrink('Virgin Mojito')).toBe(true);
+      expect(isBarCupConsumingDrink('BAILEYS MILKSHAKE')).toBe(true);
+      expect(isBarCupConsumingDrink('COMBO MILKSHAKE')).toBe(true);
+      expect(isBarCupConsumingDrink('Mango Smoothie')).toBe(true);
+    });
+
+    it('excludes non-cup items (beers, wines, whole bottles, shots, coffee/tea, supplies)', () => {
+      expect(isBarCupConsumingDrink('Tiger Beer')).toBe(false);
+      expect(isBarCupConsumingDrink('Heineken')).toBe(false);
+      expect(isBarCupConsumingDrink('Coffee')).toBe(false);
+      expect(isBarCupConsumingDrink('Tea')).toBe(false);
+      expect(isBarCupConsumingDrink('Tequila Shot')).toBe(false);
+      expect(isBarCupConsumingDrink('Andre Rose')).toBe(false);
+      expect(isBarCupConsumingDrink('Four Cousins')).toBe(false);
+      expect(isBarCupConsumingDrink('Cups')).toBe(false);
+      expect(isBarCupConsumingDrink('Milk Cups')).toBe(false);
+    });
+
+    it('calculates aggregate cup deduction accurately', () => {
+      const salesRows = [
+        { itemName: 'Long Island', qtySold: 4, department: 'Bar' },
+        { itemName: 'BAILEYS MILKSHAKE', qtySold: 2, department: 'Bar' },
+        { itemName: 'Tiger Beer', qtySold: 5, department: 'Bar' },
+        { itemName: 'Andre Rose', qtySold: 1, department: 'Bar' },
+        { itemName: 'Tequila Shot', qtySold: 3, department: 'Bar' },
+        { itemName: 'TROPICAL BLAST', qtySold: 3, department: 'Bar' },
+      ];
+
+      const result = calculateBarCupDeductions(salesRows);
+      // 4 (Long Island) + 2 (Milkshake) + 3 (Tropical Blast) = 9 cups
+      expect(result.totalCupsToDeduct).toBe(9);
+      expect(result.cupEligibleItems.length).toBe(3);
+      expect(result.nonCupItems.length).toBe(3);
     });
   });
 

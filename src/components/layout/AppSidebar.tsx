@@ -42,7 +42,14 @@ const baseLedgerItems = [
   { title: 'Items Manager', url: '/ledgers/items', icon: Package },
 ];
 
-const departmentItems = [
+const cubeLedgerItems = [
+  { title: 'Stock Count', url: '/ledgers/stock-count', icon: Calendar },
+  { title: 'Received', url: '/ledgers/received', icon: PackageCheck },
+  { title: 'Transfer', url: '/ledgers/transfers', icon: ArrowLeftRight },
+  { title: 'Issuance', url: '/ledgers/issuance', icon: Send },
+];
+
+const allDepartmentItems = [
   { title: 'Retail', url: '/departments/retail' },
   { title: 'Cube', url: '/departments/cube' },
   { title: 'Bar', url: '/departments/bar' },
@@ -50,6 +57,10 @@ const departmentItems = [
   { title: 'Housekeeping', url: '/departments/housekeeping' },
   { title: 'PPK', url: '/departments/ppk' },
   { title: 'Nox', url: '/departments/nox' },
+];
+
+const cubeDepartmentItems = [
+  { title: 'Cube', url: '/departments/cube' },
 ];
 
 /** Mobile slide-out drawer — renders all nav links inside a Sheet */
@@ -60,15 +71,19 @@ export function MobileNavDrawer({
   open: boolean;
   onClose: () => void;
 }) {
-  const { session } = useAuth();
+  const { session, isCubeStaff } = useAuth();
   const { canManageReorders } = useRole(session);
   const linkClass = 'flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors hover:bg-muted/60 min-h-[44px]';
   const activeLinkClass = 'bg-muted text-primary font-semibold';
 
-  const ledgerItems = [
-    ...baseLedgerItems,
-    ...(canManageReorders ? [{ title: 'Purchase Orders', url: '/ledgers/purchase-orders', icon: ShoppingCart }] : []),
-  ];
+  const ledgerItems = isCubeStaff
+    ? cubeLedgerItems
+    : [
+        ...baseLedgerItems,
+        ...(canManageReorders ? [{ title: 'Purchase Orders', url: '/ledgers/purchase-orders', icon: ShoppingCart }] : []),
+      ];
+
+  const departmentItems = isCubeStaff ? cubeDepartmentItems : allDepartmentItems;
 
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
@@ -76,22 +91,24 @@ export function MobileNavDrawer({
         <SheetHeader className="px-4 py-3 border-b shrink-0">
           <SheetTitle className="flex items-center gap-2 text-left">
             <PackageIcon className="h-5 w-5 text-primary" />
-            Stockist
+            Stockist {isCubeStaff && <span className="text-xs font-normal text-muted-foreground">(Cube)</span>}
           </SheetTitle>
         </SheetHeader>
 
         <nav className="flex-1 overflow-y-auto py-2 px-2 space-y-1">
           {/* Dashboard */}
-          <NavLink
-            to="/"
-            end
-            className={linkClass}
-            activeClassName={activeLinkClass}
-            onClick={onClose}
-          >
-            <LayoutDashboard className="h-5 w-5 shrink-0" />
-            Dashboard
-          </NavLink>
+          {!isCubeStaff && (
+            <NavLink
+              to="/"
+              end
+              className={linkClass}
+              activeClassName={activeLinkClass}
+              onClick={onClose}
+            >
+              <LayoutDashboard className="h-5 w-5 shrink-0" />
+              Dashboard
+            </NavLink>
+          )}
 
           {/* Ledgers section */}
           <div className="pt-3 pb-1">
@@ -132,20 +149,24 @@ export function MobileNavDrawer({
           ))}
 
           {/* AI Assistant */}
-          <div className="pt-3 pb-1">
-            <p className="px-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-              Tools
-            </p>
-          </div>
-          <NavLink
-            to="/ai-assistant"
-            className={cn(linkClass, 'text-primary font-medium hover:bg-primary/10')}
-            activeClassName="bg-primary/15 text-primary font-bold"
-            onClick={onClose}
-          >
-            <Sparkles className="h-5 w-5 shrink-0 text-primary" />
-            AI Assistant
-          </NavLink>
+          {!isCubeStaff && (
+            <>
+              <div className="pt-3 pb-1">
+                <p className="px-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Tools
+                </p>
+              </div>
+              <NavLink
+                to="/ai-assistant"
+                className={cn(linkClass, 'text-primary font-medium hover:bg-primary/10')}
+                activeClassName="bg-primary/15 text-primary font-bold"
+                onClick={onClose}
+              >
+                <Sparkles className="h-5 w-5 shrink-0 text-primary" />
+                AI Assistant
+              </NavLink>
+            </>
+          )}
 
           {/* Account */}
           <div className="pt-3 pb-1 mt-auto">
@@ -171,38 +192,44 @@ export function MobileNavDrawer({
 /** Desktop sidebar — uses shadcn Sidebar with collapsible icon mode */
 export function AppSidebar() {
   const { state } = useSidebar();
-  const { session } = useAuth();
+  const { session, isCubeStaff } = useAuth();
   const { canManageReorders } = useRole(session);
   const collapsed = state === 'collapsed';
 
-  const ledgerItems = [
-    ...baseLedgerItems,
-    ...(canManageReorders ? [{ title: 'Purchase Orders', url: '/ledgers/purchase-orders', icon: ShoppingCart }] : []),
-  ];
+  const ledgerItems = isCubeStaff
+    ? cubeLedgerItems
+    : [
+        ...baseLedgerItems,
+        ...(canManageReorders ? [{ title: 'Purchase Orders', url: '/ledgers/purchase-orders', icon: ShoppingCart }] : []),
+      ];
+
+  const departmentItems = isCubeStaff ? cubeDepartmentItems : allDepartmentItems;
 
   return (
     <Sidebar collapsible="icon" className="hidden md:flex">
       <SidebarContent>
         {/* Top Level Dashboard */}
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild tooltip="Dashboard">
-                  <NavLink 
-                    to="/" 
-                    end
-                    className="flex items-center gap-2 hover:bg-muted/50" 
-                    activeClassName="bg-muted text-primary font-medium"
-                  >
-                    <LayoutDashboard className="h-4 w-4" />
-                    {!collapsed && <span>Dashboard</span>}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {!isCubeStaff && (
+          <SidebarGroup>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild tooltip="Dashboard">
+                    <NavLink 
+                      to="/" 
+                      end
+                      className="flex items-center gap-2 hover:bg-muted/50" 
+                      activeClassName="bg-muted text-primary font-medium"
+                    >
+                      <LayoutDashboard className="h-4 w-4" />
+                      {!collapsed && <span>Dashboard</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
         {/* Ledgers Group */}
         <SidebarGroup>
@@ -251,24 +278,26 @@ export function AppSidebar() {
         </SidebarGroup>
 
         {/* AI Assistant */}
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild tooltip="AI Assistant">
-                  <NavLink 
-                    to="/ai-assistant" 
-                    className="flex items-center gap-2 text-primary font-medium hover:bg-primary/10" 
-                    activeClassName="bg-primary/15 text-primary font-bold"
-                  >
-                    <Sparkles className="h-4 w-4 text-primary" />
-                    {!collapsed && <span>AI Assistant</span>}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {!isCubeStaff && (
+          <SidebarGroup>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild tooltip="AI Assistant">
+                    <NavLink 
+                      to="/ai-assistant" 
+                      className="flex items-center gap-2 text-primary font-medium hover:bg-primary/10" 
+                      activeClassName="bg-primary/15 text-primary font-bold"
+                    >
+                      <Sparkles className="h-4 w-4 text-primary" />
+                      {!collapsed && <span>AI Assistant</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
         {/* Account */}
         <SidebarGroup className="mt-auto">

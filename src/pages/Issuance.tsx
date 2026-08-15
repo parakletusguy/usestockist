@@ -3,6 +3,7 @@ import { format } from 'date-fns';
 import { useItems } from '@/hooks/useItems';
 import { useIssuanceLedger, useCreateIssuance, useUpdateIssuance, useDeleteIssuance, IssuanceLedger } from '@/hooks/useLedgers';
 import { useAuth } from '@/contexts/AuthContext';
+import { useBranch } from '@/contexts/BranchContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,20 +27,21 @@ import { DEPARTMENTS } from '@/lib/validation';
 const RECIPIENT_GROUPS = DEPARTMENTS;
 
 const Issuance = () => {
-  const { user, canWriteLedgers } = useAuth();
+  const { user, canWriteLedgers, departmentLock } = useAuth();
+  const { activeBranch } = useBranch();
   const [date, setDate] = useState<Date>(new Date());
-  const [recipientGroup, setRecipientGroup] = useState<string>('');
+  const [recipientGroup, setRecipientGroup] = useState<string>(departmentLock || '');
   const [selectedItem, setSelectedItem] = useState<string>('');
   const [quantity, setQuantity] = useState<string>('');
-  const [filterGroup, setFilterGroup] = useState<string>('all');
+  const [filterGroup, setFilterGroup] = useState<string>(departmentLock || 'all');
   const [editingEntry, setEditingEntry] = useState<IssuanceLedger | null>(null);
   const [editDate, setEditDate] = useState<Date>(new Date());
-  const [editGroup, setEditGroup] = useState('');
+  const [editGroup, setEditGroup] = useState(departmentLock || '');
   const [editItem, setEditItem] = useState('');
   const [editQty, setEditQty] = useState('');
 
   const { data: items } = useItems();
-  const { data: ledger, isLoading } = useIssuanceLedger();
+  const { data: ledger, isLoading } = useIssuanceLedger(activeBranch?.id);
   const createIssuance = useCreateIssuance();
   const updateIssuance = useUpdateIssuance();
   const deleteIssuance = useDeleteIssuance();
@@ -58,6 +60,7 @@ const Issuance = () => {
       item_id: selectedItem,
       quantity: Number(quantity),
       issued_by: user?.email || 'Unknown',
+      branchId: activeBranch?.id,
     });
 
     setSelectedItem('');

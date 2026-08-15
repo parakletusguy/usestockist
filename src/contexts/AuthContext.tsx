@@ -10,8 +10,10 @@ interface AuthContextType {
   role: UserRole;
   isManager: boolean;
   isInventory: boolean;
+  isCubeStaff: boolean;
   canWriteLedgers: boolean;
   canManageItems: boolean;
+  departmentLock: 'Cube' | null;
   signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -32,7 +34,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const { role, isManager, isInventory, canWriteLedgers, canManageItems } = useRole(session);
+  const { role, isManager, isInventory, isCubeStaff, canWriteLedgers, canManageItems, departmentLock } = useRole(session);
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -86,8 +88,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         role,
         isManager,
         isInventory,
+        isCubeStaff,
         canWriteLedgers,
         canManageItems,
+        departmentLock,
         signUp,
         signIn,
         signOut,
@@ -97,4 +101,3 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     </AuthContext.Provider>
   );
 };
-

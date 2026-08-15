@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useBranch } from '@/contexts/BranchContext';
 import { useRole } from '@/hooks/useRole';
 import { usePredictiveReordering } from '@/hooks/usePredictiveReordering';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,21 +21,35 @@ type IssuanceRow = {
   items: { name: string } | null;
 };
 
-function useDashboardData() {
+function useDashboardData(branchId?: string) {
   return useQuery({
-    queryKey: ['dashboard'],
+    queryKey: ['dashboard', branchId || 'all'],
     staleTime: 60_000,
     refetchOnWindowFocus: false,
     queryFn: async () => {
       const today = new Date().toISOString().split('T')[0];
 
+      let issQuery = supabase.from('issuance_ledger').select('*, items(name)').order('date', { ascending: false }).limit(10);
+      let trnQuery = supabase.from('transfer_ledger').select('id', { count: 'exact', head: true });
+      let rcvQuery = supabase.from('received_ledger').select('id', { count: 'exact', head: true });
+      let todaysIssQuery = supabase.from('issuance_ledger').select('quantity').eq('date', today);
+      let sheetsQuery = supabase.from('daily_stock_sheets').select('item_id, close_qty').order('date', { ascending: false }).limit(500);
+
+      if (branchId) {
+        issQuery = issQuery.eq('branch_id', branchId);
+        trnQuery = trnQuery.eq('branch_id', branchId);
+        rcvQuery = rcvQuery.eq('branch_id', branchId);
+        todaysIssQuery = todaysIssQuery.eq('branch_id', branchId);
+        sheetsQuery = sheetsQuery.eq('branch_id', branchId);
+      }
+
       const [itemsRes, issuanceRes, transfersRes, receivedRes, todaysIssRes, sheetsRes] = await Promise.all([
         supabase.from('items').select('id, category, low_stock_threshold'),
-        supabase.from('issuance_ledger').select('*, items(name)').order('date', { ascending: false }).limit(10),
-        supabase.from('transfer_ledger').select('id', { count: 'exact', head: true }),
-        supabase.from('received_ledger').select('id', { count: 'exact', head: true }),
-        supabase.from('issuance_ledger').select('quantity').eq('date', today),
-        supabase.from('daily_stock_sheets').select('item_id, close_qty').order('date', { ascending: false }).limit(500),
+        issQuery,
+        trnQuery,
+        rcvQuery,
+        todaysIssQuery,
+        sheetsQuery,
       ]);
 
       // Category distribution
@@ -79,10 +94,9 @@ function useDashboardData() {
   });
 }
 
-
-
 const Dashboard = () => {
-  const { data, isLoading } = useDashboardData();
+  const { activeBranch } = useBranch();
+  const { data, isLoading } = useDashboardData(activeBranch?.id);
   const { session } = useAuth();
   const { canManageReorders } = useRole(session);
   const { purchaseOrders } = usePredictiveReordering();

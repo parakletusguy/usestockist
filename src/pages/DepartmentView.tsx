@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useItems } from '@/hooks/useItems';
 import { useDailyStockCount } from '@/hooks/useDailyStockCount';
+import { useBranch } from '@/contexts/BranchContext';
 import { format } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -24,13 +25,14 @@ const DEPARTMENT_MAP: Record<string, string> = {
 
 export default function DepartmentView() {
   const { departmentId } = useParams<{ departmentId: string }>();
+  const { activeBranch } = useBranch();
   const departmentName = DEPARTMENT_MAP[departmentId || ''] || 'Retail';
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'out' | 'low' | 'healthy'>('all');
 
-  const { data: stockRows, isLoading } = useDailyStockCount(todayStr, todayStr, departmentName);
+  const { data: stockRows, isLoading } = useDailyStockCount(todayStr, todayStr, departmentName, activeBranch?.id);
 
   const computedItems = useMemo(() => {
     if (!stockRows) return [];

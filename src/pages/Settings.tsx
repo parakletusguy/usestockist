@@ -1,9 +1,10 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { User, Lock, Users, Save, Loader2, ShieldCheck } from 'lucide-react';
+import { User, Lock, Users, Save, Loader2, ShieldCheck, Building2 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -18,7 +19,7 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 
-type AppRole = 'manager' | 'inventory' | 'viewer';
+type AppRole = 'manager' | 'inventory' | 'cube_staff' | 'viewer';
 
 interface AppUser {
   id: string;
@@ -33,6 +34,8 @@ const roleBadgeClass = (r: string) => {
       return 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30';
     case 'inventory':
       return 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30';
+    case 'cube_staff':
+      return 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30';
     default:
       return 'bg-muted text-muted-foreground border-border';
   }
@@ -42,6 +45,7 @@ const roleLabel = (r: string) => {
   switch (r) {
     case 'manager': return 'Manager';
     case 'inventory': return 'Inventory';
+    case 'cube_staff': return 'Cube Staff';
     default: return 'Viewer';
   }
 };
@@ -49,6 +53,7 @@ const roleLabel = (r: string) => {
 export default function Settings() {
   const { user, role } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   // Profile state
@@ -292,6 +297,7 @@ export default function Settings() {
                           <SelectContent>
                             <SelectItem value="manager">Manager</SelectItem>
                             <SelectItem value="inventory">Inventory</SelectItem>
+                            <SelectItem value="cube_staff">Cube Staff</SelectItem>
                             <SelectItem value="viewer">Viewer</SelectItem>
                           </SelectContent>
                         </Select>
@@ -305,6 +311,23 @@ export default function Settings() {
               </div>
             )}
           </CardContent>
+        </Card>
+      )}
+      {/* Branches card — managers only */}
+      {role === 'manager' && (
+        <Card
+          className="cursor-pointer hover:border-primary/40 transition-colors"
+          onClick={() => navigate('/settings/branches')}
+        >
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Building2 className="h-4 w-4 text-primary" />
+              Branches
+            </CardTitle>
+            <CardDescription>
+              Manage business branches, create new locations, and control which users belong to each branch.
+            </CardDescription>
+          </CardHeader>
         </Card>
       )}
     </div>

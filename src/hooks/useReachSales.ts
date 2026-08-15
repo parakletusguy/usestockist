@@ -29,10 +29,11 @@ export function useReachSalesReports() {
   return useQuery({
     queryKey: ['reach_sales_reports'],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await (supabase as unknown as { from: (table: string) => any })
         .from('reach_sales_reports')
         .select('*')
         .order('uploaded_at', { ascending: false });
+
 
       if (error) {
         console.error('Error fetching reach_sales_reports:', error);
@@ -60,7 +61,7 @@ export function useUploadReachSales() {
       );
 
       // 1. Insert header row into reach_sales_reports table
-      const { data: header, error: headerError } = await (supabase as any)
+      const { data: header, error: headerError } = await (supabase as unknown as { from: (table: string) => ReturnType<typeof supabase.from> })
         .from('reach_sales_reports')
         .insert({
           report_date: input.report_date,
@@ -175,7 +176,7 @@ export function useDeleteReachSalesReport() {
 
       if (txError) throw txError;
 
-      const { error: headerError } = await (supabase as any)
+      const { error: headerError } = await (supabase as unknown as { from: (table: string) => ReturnType<typeof supabase.from> })
         .from('reach_sales_reports')
         .delete()
         .eq('id', reportId);

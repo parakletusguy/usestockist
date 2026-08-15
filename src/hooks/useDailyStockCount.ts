@@ -29,6 +29,7 @@ export interface DailyStockEntryInput {
   phy_count?: number | null;
   comment?: string;
   department?: string;
+  branchId?: string;
 }
 
 interface ItemRow {
@@ -45,6 +46,7 @@ interface LedgerRow {
   item_id: string;
   quantity?: number;
   date?: string;
+  branch_id?: string;
 }
 
 interface SheetRow {
@@ -55,6 +57,7 @@ interface SheetRow {
   sales_qty?: number;
   remark?: string | null;
   date?: string;
+  branch_id?: string;
 }
 
 interface TxRow {
@@ -63,12 +66,13 @@ interface TxRow {
   quantity: number;
   transaction_date?: string;
   department?: string | null;
+  branch_id?: string;
 }
 
-export function useDailyStockCount(startDate: string, endDate?: string, department?: string) {
+export function useDailyStockCount(startDate: string, endDate?: string, department?: string, branchId?: string) {
   const deptParam = department && department !== 'all' ? department : undefined;
   return useQuery({
-    queryKey: ['stock_count', startDate, endDate || startDate, deptParam || 'all'],
+    queryKey: ['stock_count', startDate, endDate || startDate, deptParam || 'all', branchId || 'all'],
     staleTime: 5_000,
     refetchOnWindowFocus: true,
     queryFn: async () => {
@@ -76,6 +80,14 @@ export function useDailyStockCount(startDate: string, endDate?: string, departme
       const endD = endDate || startDate;
       const startTxD = startD.includes('T') ? startD : `${startD}T00:00:00`;
       const endTxD = endD.includes('T') ? endD : `${endD}T23:59:59.999Z`;
+
+      // Helper to append branch_id filter if provided
+      const withBranch = <T>(query: T): T => {
+        if (branchId && typeof (query as any).eq === 'function') {
+          return (query as any).eq('branch_id', branchId);
+        }
+        return query;
+      };
 
       // 1. Fetch catalog items & department junction table
       const [itemsRes, itemDeptsRes] = await Promise.all([
@@ -101,29 +113,29 @@ export function useDailyStockCount(startDate: string, endDate?: string, departme
         issuanceCurrRes, receivedCurrRes, transferCurrRes, sheetsCurrRes, txCurrRes,
         issuancePriorRes, receivedPriorRes, transferPriorRes, txPriorRes, sheetsPriorRes, txPriorDatedRes
       ] = await Promise.all([
-        supabase.from('issuance_ledger').select('item_id, quantity').gte('date', startD).lte('date', endD),
-        supabase.from('received_ledger').select('item_id, quantity').gte('date', startD).lte('date', endD),
-        supabase.from('transfer_ledger').select('item_id, quantity').gte('date', startD).lte('date', endD),
-        supabase.from('daily_stock_sheets')
+        withBranch(supabase.from('issuance_ledger').select('item_id, quantity').gte('date', startD).lte('date', endD)),
+        withBranch(supabase.from('received_ledger').select('item_id, quantity').gte('date', startD).lte('date', endD)),
+        withBranch(supabase.from('transfer_ledger').select('item_id, quantity').gte('date', startD).lte('date', endD)),
+        withBranch(supabase.from('daily_stock_sheets')
           .select('item_id, open_qty, qty_in, close_qty, sales_qty, remark, date')
-          .gte('date', startD).lte('date', endD),
-        supabase.from('inventory_transactions')
+          .gte('date', startD).lte('date', endD)),
+        withBranch(supabase.from('inventory_transactions')
           .select('item_id, type, quantity, department')
           .gte('transaction_date', startTxD)
-          .lte('transaction_date', endTxD),
+          .lte('transaction_date', endTxD)),
         // Prior queries for automatic opening stock calculation
-        supabase.from('issuance_ledger').select('item_id, quantity').lt('date', startD),
-        supabase.from('received_ledger').select('item_id, quantity').lt('date', startD),
-        supabase.from('transfer_ledger').select('item_id, quantity').lt('date', startD),
-        supabase.from('inventory_transactions').select('item_id, type, quantity').lt('transaction_date', startTxD),
-        supabase.from('daily_stock_sheets')
+        withBranch(supabase.from('issuance_ledger').select('item_id, quantity').lt('date', startD)),
+        withBranch(supabase.from('received_ledger').select('item_id, quantity').lt('date', startD)),
+        withBranch(supabase.from('transfer_ledger').select('item_id, quantity').lt('date', startD)),
+        withBranch(supabase.from('inventory_transactions').select('item_id, type, quantity').lt('transaction_date', startTxD)),
+        withBranch(supabase.from('daily_stock_sheets')
           .select('item_id, close_qty, date')
           .lt('date', startD)
-          .order('date', { ascending: false }),
+          .order('date', { ascending: false })),
         // Transactions WITH their dates for gap-filling between last sheet and today
-        supabase.from('inventory_transactions')
+        withBranch(supabase.from('inventory_transactions')
           .select('item_id, type, quantity, transaction_date')
-          .lt('transaction_date', startTxD),
+          .lt('transaction_date', startTxD)),
       ]);
 
       const sum = (rows: LedgerRow[] | null, id: string) =>
@@ -257,14 +269,19 @@ export function useDailyStockCount(startDate: string, endDate?: string, departme
 export async function saveDailyStockEntries(entries: DailyStockEntryInput[]) {
   if (!entries || entries.length === 0) return;
   for (const entry of entries) {
-    const { data: existing } = await supabase
+    let existingQuery = supabase
       .from('daily_stock_sheets')
       .select('id')
       .eq('item_id', entry.item_id)
-      .eq('date', entry.date)
-      .maybeSingle();
+      .eq('date', entry.date);
 
-    const payload = {
+    if (entry.branchId) {
+      existingQuery = existingQuery.eq('branch_id', entry.branchId);
+    }
+
+    const { data: existing } = await existingQuery.maybeSingle();
+
+    const payload: Record<string, any> = {
       item_id: entry.item_id,
       date: entry.date,
       sales_qty: entry.qty_sold ?? 0,
@@ -272,6 +289,10 @@ export async function saveDailyStockEntries(entries: DailyStockEntryInput[]) {
       remark: entry.comment || null,
       retail_team_name: entry.department || 'Retail',
     };
+
+    if (entry.branchId) {
+      payload.branch_id = entry.branchId;
+    }
 
     if (existing?.id) {
       const { error } = await supabase
@@ -282,19 +303,23 @@ export async function saveDailyStockEntries(entries: DailyStockEntryInput[]) {
     } else {
       const { error } = await supabase
         .from('daily_stock_sheets')
-        .insert(payload);
+        .insert(payload as any);
       if (error) throw error;
     }
 
     if (entry.qty_sold && entry.qty_sold > 0) {
-      await supabase.from('inventory_transactions').insert({
+      const txPayload: Record<string, any> = {
         item_id: entry.item_id,
         type: 'sale',
         quantity: entry.qty_sold,
         transaction_date: entry.date,
         department: entry.department || 'Retail',
         metadata: { source: 'stock_count_manual_entry' },
-      });
+      };
+      if (entry.branchId) {
+        txPayload.branch_id = entry.branchId;
+      }
+      await supabase.from('inventory_transactions').insert(txPayload as any);
     }
   }
 }
@@ -316,3 +341,4 @@ export function useSaveDailyStockCount(_date: string) {
     },
   });
 }
+

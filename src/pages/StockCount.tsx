@@ -4,6 +4,7 @@ import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-f
 import { useDailyStockCount, useSaveDailyStockCount, DailyStockCountRow, DailyStockEntryInput } from '@/hooks/useDailyStockCount';
 import { useOfflineSync } from '@/hooks/useOfflineSync';
 import { useAuth } from '@/contexts/AuthContext';
+import { useBranch } from '@/contexts/BranchContext';
 import { DEPARTMENTS } from '@/lib/validation';
 import { exportToCSV } from '@/lib/export';
 import { Button } from '@/components/ui/button';
@@ -184,13 +185,20 @@ function MobileStockCard({
 }
 
 export default function StockCount() {
-  const { canWriteLedgers } = useAuth();
+  const { canWriteLedgers, departmentLock, isCubeStaff } = useAuth();
   const [searchParams] = useSearchParams();
   const [period, setPeriod] = useState<PeriodType>('daily');
   const [singleDate, setSingleDate] = useState<Date>(new Date());
   const [customStart, setCustomStart] = useState<Date | undefined>();
   const [customEnd, setCustomEnd] = useState<Date | undefined>();
-  const [departmentFilter, setDepartmentFilter] = useState('all');
+  const [departmentFilter, setDepartmentFilter] = useState(departmentLock || 'all');
+
+  // Keep departmentFilter in sync if departmentLock changes
+  useEffect(() => {
+    if (departmentLock) {
+      setDepartmentFilter(departmentLock);
+    }
+  }, [departmentLock]);
 
   const [edits, setEdits] = useState<Record<string, RowEdit>>({});
   const [dirty, setDirty] = useState<Set<string>>(new Set());
@@ -225,7 +233,8 @@ export default function StockCount() {
     };
   }, [period, singleDate, customStart, customEnd]);
 
-  const { data: rows, isLoading } = useDailyStockCount(dateRange.start, dateRange.end, departmentFilter);
+  const { activeBranch } = useBranch();
+  const { data: rows, isLoading } = useDailyStockCount(dateRange.start, dateRange.end, departmentFilter, activeBranch?.id);
   const saveStockCount = useSaveDailyStockCount(dateRange.start);
   const { isOnline, pendingCount, addToQueue } = useOfflineSync();
 
@@ -302,6 +311,7 @@ export default function StockCount() {
         phy_count: edit.phy_count === '' ? null : Number(edit.phy_count),
         comment: edit.comment,
         department: itemRow?.department || 'Retail',
+        branchId: activeBranch?.id,
       };
     });
     if (entries.length === 0) return;
@@ -451,14 +461,18 @@ export default function StockCount() {
           )}
 
           {/* Department Filter */}
-          <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+          <Select 
+            value={departmentFilter} 
+            onValueChange={setDepartmentFilter}
+            disabled={!!departmentLock}
+          >
             <SelectTrigger className="h-9 text-xs w-auto min-w-[120px]">
               <Building2 className="h-3.5 w-3.5 mr-1 text-muted-foreground" />
               <SelectValue placeholder="All Departments" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Departments</SelectItem>
-              {DEPARTMENTS.map((dept) => (
+              {!departmentLock && <SelectItem value="all">All Departments</SelectItem>}
+              {DEPARTMENTS.filter(d => !departmentLock || d === departmentLock).map((dept) => (
                 <SelectItem key={dept} value={dept}>
                   {dept}
                 </SelectItem>

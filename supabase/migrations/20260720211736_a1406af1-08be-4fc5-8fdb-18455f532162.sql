@@ -80,9 +80,9 @@ DROP POLICY IF EXISTS "Authenticated users can select weekly_stock_counts" ON pu
 DROP POLICY IF EXISTS "Authenticated users can update weekly_stock_counts" ON public.weekly_stock_counts;
 
 -- 4) Drop old public helper functions now that no policy depends on them
-DROP FUNCTION IF EXISTS public.is_authenticated();
-DROP FUNCTION IF EXISTS public.has_role(uuid, public.app_role);
-DROP FUNCTION IF EXISTS public.user_belongs_to_team(uuid, text);
+DROP FUNCTION IF EXISTS public.is_authenticated() CASCADE;
+DROP FUNCTION IF EXISTS public.has_role(uuid, public.app_role) CASCADE;
+DROP FUNCTION IF EXISTS public.user_belongs_to_team(uuid, text) CASCADE;
 
 -- 5) Recreate policies using private.* helpers with tightened write access
 

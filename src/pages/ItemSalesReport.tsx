@@ -1,8 +1,9 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { format } from 'date-fns';
 import { useItems, useCreateItem } from '@/hooks/useItems';
 import { useReachSalesReports, useUploadReachSales, useReachSalesReportDetails, useDeleteReachSalesReport, ReachSalesReport } from '@/hooks/useReachSales';
-import { parsePdfSalesReport } from '@/lib/parsePdf';
+import { parsePdfSalesReport, ParsedPdfRow } from '@/lib/parsePdf';
+import { calculateBarCupDeductions } from '@/lib/barCupMapping';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,8 +14,8 @@ import { Calendar } from '@/components/ui/calendar';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import {
   CalendarIcon, Upload, FileSpreadsheet, FileScan,
-  CheckCircle2, ShoppingBag, Plus, Trash2, Loader2, FileText,
-  AlertTriangle, Sparkles,
+  ShoppingBag, Plus, Trash2, Loader2, FileText,
+  AlertTriangle, Sparkles, Ticket, Coffee, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -46,11 +47,26 @@ const isKitchenItemName = (name: string) => {
   return ['shawarma', 'chicken', 'sausage', 'burger', 'meat pie', 'doughnut', 'bbq', 'ketchup', 'curry', 'pepper', 'corn dog'].some(k => lower.includes(k));
 };
 
+/** Identify bar items */
+const isBarItemName = (name: string) => {
+  const lower = name.toLowerCase();
+  return [
+    'cocktail', 'mocktail', 'mojito', 'margarita', 'magarita', 'martini', 'long island',
+    'milkshake', 'smoothie', 'blast', 'shot', 'vodka', 'gin', 'rum', 'whisky', 'whiskey',
+    'tequila', 'tequilla', 'wine', 'syrup', 'sirop', 'liqueur'
+  ].some(k => lower.includes(k));
+};
+
 export default function ItemSalesReport() {
   const [reportDate, setReportDate] = useState<Date>(new Date());
   const dateStr = format(reportDate, 'yyyy-MM-dd');
   const [retailMember, setRetailMember] = useState('');
   const [parsedRows, setParsedRows] = useState<ParsedSaleRow[]>([]);
+  const [ticketRows, setTicketRows] = useState<ParsedPdfRow[]>([]);
+  const [ticketRevenue, setTicketRevenue] = useState(0);
+  const [ticketQuantity, setTicketQuantity] = useState(0);
+  const [showTicketDetails, setShowTicketDetails] = useState(false);
+
   const [fileName, setFileName] = useState('');
   const [fileStatus, setFileStatus] = useState<FileStatus>('idle');
   const [unmatchedCount, setUnmatchedCount] = useState(0);
@@ -66,8 +82,21 @@ export default function ItemSalesReport() {
   const deleteReport = useDeleteReachSalesReport();
   const { data: reportDetails, isLoading: isLoadingDetails } = useReachSalesReportDetails(selectedReport?.id || null);
 
+  /** Bar cup deductions calculation */
+  const barCupStats = useMemo(() => {
+    return calculateBarCupDeductions(parsedRows);
+  }, [parsedRows]);
+
+  /** Find Cups item in Bar department */
+  const barCupsItem = useMemo(() => {
+    if (!items) return null;
+    return items.find(
+      it => it.name.toLowerCase() === 'cups' && (it.departments?.includes('Bar') || it.department === 'Bar')
+    ) || items.find(it => it.name.toLowerCase() === 'cups');
+  }, [items]);
+
   /** Advanced 4-stage matching algorithm */
-  const matchToCatalog = useCallback((rawName: string): { id: string; name: string; unit_cost: number } | null => {
+  const matchToCatalog = useCallback((rawName: string): { id: string; name: string; unit_cost: number; department?: string } | null => {
     if (!items || items.length === 0 || !rawName) return null;
 
     const rawLower = rawName.toLowerCase().trim();
@@ -78,7 +107,7 @@ export default function ItemSalesReport() {
     const exact = items.find(it => it.name.toLowerCase().trim() === rawLower);
     if (exact) return exact;
 
-    // Stage 2: Normalized exact match (strips spaces/punctuation e.g. "BLACKBULLET" -> "blackbullet")
+    // Stage 2: Normalized exact match
     const normExact = items.find(it => normalizeStr(it.name) === rawNorm);
     if (normExact) return normExact;
 
@@ -118,6 +147,13 @@ export default function ItemSalesReport() {
     return null;
   }, [items]);
 
+  /** Determine default department for an item name */
+  const detectDepartment = (name: string): string => {
+    if (isKitchenItemName(name)) return 'Kitchen';
+    if (isBarItemName(name)) return 'Bar';
+    return 'Retail';
+  };
+
   /** Parse a CSV/TXT file */
   const parseCsv = useCallback((text: string): ParsedSaleRow[] => {
     const lines = text.split(/\r\n|\n/).filter(l => l.trim().length > 0);
@@ -142,7 +178,7 @@ export default function ItemSalesReport() {
       if (!rawName || qty <= 0) continue;
 
       const matched = matchToCatalog(rawName);
-      const dept = isKitchenItemName(rawName) ? 'Kitchen' : 'Retail';
+      const dept = matched?.department || detectDepartment(rawName);
       if (matched) {
         newRows.push({
           itemId: matched.id,
@@ -172,16 +208,17 @@ export default function ItemSalesReport() {
     setFileName(file.name);
     setFileStatus('parsing');
     setParsedRows([]);
+    setTicketRows([]);
+    setTicketRevenue(0);
+    setTicketQuantity(0);
     setUnmatchedCount(0);
 
     try {
       let newRows: ParsedSaleRow[] = [];
 
       if (file.name.toLowerCase().endsWith('.pdf')) {
-        // --- PDF path: use pdfjs-dist in-browser parser for Reach reports ---
         const pdfResult = await parsePdfSalesReport(file);
         
-        // Auto-fill header fields if extracted
         if (pdfResult.retailMember) {
           setRetailMember(pdfResult.retailMember);
         }
@@ -193,10 +230,14 @@ export default function ItemSalesReport() {
           }
         }
 
+        setTicketRows(pdfResult.ticketRows || []);
+        setTicketRevenue(pdfResult.totalTicketRevenue || 0);
+        setTicketQuantity(pdfResult.totalTicketQuantity || 0);
+
         let unmatched = 0;
         newRows = pdfResult.rows.map(row => {
           const matched = matchToCatalog(row.item_name);
-          const dept = isKitchenItemName(row.item_name) ? 'Kitchen' : 'Retail';
+          const dept = matched?.department || detectDepartment(row.item_name);
           if (matched) {
             return {
               itemId: matched.id,
@@ -208,8 +249,8 @@ export default function ItemSalesReport() {
           } else {
             unmatched++;
             return {
-              itemId: '', // Safe unmatched state — will prompt user to select/create item
-              itemName: row.item_name, // Preserves exact raw PDF item name
+              itemId: '',
+              itemName: row.item_name,
               qtySold: row.quantity,
               unitPrice: row.unit_price || 0,
               department: dept,
@@ -219,7 +260,6 @@ export default function ItemSalesReport() {
 
         setUnmatchedCount(unmatched);
       } else {
-        // --- CSV / TXT path ---
         const text = await file.text();
         newRows = parseCsv(text);
       }
@@ -229,7 +269,7 @@ export default function ItemSalesReport() {
 
       toast({
         title: 'File Parsed',
-        description: `Loaded ${newRows.length} item row${newRows.length !== 1 ? 's' : ''} from ${file.name}`,
+        description: `Loaded ${newRows.length} physical inventory row(s) from ${file.name}`,
       });
     } catch (err: unknown) {
       setFileStatus('error');
@@ -240,7 +280,7 @@ export default function ItemSalesReport() {
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) processFile(file);
-    e.target.value = '';           // allow re-uploading same file
+    e.target.value = '';
   };
 
   // Drag-and-drop
@@ -275,13 +315,14 @@ export default function ItemSalesReport() {
     if (!row || !row.itemName) return;
 
     try {
+      const dept = detectDepartment(row.itemName);
       const newItem = await createItemMutation.mutateAsync({
         name: row.itemName,
-        category: 'Retail',
+        category: dept === 'Kitchen' ? 'Food' : dept === 'Bar' ? 'Beverages' : 'Retail',
         unit_of_measure: 'pcs',
         low_stock_threshold: 10,
         unit_cost: row.unitPrice || 0,
-        departments: ['Retail'],
+        departments: [dept],
       });
 
       setParsedRows(prev => {
@@ -290,12 +331,13 @@ export default function ItemSalesReport() {
           ...next[index],
           itemId: newItem.id,
           itemName: newItem.name,
+          department: dept,
         };
         return next;
       });
 
       setUnmatchedCount(prev => Math.max(0, prev - 1));
-      toast({ title: 'Item Created', description: `Created "${newItem.name}" in catalog.` });
+      toast({ title: 'Item Created', description: `Created "${newItem.name}" in catalog (${dept}).` });
     } catch (err: unknown) {
       toast({ title: 'Creation Failed', description: err instanceof Error ? err.message : 'Could not create item', variant: 'destructive' });
     }
@@ -317,23 +359,25 @@ export default function ItemSalesReport() {
       if (!row || !row.itemName) continue;
 
       try {
+        const dept = detectDepartment(row.itemName);
         const newItem = await createItemMutation.mutateAsync({
           name: row.itemName,
-          category: 'Retail',
+          category: dept === 'Kitchen' ? 'Food' : dept === 'Bar' ? 'Beverages' : 'Retail',
           unit_of_measure: 'pcs',
           low_stock_threshold: 10,
           unit_cost: row.unitPrice || 0,
-          departments: ['Retail'],
+          departments: [dept],
         });
 
         newRows[idx] = {
           ...newRows[idx],
           itemId: newItem.id,
           itemName: newItem.name,
+          department: dept,
         };
         createdCount++;
       } catch {
-        // continue creating remaining items
+        // continue
       }
     }
 
@@ -363,7 +407,7 @@ export default function ItemSalesReport() {
 
   const handleSubmitReport = async () => {
     if (!retailMember.trim()) {
-      toast({ title: 'Validation Error', description: 'Please enter the retail member name', variant: 'destructive' });
+      toast({ title: 'Validation Error', description: 'Please enter the staff / member name', variant: 'destructive' });
       return;
     }
     if (parsedRows.length === 0) {
@@ -381,8 +425,7 @@ export default function ItemSalesReport() {
       return;
     }
 
-    // Build items list — kitchen items are attributed to BOTH Retail and Kitchen,
-    // so we expand them into two separate sale transactions to deduct from each department.
+    // Build base sale items
     const saleItems = parsedRows.flatMap(r => {
       const base = {
         item_id: r.itemId,
@@ -398,6 +441,16 @@ export default function ItemSalesReport() {
       return [{ ...base, department: r.department || 'Retail' }];
     });
 
+    // Auto-append Bar Cups deduction if Bar drinks were sold
+    if (barCupStats.totalCupsToDeduct > 0 && barCupsItem) {
+      saleItems.push({
+        item_id: barCupsItem.id,
+        qty_sold: barCupStats.totalCupsToDeduct,
+        unit_price: barCupsItem.unit_cost || 0,
+        department: 'Bar',
+      });
+    }
+
     await uploadSales.mutateAsync({
       report_date: dateStr,
       retail_member_name: retailMember.trim(),
@@ -406,6 +459,9 @@ export default function ItemSalesReport() {
     });
 
     setParsedRows([]);
+    setTicketRows([]);
+    setTicketRevenue(0);
+    setTicketQuantity(0);
     setFileName('');
     setFileStatus('idle');
     setUnmatchedCount(0);
@@ -420,7 +476,7 @@ export default function ItemSalesReport() {
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold">Reach Item Sales Report</h1>
           <p className="text-muted-foreground text-xs sm:text-sm">
-            Upload daily Reach POS exports — CSV, Excel, or PDF auto-parsed instantly
+            Upload daily Reach POS exports — CSV, Excel, or PDF auto-parsed with Bar Cup Auto-Reconciliation
           </p>
         </div>
       </div>
@@ -430,7 +486,7 @@ export default function ItemSalesReport() {
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="text-base sm:text-lg">Daily Sales Entry</CardTitle>
-            <CardDescription className="text-xs sm:text-sm">Drop any file — PDF, CSV, or Excel — and the app parses it automatically</CardDescription>
+            <CardDescription className="text-xs sm:text-sm">Drop your Reach PDF, CSV, or Excel file — auto-parsed instantly</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
@@ -450,54 +506,45 @@ export default function ItemSalesReport() {
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs">Retail Member Name</Label>
+                <Label className="text-xs">Staff / Member Name</Label>
                 <Input
-                  placeholder="e.g. John Doe"
                   value={retailMember}
                   onChange={e => setRetailMember(e.target.value)}
+                  placeholder="e.g. Chinenye Joy"
                   className="h-11 sm:h-9 text-base sm:text-xs"
                 />
               </div>
             </div>
 
-            {/* File Dropzone */}
+            {/* Dropzone */}
             <div
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
               className={cn(
-                'border-2 border-dashed rounded-lg p-6 sm:p-8 text-center transition-all cursor-pointer min-h-[140px] flex items-center justify-center',
-                isDragging
-                  ? 'border-primary bg-primary/5 scale-[1.01]'
-                  : fileStatus === 'done'
-                  ? 'border-green-500 bg-green-500/5'
-                  : fileStatus === 'error'
-                  ? 'border-destructive bg-destructive/5'
-                  : 'hover:bg-muted/50 hover:border-primary/50'
+                'border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer',
+                isDragging ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50',
+                fileStatus === 'parsing' && 'opacity-60 pointer-events-none'
               )}
             >
               <input
                 type="file"
-                accept=".csv,.txt,.xlsx,.xls,.pdf"
+                accept=".pdf,.csv,.txt,.xlsx"
                 onChange={handleFileInput}
                 className="hidden"
-                id="reach-file-upload"
+                id="file-upload"
               />
-              <label htmlFor="reach-file-upload" className="cursor-pointer flex flex-col items-center gap-2 w-full">
+              <label htmlFor="file-upload" className="cursor-pointer flex flex-col items-center gap-2">
                 {fileStatus === 'parsing' ? (
                   <>
-                    <Loader2 className="h-9 w-9 text-primary animate-spin" />
-                    <span className="font-semibold text-sm text-primary">Parsing {fileName}…</span>
-                    <span className="text-xs text-muted-foreground">Extracting items from your file</span>
+                    <Loader2 className="h-8 w-8 text-primary animate-spin" />
+                    <span className="text-sm font-medium">Parsing sales report…</span>
                   </>
-                ) : fileStatus === 'done' ? (
+                ) : fileName ? (
                   <>
-                    <CheckCircle2 className="h-9 w-9 text-green-500" />
-                    <span className="font-semibold text-sm text-green-700 dark:text-green-400">{fileName}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {parsedRows.length} rows loaded
-                      {unmatchedCount > 0 ? ` · ${unmatchedCount} unmatched (review below)` : ' · click to replace'}
-                    </span>
+                    <FileSpreadsheet className="h-8 w-8 text-primary" />
+                    <span className="font-semibold text-sm">{fileName}</span>
+                    <span className="text-xs text-muted-foreground">Click or drop another file to replace</span>
                   </>
                 ) : (
                   <>
@@ -515,6 +562,73 @@ export default function ItemSalesReport() {
                 )}
               </label>
             </div>
+
+            {/* Read-Only Box Office Ticket Revenue Card */}
+            {ticketRows.length > 0 && (
+              <div className="rounded-lg border border-purple-500/30 bg-purple-500/10 p-3 text-xs space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 font-semibold text-purple-900 dark:text-purple-200">
+                    <Ticket className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                    <span>🎟️ Box Office & Ticket Sales (Read-Only: Not in Physical Stock)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-purple-700 dark:text-purple-300">
+                      {ticketQuantity} tickets · ₦{ticketRevenue.toLocaleString()}
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setShowTicketDetails(!showTicketDetails)}
+                      className="h-6 w-6 p-0 text-purple-700 dark:text-purple-300"
+                    >
+                      {showTicketDetails ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                    </Button>
+                  </div>
+                </div>
+
+                {showTicketDetails && (
+                  <div className="border rounded-md bg-background overflow-hidden mt-2">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-[11px] py-1">Ticket Type</TableHead>
+                          <TableHead className="text-right text-[11px] py-1">Qty</TableHead>
+                          <TableHead className="text-right text-[11px] py-1">Price</TableHead>
+                          <TableHead className="text-right text-[11px] py-1">Revenue (₦)</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {ticketRows.map((t, idx) => (
+                          <TableRow key={idx}>
+                            <TableCell className="text-[11px] py-1 font-medium">{t.item_name}</TableCell>
+                            <TableCell className="text-right text-[11px] py-1">{t.quantity}</TableCell>
+                            <TableCell className="text-right text-[11px] py-1">₦{t.unit_price.toLocaleString()}</TableCell>
+                            <TableCell className="text-right text-[11px] py-1 font-semibold">
+                              ₦{(t.quantity * t.unit_price).toLocaleString()}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Bar Cup Auto-Reconciliation Card */}
+            {barCupStats.totalCupsToDeduct > 0 && (
+              <div className="rounded-lg border border-blue-500/30 bg-blue-500/10 p-3 text-xs flex items-center justify-between text-blue-900 dark:text-blue-200">
+                <div className="flex items-center gap-2">
+                  <Coffee className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                  <span>
+                    <strong>🥤 Bar Cups Auto-Reconciliation:</strong> {barCupStats.totalCupsToDeduct} cups will be automatically deducted from Bar stock count for {barCupStats.cupEligibleItems.length} served drink(s).
+                  </span>
+                </div>
+                <span className="font-bold text-blue-700 dark:text-blue-300 shrink-0 ml-2">
+                  -{barCupStats.totalCupsToDeduct} Cups
+                </span>
+              </div>
+            )}
 
             {/* Summary bar */}
             {parsedRows.length > 0 && (
@@ -571,6 +685,7 @@ export default function ItemSalesReport() {
                     <TableHeader>
                       <TableRow>
                         <TableHead className="min-w-[220px]">Item</TableHead>
+                        <TableHead className="w-28">Department</TableHead>
                         <TableHead className="w-24 text-right min-w-[80px]">Qty Sold</TableHead>
                         <TableHead className="w-24 text-right min-w-[90px]">Unit Price</TableHead>
                         <TableHead className="w-24 text-right min-w-[90px]">Total (₦)</TableHead>
@@ -600,7 +715,7 @@ export default function ItemSalesReport() {
                                 )}
                                 {items?.map(it => (
                                   <option key={it.id} value={it.id}>
-                                    {it.name} ({it.category})
+                                    {it.name} ({it.category} · {it.department || 'Retail'})
                                   </option>
                                 ))}
                               </select>
@@ -611,6 +726,11 @@ export default function ItemSalesReport() {
                                 </div>
                               )}
                             </div>
+                          </TableCell>
+                          <TableCell>
+                            <span className="text-xs px-2 py-1 bg-muted rounded font-medium">
+                              {row.department}
+                            </span>
                           </TableCell>
                           <TableCell>
                             <Input
@@ -826,7 +946,6 @@ export default function ItemSalesReport() {
                     disabled={!reportDetails || reportDetails.length === 0}
                     onClick={() => {
                       if (!reportDetails) return;
-                      // Generate CSV content
                       const headers = "Item Name,Category,Quantity Sold,Unit Price,Subtotal\n";
                       const rows = reportDetails.map(d => 
                         `"${d.item_name}","${d.category}",${d.quantity},${d.unit_price},${(d.quantity * d.unit_price).toFixed(2)}`

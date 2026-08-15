@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { format } from 'date-fns';
 import { useItems } from '@/hooks/useItems';
 import { useAuth } from '@/contexts/AuthContext';
+import { useBranch } from '@/contexts/BranchContext';
 import { useReceivedLedger, useCreateReceived, useUpdateReceived, useDeleteReceived, ReceivedLedger } from '@/hooks/useLedgers';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,6 +24,7 @@ import { EditDeleteActions } from '@/components/ledger/EditDeleteActions';
 
 const Received = () => {
   const { canWriteLedgers } = useAuth();
+  const { activeBranch } = useBranch();
   const [date, setDate] = useState<Date>(new Date());
   const [supplier, setSupplier] = useState('');
   const [selectedItem, setSelectedItem] = useState('');
@@ -36,7 +38,7 @@ const Received = () => {
   const [editInvoice, setEditInvoice] = useState('');
 
   const { data: items } = useItems();
-  const { data: ledger, isLoading } = useReceivedLedger();
+  const { data: ledger, isLoading } = useReceivedLedger(activeBranch?.id);
   const createReceived = useCreateReceived();
   const updateReceived = useUpdateReceived();
   const deleteReceived = useDeleteReceived();
@@ -50,6 +52,7 @@ const Received = () => {
       item_id: selectedItem,
       quantity: Number(quantity),
       invoice_number: invoiceNumber || undefined,
+      branchId: activeBranch?.id,
     });
     setSelectedItem('');
     setQuantity('');

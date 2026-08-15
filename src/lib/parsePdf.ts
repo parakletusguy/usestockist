@@ -4,6 +4,8 @@
  * Browser-side parser for Reach POS PDF reports (Cash Reconciliation Report).
  * Uses pdfjs-dist with dynamic line clustering (Y-coordinate proximity) to handle
  * table columns and layout accurately.
+ *
+ * Separates Physical Inventory Items from Non-Inventory Ticket Sales.
  */
 
 import * as pdfjsLib from 'pdfjs-dist';
@@ -23,6 +25,9 @@ export interface ParsedPdfRow {
 
 export interface ParsedPdfResult {
   rows: ParsedPdfRow[];
+  ticketRows: ParsedPdfRow[];
+  totalTicketRevenue: number;
+  totalTicketQuantity: number;
   retailMember?: string;
   reportDate?: string;
 }
@@ -32,6 +37,23 @@ interface TextItem {
   x: number;
   y: number;
   page: number;
+}
+
+/** Check if item name is a cinema ticket / seat / admission product (non-inventory) */
+export function isTicketItem(name: string): boolean {
+  if (!name) return false;
+  const lower = name.toLowerCase().trim();
+  return (
+    lower.includes('ticket') ||
+    lower.includes('gold seat') ||
+    lower.includes('platinum seat') ||
+    lower.includes('vr game') ||
+    lower.includes('box-signatr') ||
+    lower.includes('box signatr') ||
+    lower.includes('cinema access') ||
+    lower.includes('mid week jolly') ||
+    lower.includes('admission')
+  );
 }
 
 /** Extract raw text items with x, y, page from PDF buffer */
@@ -222,26 +244,44 @@ export async function parsePdfSalesReport(file: File): Promise<ParsedPdfResult> 
 
   const lines = groupItemsIntoLines(items);
 
-  const rows: ParsedPdfRow[] = [];
+  const rawRows: ParsedPdfRow[] = [];
   for (const lineItems of lines) {
     const tokens = lineItems.map(i => i.str);
     const row = parseLineToRow(tokens);
-    if (row) rows.push(row);
+    if (row) rawRows.push(row);
   }
 
-  const mergedMap = new Map<string, ParsedPdfRow>();
-  for (const r of rows) {
+  const inventoryMap = new Map<string, ParsedPdfRow>();
+  const ticketMap = new Map<string, ParsedPdfRow>();
+
+  for (const r of rawRows) {
     const key = r.item_name.toLowerCase();
-    if (mergedMap.has(key)) {
-      const existing = mergedMap.get(key)!;
-      existing.quantity += r.quantity;
+    if (isTicketItem(r.item_name)) {
+      if (ticketMap.has(key)) {
+        const existing = ticketMap.get(key)!;
+        existing.quantity += r.quantity;
+      } else {
+        ticketMap.set(key, { ...r });
+      }
     } else {
-      mergedMap.set(key, { ...r });
+      if (inventoryMap.has(key)) {
+        const existing = inventoryMap.get(key)!;
+        existing.quantity += r.quantity;
+      } else {
+        inventoryMap.set(key, { ...r });
+      }
     }
   }
 
+  const ticketRows = [...ticketMap.values()];
+  const totalTicketRevenue = ticketRows.reduce((sum, t) => sum + t.quantity * t.unit_price, 0);
+  const totalTicketQuantity = ticketRows.reduce((sum, t) => sum + t.quantity, 0);
+
   return {
-    rows: [...mergedMap.values()],
+    rows: [...inventoryMap.values()],
+    ticketRows,
+    totalTicketRevenue,
+    totalTicketQuantity,
     retailMember,
     reportDate,
   };

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { format } from 'date-fns';
 import { useItems } from '@/hooks/useItems';
 import { useAuth } from '@/contexts/AuthContext';
+import { useBranch } from '@/contexts/BranchContext';
 import { useTransferLedger, useCreateTransfer, useUpdateTransfer, useDeleteTransfer, TransferLedger } from '@/hooks/useLedgers';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,6 +31,7 @@ const CUBE_ALLOWED_ITEMS = ['water', 'soda', 'regular popcorn'];
 
 const Transfers = () => {
   const { canWriteLedgers } = useAuth();
+  const { activeBranch, branches } = useBranch();
   const [date, setDate] = useState<Date>(new Date());
   const [destination, setDestination] = useState('');
   const [selectedItem, setSelectedItem] = useState('');
@@ -43,7 +45,7 @@ const Transfers = () => {
   const [editReason, setEditReason] = useState('');
 
   const { data: items } = useItems();
-  const { data: ledger, isLoading } = useTransferLedger();
+  const { data: ledger, isLoading } = useTransferLedger(activeBranch?.id);
   const createTransfer = useCreateTransfer();
   const updateTransfer = useUpdateTransfer();
   const deleteTransfer = useDeleteTransfer();
@@ -51,12 +53,20 @@ const Transfers = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedItem || !quantity || !destination) return;
+
+    // Check if destination matches any known branch
+    const targetBranch = branches.find(
+      (b) => b.name.toLowerCase() === destination.trim().toLowerCase()
+    );
+
     await createTransfer.mutateAsync({
       date: format(date, 'yyyy-MM-dd'),
       destination,
       item_id: selectedItem,
       quantity: Number(quantity),
       reason: reason || undefined,
+      branchId: activeBranch?.id,
+      destinationBranchId: targetBranch?.id,
     });
     setSelectedItem('');
     setQuantity('');

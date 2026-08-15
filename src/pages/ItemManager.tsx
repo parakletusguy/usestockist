@@ -10,13 +10,34 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Plus, Pencil, Trash2, Search, Building2, Info, Lock } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Plus, Pencil, Trash2, Search, Building2, Info, Lock, Check, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const CATEGORIES = ['Beverages', 'Food', 'Supplies', 'Cleaning', 'Equipment', 'Other'];
-const UNITS = ['pcs', 'kg', 'ltr', 'box', 'pack', 'bottle', 'can', 'roll'];
+const CATEGORIES = [
+  { id: 'Beverages', label: '🥤 Beverages', color: 'hover:border-blue-500' },
+  { id: 'Food', label: '🍿 Food & Snacks', color: 'hover:border-amber-500' },
+  { id: 'Supplies', label: '📦 Supplies', color: 'hover:border-emerald-500' },
+  { id: 'Cleaning', label: '🧹 Cleaning', color: 'hover:border-cyan-500' },
+  { id: 'Equipment', label: '⚙️ Equipment', color: 'hover:border-purple-500' },
+  { id: 'Other', label: '🏷️ Other', color: 'hover:border-slate-500' },
+];
 
-const ItemManager = () => {
+const UNITS = [
+  { id: 'pcs', label: 'pcs (Pieces)' },
+  { id: 'bottle', label: 'bottle' },
+  { id: 'can', label: 'can' },
+  { id: 'pack', label: 'pack' },
+  { id: 'kg', label: 'kg' },
+  { id: 'ltr', label: 'ltr' },
+  { id: 'box', label: 'box' },
+  { id: 'roll', label: 'roll' },
+];
+
+const THRESHOLD_PRESETS = [0, 5, 10, 20, 50];
+const COST_PRESETS = [500, 1000, 1500, 2000, 5000];
+
+export default function ItemManager() {
   const { canManageItems } = useAuth();
   const [departmentFilter, setDepartmentFilter] = useState<string>('all');
   const { data: items, isLoading } = useItems(departmentFilter);
@@ -33,10 +54,10 @@ const ItemManager = () => {
 
   const [formData, setFormData] = useState<CreateItemInput>({
     name: '',
-    category: '',
+    category: 'Beverages',
     department: 'Retail',
     departments: ['Retail'],
-    unit_of_measure: '',
+    unit_of_measure: 'pcs',
     low_stock_threshold: 0,
     unit_cost: 0,
   });
@@ -52,21 +73,21 @@ const ItemManager = () => {
       setEditingItem(item);
       setFormData({
         name: item.name,
-        category: item.category,
+        category: item.category || 'Beverages',
         department: item.department || 'Retail',
         departments: item.departments?.length ? item.departments : [item.department || 'Retail'],
-        unit_of_measure: item.unit_of_measure,
-        low_stock_threshold: item.low_stock_threshold,
-        unit_cost: item.unit_cost,
+        unit_of_measure: item.unit_of_measure || 'pcs',
+        low_stock_threshold: item.low_stock_threshold || 0,
+        unit_cost: item.unit_cost || 0,
       });
     } else {
       setEditingItem(null);
       setFormData({
         name: '',
-        category: '',
+        category: 'Beverages',
         department: 'Retail',
         departments: ['Retail'],
-        unit_of_measure: '',
+        unit_of_measure: 'pcs',
         low_stock_threshold: 0,
         unit_cost: 0,
       });
@@ -84,6 +105,26 @@ const ItemManager = () => {
       departments: updated,
       department: updated[0] || 'Retail',
     });
+  };
+
+  const selectAllDepartments = () => {
+    setFormData({
+      ...formData,
+      departments: [...DEPARTMENTS],
+      department: 'Retail',
+    });
+  };
+
+  const clearAllDepartments = () => {
+    setFormData({
+      ...formData,
+      departments: ['Retail'],
+      department: 'Retail',
+    });
+  };
+
+  const toTitleCase = (str: string) => {
+    return str.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substring(1).toLowerCase());
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -122,7 +163,7 @@ const ItemManager = () => {
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold">Items Manager</h1>
           <p className="text-muted-foreground text-xs sm:text-sm">
-            Manage your master inventory catalog — items can be shared across multiple departments
+            Manage your master inventory catalog with multi-choice quick item details
           </p>
         </div>
         {canManageItems ? (
@@ -142,7 +183,7 @@ const ItemManager = () => {
       <div className="flex items-start gap-3 p-3 rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-800 text-xs sm:text-sm text-blue-800 dark:text-blue-300">
         <Info className="h-4 w-4 mt-0.5 shrink-0" />
         <span>
-          <strong>Shared Items:</strong> Each item can be assigned to multiple departments. The same physical item (e.g. <em>Mineral Water</em>) can appear in <em>Bar</em>, <em>Kitchen (Nox)</em>, and <em>Retail</em> simultaneously — tracked separately per department in the Stock Count.
+          <strong>Shared Items:</strong> Each item can be assigned to multiple departments. The same physical item (e.g. <em>Mineral Water</em> or <em>Cups</em>) can appear in <em>Bar</em>, <em>Cube</em>, and <em>Retail</em> simultaneously — tracked separately per department in the Stock Count.
         </span>
       </div>
 
@@ -176,7 +217,7 @@ const ItemManager = () => {
           <SelectContent className="bg-background">
             <SelectItem value="all">All Categories</SelectItem>
             {CATEGORIES.map(cat => (
-              <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+              <SelectItem key={cat.id} value={cat.id}>{cat.label}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -198,13 +239,18 @@ const ItemManager = () => {
                 </div>
                 {canManageItems && (
                   <div className="flex gap-1 shrink-0">
-                    <Button variant="ghost" size="icon" className="h-10 w-10" onClick={() => handleOpenForm(item)}>
-                      <Pencil className="h-4 w-4" />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => handleOpenForm(item)}
+                    >
+                      <Pencil className="h-4 w-4 text-muted-foreground" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-10 w-10 text-destructive"
+                      className="h-8 w-8 text-destructive hover:text-destructive"
                       onClick={() => {
                         setDeletingItem(item);
                         setIsDeleteOpen(true);
@@ -216,25 +262,22 @@ const ItemManager = () => {
                 )}
               </div>
 
-              <div className="flex flex-wrap gap-1">
-                {(item.departments?.length ? item.departments : [item.department || 'Retail']).map(dept => (
-                  <span
-                    key={dept}
-                    className="text-[11px] px-2 py-0.5 rounded font-medium bg-primary/10 text-primary border border-primary/20"
-                  >
+              <div className="flex flex-wrap gap-1 pt-1">
+                {(item.departments && item.departments.length > 0 ? item.departments : [item.department || 'Retail']).map(dept => (
+                  <Badge key={dept} variant="secondary" className="text-[10px] px-1.5 py-0 font-normal">
                     {dept}
-                  </span>
+                  </Badge>
                 ))}
               </div>
 
-              <div className="grid grid-cols-2 gap-2 pt-2 border-t text-xs">
+              <div className="grid grid-cols-2 gap-2 pt-2 border-t text-xs text-muted-foreground">
                 <div>
-                  <span className="text-muted-foreground">Low Stock Threshold: </span>
-                  <span className="font-medium">{item.low_stock_threshold}</span>
+                  <span className="font-medium text-foreground">₦{Number(item.unit_cost || 0).toLocaleString()}</span>
+                  <span className="text-[10px] block">Unit Cost</span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Unit Cost: </span>
-                  <span className="font-medium">₦{(Number(item.unit_cost) || 0).toFixed(2)}</span>
+                  <span className="font-medium text-foreground">{item.low_stock_threshold}</span>
+                  <span className="text-[10px] block">Low Stock Alert</span>
                 </div>
               </div>
             </div>
@@ -242,24 +285,24 @@ const ItemManager = () => {
         )}
       </div>
 
-      {/* Desktop Table (hidden on mobile, shown md+) */}
-      <div className="rounded-md border overflow-x-auto hidden md:block">
+      {/* Desktop Table View */}
+      <div className="hidden md:block rounded-md border bg-card overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Name</TableHead>
+              <TableHead>Item Name</TableHead>
               <TableHead>Category</TableHead>
-              <TableHead>Departments</TableHead>
               <TableHead>Unit</TableHead>
-              <TableHead className="text-right">Low Stock Threshold</TableHead>
+              <TableHead>Departments</TableHead>
               <TableHead className="text-right">Unit Cost (₦)</TableHead>
-              {canManageItems && <TableHead className="w-20">Actions</TableHead>}
+              <TableHead className="text-right">Low Stock Alert</TableHead>
+              {canManageItems && <TableHead className="text-right">Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {!filteredItems || filteredItems.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={canManageItems ? 7 : 6} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                   No items found.
                 </TableCell>
               </TableRow>
@@ -267,38 +310,46 @@ const ItemManager = () => {
               filteredItems.map(item => (
                 <TableRow key={item.id}>
                   <TableCell className="font-medium">{item.name}</TableCell>
-                  <TableCell>{item.category}</TableCell>
                   <TableCell>
-                    <div className="flex flex-wrap gap-1">
-                      {(item.departments?.length ? item.departments : [item.department || 'Retail']).map(dept => (
-                        <span
-                          key={dept}
-                          className="text-[11px] px-1.5 py-0.5 rounded font-medium bg-primary/10 text-primary border border-primary/20"
-                        >
+                    <Badge variant="outline" className="text-xs">
+                      {item.category}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{item.unit_of_measure}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1 max-w-[220px]">
+                      {(item.departments && item.departments.length > 0 ? item.departments : [item.department || 'Retail']).map(dept => (
+                        <Badge key={dept} variant="secondary" className="text-[10px] px-1.5 py-0 font-normal">
                           {dept}
-                        </span>
+                        </Badge>
                       ))}
                     </div>
                   </TableCell>
-                  <TableCell>{item.unit_of_measure}</TableCell>
+                  <TableCell className="text-right font-medium">
+                    ₦{Number(item.unit_cost || 0).toLocaleString()}
+                  </TableCell>
                   <TableCell className="text-right">{item.low_stock_threshold}</TableCell>
-                  <TableCell className="text-right">₦{(Number(item.unit_cost) || 0).toFixed(2)}</TableCell>
                   {canManageItems && (
-                    <TableCell>
-                      <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenForm(item)}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
                         <Button
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8"
+                          onClick={() => handleOpenForm(item)}
+                        >
+                          <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
                           onClick={() => {
                             setDeletingItem(item);
                             setIsDeleteOpen(true);
                           }}
                         >
-                          <Trash2 className="h-4 w-4 text-destructive" />
+                          <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
                     </TableCell>
@@ -310,120 +361,191 @@ const ItemManager = () => {
         </Table>
       </div>
 
-      {/* Add/Edit Dialog — responsive modal with fixed header & footer, scrollable body */}
+      {/* Item Details MCQ Form Dialog */}
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="flex flex-col w-[calc(100vw-2rem)] max-w-lg max-h-[85dvh] sm:max-h-[85vh] p-0 gap-0 rounded-lg overflow-hidden">
-          {/* Fixed header */}
-          <div className="shrink-0 p-4 sm:p-6 border-b bg-background">
+        <DialogContent className="max-w-xl w-[95vw] max-h-[92vh] flex flex-col p-0 overflow-hidden">
+          <div className="p-4 sm:p-6 border-b shrink-0 bg-background">
             <DialogHeader>
-              <DialogTitle className="text-lg sm:text-xl">{editingItem ? 'Edit Item' : 'Add New Item'}</DialogTitle>
+              <DialogTitle className="text-lg sm:text-xl">
+                {editingItem ? 'Edit Item Details' : 'Add New Item'}
+              </DialogTitle>
               <DialogDescription className="text-xs sm:text-sm">
-                {editingItem ? 'Update item details. You can assign it to multiple departments.' : 'Fill in item details and select which departments stock this item.'}
+                Configure item attributes using quick multi-choice options.
               </DialogDescription>
             </DialogHeader>
           </div>
 
-          {/* Scrollable form body */}
-          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 min-h-0">
-            <form id="item-form" onSubmit={handleSubmit} className="space-y-4">
+          {/* Scrollable body */}
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 min-h-0">
+            <form id="item-form" onSubmit={handleSubmit} className="space-y-5">
+              {/* Item Name */}
               <div className="space-y-1.5">
-                <Label htmlFor="name" className="text-xs sm:text-sm">Item Name</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="name" className="text-xs font-semibold">Item Name</Label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-1.5 text-[10px] text-muted-foreground"
+                    onClick={() => setFormData(prev => ({ ...prev, name: toTitleCase(prev.name) }))}
+                  >
+                    <Sparkles className="h-3 w-3 mr-1" /> Title Case
+                  </Button>
+                </div>
                 <Input
                   id="name"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Enter item name"
-                  className="text-base sm:text-xs h-11 sm:h-9"
+                  placeholder="e.g. Mineral Water 75cl, Long Island Cocktail"
+                  className="text-sm h-10"
                   required
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="category" className="text-xs sm:text-sm">Category</Label>
-                  <Select
-                    value={formData.category}
-                    onValueChange={(value) => setFormData({ ...formData, category: value })}
-                    required
-                  >
-                    <SelectTrigger className="text-base sm:text-xs h-11 sm:h-9">
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-background">
-                      {CATEGORIES.map(cat => (
-                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="unit" className="text-xs sm:text-sm">Unit</Label>
-                  <Select
-                    value={formData.unit_of_measure}
-                    onValueChange={(value) => setFormData({ ...formData, unit_of_measure: value })}
-                    required
-                  >
-                    <SelectTrigger className="text-base sm:text-xs h-11 sm:h-9">
-                      <SelectValue placeholder="Select unit" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-background">
-                      {UNITS.map(unit => (
-                        <SelectItem key={unit} value={unit}>{unit}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+              {/* Category: MCQ Pills */}
+              <div className="space-y-2">
+                <Label className="text-xs font-semibold">
+                  Category <span className="text-muted-foreground font-normal">(select one)</span>
+                </Label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {CATEGORIES.map(cat => {
+                    const isSelected = formData.category === cat.id;
+                    return (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => setFormData({ ...formData, category: cat.id })}
+                        className={cn(
+                          'flex items-center justify-between px-3 py-2 rounded-lg border text-xs font-medium transition-all text-left',
+                          isSelected
+                            ? 'border-primary bg-primary/10 text-primary font-semibold ring-1 ring-primary'
+                            : 'border-border bg-card hover:bg-muted/60 text-muted-foreground'
+                        )}
+                      >
+                        <span>{cat.label}</span>
+                        {isSelected && <Check className="h-3.5 w-3.5 text-primary" />}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
-              {/* Multi-Department Assignment */}
-              <div className="space-y-1.5">
-                <Label className="text-xs sm:text-sm">
-                  Departments
-                  <span className="ml-1 text-xs text-muted-foreground font-normal">(select all that apply)</span>
+              {/* Unit of Measure: MCQ Pills */}
+              <div className="space-y-2">
+                <Label className="text-xs font-semibold">
+                  Unit of Measure <span className="text-muted-foreground font-normal">(select unit)</span>
                 </Label>
-                <div className="grid grid-cols-2 gap-1 border rounded-md p-2.5 bg-muted/20">
-                  {DEPARTMENTS.map(dept => (
-                    <div key={dept} className="flex items-center gap-2 min-h-[38px]">
-                      <Checkbox
-                        id={`dept-${dept}`}
-                        checked={(formData.departments || []).includes(dept)}
-                        onCheckedChange={() => toggleDepartment(dept)}
-                        className="h-4 w-4"
-                      />
-                      <label
-                        htmlFor={`dept-${dept}`}
-                        className="text-xs sm:text-sm cursor-pointer select-none font-medium flex-1 py-1"
+                <div className="flex flex-wrap gap-1.5">
+                  {UNITS.map(u => {
+                    const isSelected = formData.unit_of_measure === u.id;
+                    return (
+                      <button
+                        key={u.id}
+                        type="button"
+                        onClick={() => setFormData({ ...formData, unit_of_measure: u.id })}
+                        className={cn(
+                          'px-3 py-1.5 rounded-md border text-xs font-medium transition-all',
+                          isSelected
+                            ? 'border-primary bg-primary text-primary-foreground font-semibold shadow-sm'
+                            : 'border-border bg-card hover:bg-muted text-muted-foreground'
+                        )}
                       >
-                        {dept}
-                      </label>
-                    </div>
-                  ))}
+                        {u.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Multi-Department Assignment: Multi-Choice Cards */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-semibold">
+                    Departments <span className="text-muted-foreground font-normal">(stocked locations)</span>
+                  </Label>
+                  <div className="flex gap-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-1.5 text-[10px]"
+                      onClick={selectAllDepartments}
+                    >
+                      Select All
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-1.5 text-[10px]"
+                      onClick={clearAllDepartments}
+                    >
+                      Reset
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 border rounded-lg p-3 bg-muted/20">
+                  {DEPARTMENTS.map(dept => {
+                    const isSelected = (formData.departments || []).includes(dept);
+                    return (
+                      <div
+                        key={dept}
+                        onClick={() => toggleDepartment(dept)}
+                        className={cn(
+                          'flex items-center gap-2 p-2 rounded-md border text-xs font-medium cursor-pointer transition-all',
+                          isSelected
+                            ? 'border-primary bg-primary/10 text-primary font-semibold'
+                            : 'border-transparent hover:bg-muted text-muted-foreground'
+                        )}
+                      >
+                        <Checkbox
+                          id={`dept-${dept}`}
+                          checked={isSelected}
+                          onCheckedChange={() => toggleDepartment(dept)}
+                          className="h-4 w-4"
+                        />
+                        <span className="select-none">{dept}</span>
+                      </div>
+                    );
+                  })}
                 </div>
                 {(!formData.departments || formData.departments.length === 0) && (
-                  <p className="text-xs text-destructive">Select at least one department</p>
-                )}
-                {formData.departments && formData.departments.length > 1 && (
-                  <p className="text-xs text-blue-600 dark:text-blue-400">
-                    ✓ Selected {formData.departments.length} departments.
-                  </p>
+                  <p className="text-xs text-destructive">Please select at least one department</p>
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              {/* Threshold & Unit Cost with Quick Presets */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label htmlFor="low_stock_threshold" className="text-xs sm:text-sm">Low Stock Threshold</Label>
+                  <Label htmlFor="low_stock_threshold" className="text-xs font-semibold">Low Stock Threshold</Label>
                   <Input
                     id="low_stock_threshold"
                     type="number"
                     min="0"
                     value={formData.low_stock_threshold}
                     onChange={(e) => setFormData({ ...formData, low_stock_threshold: Number(e.target.value) })}
-                    placeholder="0"
-                    className="text-base sm:text-xs h-11 sm:h-9"
+                    className="h-9 text-sm"
                   />
+                  <div className="flex gap-1 flex-wrap pt-1">
+                    {THRESHOLD_PRESETS.map(preset => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => setFormData({ ...formData, low_stock_threshold: preset })}
+                        className={cn(
+                          "px-2 py-0.5 rounded text-[10px] border transition-colors",
+                          formData.low_stock_threshold === preset ? "bg-primary text-primary-foreground font-bold" : "bg-muted hover:bg-muted/80 text-muted-foreground"
+                        )}
+                      >
+                        {preset}
+                      </button>
+                    ))}
+                  </div>
                 </div>
+
                 <div className="space-y-1.5">
-                  <Label htmlFor="unit_cost" className="text-xs sm:text-sm">Unit Cost (₦)</Label>
+                  <Label htmlFor="unit_cost" className="text-xs font-semibold">Unit Cost (₦)</Label>
                   <Input
                     id="unit_cost"
                     type="number"
@@ -431,24 +553,43 @@ const ItemManager = () => {
                     step="0.01"
                     value={formData.unit_cost}
                     onChange={(e) => setFormData({ ...formData, unit_cost: Number(e.target.value) })}
-                    placeholder="0.00"
-                    className="text-base sm:text-xs h-11 sm:h-9"
+                    className="h-9 text-sm"
                   />
+                  <div className="flex gap-1 flex-wrap pt-1">
+                    {COST_PRESETS.map(preset => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => setFormData({ ...formData, unit_cost: preset })}
+                        className={cn(
+                          "px-1.5 py-0.5 rounded text-[10px] border transition-colors",
+                          formData.unit_cost === preset ? "bg-primary text-primary-foreground font-bold" : "bg-muted hover:bg-muted/80 text-muted-foreground"
+                        )}
+                      >
+                        ₦{preset.toLocaleString()}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             </form>
           </div>
 
-          {/* Fixed footer */}
+          {/* Footer */}
           <div className="shrink-0 p-4 sm:p-6 border-t bg-background flex flex-col sm:flex-row justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => setIsFormOpen(false)} className="w-full sm:w-auto h-11 sm:h-9 text-base sm:text-xs order-last sm:order-first">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsFormOpen(false)}
+              className="w-full sm:w-auto h-10 text-xs order-last sm:order-first"
+            >
               Cancel
             </Button>
             <Button
               type="submit"
               form="item-form"
               disabled={createItem.isPending || updateItem.isPending || !formData.departments?.length}
-              className="w-full sm:w-auto h-11 sm:h-9 text-base sm:text-xs"
+              className="w-full sm:w-auto h-10 text-xs"
             >
               {editingItem ? 'Update Item' : 'Create Item'}
             </Button>
@@ -475,6 +616,4 @@ const ItemManager = () => {
       </AlertDialog>
     </div>
   );
-};
-
-export default ItemManager;
+}
