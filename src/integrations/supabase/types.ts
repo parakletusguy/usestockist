@@ -14,30 +14,8 @@ export type Database = {
   }
   public: {
     Tables: {
-      branches: {
-        Row: {
-          created_at: string
-          id: string
-          is_active: boolean
-          name: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          is_active?: boolean
-          name: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          is_active?: boolean
-          name?: string
-        }
-        Relationships: []
-      }
       daily_stock_sheets: {
         Row: {
-          branch_id: string
           close_qty: number
           created_at: string
           date: string
@@ -53,7 +31,6 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          branch_id?: string
           close_qty?: number
           created_at?: string
           date: string
@@ -69,7 +46,6 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          branch_id?: string
           close_qty?: number
           created_at?: string
           date?: string
@@ -92,18 +68,10 @@ export type Database = {
             referencedRelation: "items"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "daily_stock_sheets_branch_id_fkey"
-            columns: ["branch_id"]
-            isOneToOne: false
-            referencedRelation: "branches"
-            referencedColumns: ["id"]
-          },
         ]
       }
       inventory_transactions: {
         Row: {
-          branch_id: string
           created_at: string
           department: string
           id: string
@@ -114,7 +82,6 @@ export type Database = {
           type: string
         }
         Insert: {
-          branch_id?: string
           created_at?: string
           department?: string
           id?: string
@@ -125,7 +92,6 @@ export type Database = {
           type: string
         }
         Update: {
-          branch_id?: string
           created_at?: string
           department?: string
           id?: string
@@ -147,7 +113,6 @@ export type Database = {
       }
       issuance_ledger: {
         Row: {
-          branch_id: string
           created_at: string
           date: string
           id: string
@@ -158,7 +123,6 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          branch_id?: string
           created_at?: string
           date: string
           id?: string
@@ -169,7 +133,6 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          branch_id?: string
           created_at?: string
           date?: string
           id?: string
@@ -312,7 +275,6 @@ export type Database = {
       }
       received_ledger: {
         Row: {
-          branch_id: string
           created_at: string
           date: string
           department: string | null
@@ -324,7 +286,6 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          branch_id?: string
           created_at?: string
           date: string
           department?: string | null
@@ -336,7 +297,6 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          branch_id?: string
           created_at?: string
           date?: string
           department?: string | null
@@ -359,11 +319,9 @@ export type Database = {
       }
       transfer_ledger: {
         Row: {
-          branch_id: string
           created_at: string
           date: string
           destination: string
-          destination_branch_id: string | null
           id: string
           item_id: string
           quantity: number
@@ -371,11 +329,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          branch_id?: string
           created_at?: string
           date: string
           destination: string
-          destination_branch_id?: string | null
           id?: string
           item_id: string
           quantity: number
@@ -383,11 +339,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          branch_id?: string
           created_at?: string
           date?: string
           destination?: string
-          destination_branch_id?: string | null
           id?: string
           item_id?: string
           quantity?: number
@@ -400,38 +354,6 @@ export type Database = {
             columns: ["item_id"]
             isOneToOne: false
             referencedRelation: "items"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      user_branches: {
-        Row: {
-          branch_id: string
-          created_at: string
-          id: string
-          is_default: boolean
-          user_id: string
-        }
-        Insert: {
-          branch_id: string
-          created_at?: string
-          id?: string
-          is_default?: boolean
-          user_id: string
-        }
-        Update: {
-          branch_id?: string
-          created_at?: string
-          id?: string
-          is_default?: boolean
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "user_branches_branch_id_fkey"
-            columns: ["branch_id"]
-            isOneToOne: false
-            referencedRelation: "branches"
             referencedColumns: ["id"]
           },
         ]
@@ -480,7 +402,6 @@ export type Database = {
       }
       weekly_stock_counts: {
         Row: {
-          branch_id: string
           created_at: string
           date: string
           id: string
@@ -491,7 +412,6 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          branch_id?: string
           created_at?: string
           date: string
           id?: string
@@ -502,7 +422,6 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          branch_id?: string
           created_at?: string
           date?: string
           id?: string
