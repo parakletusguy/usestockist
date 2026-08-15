@@ -8,8 +8,8 @@
  * Run:  node scripts/live_integration_test.mjs
  */
 
-const SUPABASE_URL = 'https://xwlmeohncmfvnjukgsbz.supabase.co';
-const ANON_KEY     = 'sb_publishable_dbNqrmFooqQYRt-ikMKCyw_4hnl0GDx';
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://xwlmeohncmfvnjukgsbz.supabase.co';
+const ANON_KEY     = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_dbNqrmFooqQYRt-ikMKCyw_4hnl0GDx';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
