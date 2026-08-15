@@ -36,9 +36,9 @@ export default defineConfig(({ mode }) => ({
         globIgnores: ["**/pdf.worker*"],
       },
       manifest: {
-        name: "Stockist - Inventory Manager",
+        name: "Stockist - Multi-tenant Inventory Manager for cinemas, fast-food restaurants, bars and liquor stores.",
         short_name: "Stockist",
-        description: "Inventory management and stock tracking app",
+        description: "Multi-tenant inventory management software for cinemas, fast-food restaurants, bars and liquor stores. Track stock, issuance, transfers and sales.",
         theme_color: "#1a1a2e",
         background_color: "#1a1a2e",
         display: "standalone",
