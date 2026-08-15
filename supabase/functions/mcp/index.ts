@@ -10,7 +10,7 @@ import { defineTool } from "npm:@lovable.dev/mcp-js@0.23.0";
 import { z } from "npm:zod@^4.4.3";
 
 // src/lib/mcp/supabase.ts
-import { createClient } from "npm:@supabase/supabase-js@^2.110.8";
+import { createClient } from "npm:@supabase/supabase-js@^2.112.3";
 function runtimeEnv(name) {
   const runtime = globalThis;
   return runtime.Deno?.env?.get?.(name) ?? runtime.process?.env?.[name];
@@ -306,7 +306,7 @@ var record_transfer_default = defineTool9({
 });
 
 // src/lib/mcp/index.ts
-var projectRef = "xbglpojlhjrhmkqwelgu";
+var projectRef = "nqdfunbkrgqmtpnceatz";
 var mcp_default = defineMcp({
   name: "stockist-mcp",
   title: "Stockist MCP",
