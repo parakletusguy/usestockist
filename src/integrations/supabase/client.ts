@@ -2,6 +2,10 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
+// The generated types.ts is out of sync with the connected project schema,
+// so the client is intentionally untyped here.
+type Schema = Database extends { public: { Tables: Record<string, unknown> } } ? Database : any;
+
 // Manual override: this app points at the existing Supabase project
 // `insenbrtdrwfomazehna`, not the Cloud-provisioned backend in .env.
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from './connection';
@@ -34,7 +38,7 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+export const supabase = createClient<any>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   global: {
     fetch: createSupabaseFetch(SUPABASE_PUBLISHABLE_KEY),
   },
