@@ -17,8 +17,11 @@ export interface UploadReachSalesInput {
   report_date: string;
   retail_member_name: string;
   file_name?: string;
+  total_items_sold?: number;
+  total_sales_value?: number;
   items: {
-    item_id: string;
+    item_id?: string;
+    item_name?: string;
     qty_sold: number;
     unit_price?: number;
     department?: string;
@@ -54,13 +57,15 @@ export function useUploadReachSales() {
         throw new Error('No items to upload');
       }
 
-      const totalItemsSold = input.items.reduce((sum, item) => sum + item.qty_sold, 0);
-      const totalSalesValue = input.items.reduce(
-        (sum, item) => sum + item.qty_sold * (item.unit_price || 0),
-        0
-      );
+      const totalItemsSold = input.total_items_sold !== undefined
+        ? input.total_items_sold
+        : input.items.reduce((sum, item) => sum + item.qty_sold, 0);
 
-      // 1. Insert header row into reach_sales_reports table
+      const totalSalesValue = input.total_sales_value !== undefined
+        ? input.total_sales_value
+        : input.items.reduce((sum, item) => sum + item.qty_sold * (item.unit_price || 0), 0);
+
+      // 1. Insert header row into reach_sales_reports table with full sales values
       const { data: header, error: headerError } = await (supabase as unknown as { from: (table: string) => ReturnType<typeof supabase.from> })
         .from('reach_sales_reports')
         .insert({
@@ -75,26 +80,30 @@ export function useUploadReachSales() {
 
       if (headerError) throw headerError;
 
-      // 2. Insert sales transactions into inventory_transactions table
-      const txRows = input.items.map(item => ({
-        item_id: item.item_id,
-        type: 'sale',
-        quantity: item.qty_sold,
-        transaction_date: input.report_date,
-        department: item.department || 'Retail',
-        metadata: {
-          retail_member_name: input.retail_member_name,
-          unit_price: item.unit_price || 0,
-          report_id: header.id,
-          file_name: input.file_name || 'Reach_Sales_Report.pdf',
-        },
-      }));
+      // 2. Insert sales transactions into inventory_transactions table ONLY for physical catalog items and cups
+      const txRows = input.items
+        .filter(item => Boolean(item.item_id))
+        .map(item => ({
+          item_id: item.item_id!,
+          type: 'sale',
+          quantity: item.qty_sold,
+          transaction_date: input.report_date,
+          department: item.department || 'Retail',
+          metadata: {
+            retail_member_name: input.retail_member_name,
+            unit_price: item.unit_price || 0,
+            report_id: header.id,
+            file_name: input.file_name || 'Reach_Sales_Report.pdf',
+          },
+        }));
 
-      const { error: txError } = await supabase
-        .from('inventory_transactions')
-        .insert(txRows);
+      if (txRows.length > 0) {
+        const { error: txError } = await supabase
+          .from('inventory_transactions')
+          .insert(txRows);
 
-      if (txError) throw txError;
+        if (txError) throw txError;
+      }
 
       return header;
     },

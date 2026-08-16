@@ -3,7 +3,7 @@ import { format } from 'date-fns';
 import { useItems, useCreateItem } from '@/hooks/useItems';
 import { useReachSalesReports, useUploadReachSales, useReachSalesReportDetails, useDeleteReachSalesReport, ReachSalesReport } from '@/hooks/useReachSales';
 import { parsePdfSalesReport, ParsedPdfRow } from '@/lib/parsePdf';
-import { calculateBarCupDeductions } from '@/lib/barCupMapping';
+import { calculateBarCupDeductions, isPreparedBarDrink } from '@/lib/barCupMapping';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,6 +26,7 @@ interface ParsedSaleRow {
   qtySold: number;
   unitPrice: number;
   department: string;
+  isPreparedDrink?: boolean;
 }
 
 type FileStatus = 'idle' | 'parsing' | 'done' | 'error';
@@ -178,7 +179,8 @@ export default function ItemSalesReport() {
       if (!rawName || qty <= 0) continue;
 
       const matched = matchToCatalog(rawName);
-      const dept = matched?.department || detectDepartment(rawName);
+      const isPrepared = !matched && (isPreparedBarDrink(rawName) || isBarItemName(rawName) || detectDepartment(rawName) === 'Bar');
+      const dept = matched?.department || (isPrepared ? 'Bar' : detectDepartment(rawName));
       if (matched) {
         newRows.push({
           itemId: matched.id,
@@ -186,6 +188,15 @@ export default function ItemSalesReport() {
           qtySold: qty,
           unitPrice: price || matched.unit_cost,
           department: dept,
+        });
+      } else if (isPrepared) {
+        newRows.push({
+          itemId: '',
+          itemName: rawName,
+          qtySold: qty,
+          unitPrice: price || 0,
+          department: 'Bar',
+          isPreparedDrink: true,
         });
       } else {
         unmatched++;
@@ -237,7 +248,8 @@ export default function ItemSalesReport() {
         let unmatched = 0;
         newRows = pdfResult.rows.map(row => {
           const matched = matchToCatalog(row.item_name);
-          const dept = matched?.department || detectDepartment(row.item_name);
+          const isPrepared = !matched && (isPreparedBarDrink(row.item_name) || isBarItemName(row.item_name) || detectDepartment(row.item_name) === 'Bar');
+          const dept = matched?.department || (isPrepared ? 'Bar' : detectDepartment(row.item_name));
           if (matched) {
             return {
               itemId: matched.id,
@@ -245,6 +257,15 @@ export default function ItemSalesReport() {
               qtySold: row.quantity,
               unitPrice: row.unit_price || matched.unit_cost,
               department: dept,
+            };
+          } else if (isPrepared) {
+            return {
+              itemId: '',
+              itemName: row.item_name,
+              qtySold: row.quantity,
+              unitPrice: row.unit_price || 0,
+              department: 'Bar',
+              isPreparedDrink: true,
             };
           } else {
             unmatched++;
@@ -345,7 +366,7 @@ export default function ItemSalesReport() {
 
   const handleQuickCreateAllMissing = async () => {
     const missingIndices = parsedRows
-      .map((r, i) => (!r.itemId ? i : -1))
+      .map((r, i) => (!r.itemId && !r.isPreparedDrink ? i : -1))
       .filter(i => i !== -1);
 
     if (missingIndices.length === 0) return;
@@ -374,6 +395,7 @@ export default function ItemSalesReport() {
           itemId: newItem.id,
           itemName: newItem.name,
           department: dept,
+          isPreparedDrink: false,
         };
         createdCount++;
       } catch {
@@ -392,8 +414,14 @@ export default function ItemSalesReport() {
       const next = [...prev];
       if (field === 'itemId') {
         const item = items?.find(it => it.id === value);
-        next[index] = { ...next[index], itemId: value as string, itemName: item?.name || '', unitPrice: item?.unit_cost ?? next[index].unitPrice };
-        if (value && !prev[index].itemId) {
+        next[index] = {
+          ...next[index],
+          itemId: value as string,
+          itemName: item?.name || next[index].itemName,
+          unitPrice: item?.unit_cost ?? next[index].unitPrice,
+          isPreparedDrink: false,
+        };
+        if (value && !prev[index].itemId && !prev[index].isPreparedDrink) {
           setUnmatchedCount(count => Math.max(0, count - 1));
         }
       } else {
@@ -415,7 +443,7 @@ export default function ItemSalesReport() {
       return;
     }
 
-    const missingRows = parsedRows.filter(r => !r.itemId);
+    const missingRows = parsedRows.filter(r => !r.itemId && !r.isPreparedDrink);
     if (missingRows.length > 0) {
       toast({
         title: 'Unmatched Items Found',
@@ -425,26 +453,36 @@ export default function ItemSalesReport() {
       return;
     }
 
-    // Build base sale items
+    // Build base sale items — physical catalog items have item_id; prepared drinks have item_name (for report total, no ledger transaction)
     const saleItems = parsedRows.flatMap(r => {
-      const base = {
-        item_id: r.itemId,
+      if (r.itemId) {
+        const base = {
+          item_id: r.itemId,
+          item_name: r.itemName,
+          qty_sold: r.qtySold,
+          unit_price: r.unitPrice,
+        };
+        if (r.department === 'Kitchen') {
+          return [
+            { ...base, department: 'Retail' },
+            { ...base, department: 'Kitchen' },
+          ];
+        }
+        return [{ ...base, department: r.department || 'Retail' }];
+      }
+      return [{
+        item_name: r.itemName,
         qty_sold: r.qtySold,
         unit_price: r.unitPrice,
-      };
-      if (r.department === 'Kitchen') {
-        return [
-          { ...base, department: 'Retail' },
-          { ...base, department: 'Kitchen' },
-        ];
-      }
-      return [{ ...base, department: r.department || 'Retail' }];
+        department: r.department || 'Bar',
+      }];
     });
 
     // Auto-append Bar Cups deduction if Bar drinks were sold
     if (barCupStats.totalCupsToDeduct > 0 && barCupsItem) {
       saleItems.push({
         item_id: barCupsItem.id,
+        item_name: 'Cups',
         qty_sold: barCupStats.totalCupsToDeduct,
         unit_price: barCupsItem.unit_cost || 0,
         department: 'Bar',
@@ -455,6 +493,8 @@ export default function ItemSalesReport() {
       report_date: dateStr,
       retail_member_name: retailMember.trim(),
       file_name: fileName || 'Reach_Sales_Upload',
+      total_items_sold: totalQty,
+      total_sales_value: totalValue,
       items: saleItems,
     });
 
@@ -696,30 +736,44 @@ export default function ItemSalesReport() {
                       {parsedRows.map((row, idx) => (
                         <TableRow
                           key={idx}
-                          className={cn(!row.itemId && 'bg-amber-500/5 hover:bg-amber-500/10 border-l-4 border-l-amber-500')}
+                          className={cn(
+                            !row.itemId && !row.isPreparedDrink && 'bg-amber-500/5 hover:bg-amber-500/10 border-l-4 border-l-amber-500',
+                            row.isPreparedDrink && 'bg-blue-500/5 hover:bg-blue-500/10 border-l-4 border-l-blue-500'
+                          )}
                         >
                           <TableCell>
                             <div className="space-y-1">
-                              <select
-                                value={row.itemId}
-                                onChange={e => handleRowChange(idx, 'itemId', e.target.value)}
-                                className={cn(
-                                  "w-full h-9 text-xs sm:text-sm rounded-md border bg-background px-2",
-                                  !row.itemId && "border-amber-500/70 text-amber-700 dark:text-amber-400 font-medium"
-                                )}
-                              >
-                                {!row.itemId && (
-                                  <option value="" disabled>
-                                    ⚠️ Unmatched: "{row.itemName}" — (Select catalog item...)
-                                  </option>
-                                )}
-                                {items?.map(it => (
-                                  <option key={it.id} value={it.id}>
-                                    {it.name} ({it.category} · {it.department || 'Retail'})
-                                  </option>
-                                ))}
-                              </select>
-                              {!row.itemId && (
+                              {row.isPreparedDrink ? (
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-semibold text-xs sm:text-sm text-foreground">{row.itemName}</span>
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-medium text-blue-700 dark:text-blue-300">
+                                      <Coffee className="h-3 w-3" /> Prepared Drink (1 Cup Auto-Deduct)
+                                    </span>
+                                  </div>
+                                </div>
+                              ) : (
+                                <select
+                                  value={row.itemId}
+                                  onChange={e => handleRowChange(idx, 'itemId', e.target.value)}
+                                  className={cn(
+                                    "w-full h-9 text-xs sm:text-sm rounded-md border bg-background px-2",
+                                    !row.itemId && "border-amber-500/70 text-amber-700 dark:text-amber-400 font-medium"
+                                  )}
+                                >
+                                  {!row.itemId && (
+                                    <option value="" disabled>
+                                      ⚠️ Unmatched: "{row.itemName}" — (Select catalog item...)
+                                    </option>
+                                  )}
+                                  {items?.map(it => (
+                                    <option key={it.id} value={it.id}>
+                                      {it.name} ({it.category} · {it.department || 'Retail'})
+                                    </option>
+                                  ))}
+                                </select>
+                              )}
+                              {!row.itemId && !row.isPreparedDrink && (
                                 <div className="text-[11px] text-amber-700 dark:text-amber-400 flex items-center gap-1 font-medium pl-0.5">
                                   <AlertTriangle className="h-3 w-3 inline shrink-0" />
                                   <span>Raw PDF Item: <strong>{row.itemName}</strong></span>
@@ -753,7 +807,7 @@ export default function ItemSalesReport() {
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center justify-center gap-1">
-                              {!row.itemId && (
+                              {!row.itemId && !row.isPreparedDrink && (
                                 <Button
                                   size="sm"
                                   variant="outline"

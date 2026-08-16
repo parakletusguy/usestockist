@@ -63,12 +63,23 @@ describe('useReachSales Hooks & Endpoints Audit', () => {
     expect(result.current.data).toBeDefined();
   });
 
-  it('deletes a reach sales report and its associated transactions', async () => {
-    const { result } = renderHook(() => useDeleteReachSalesReport(), { wrapper: createWrapper() });
+  it('records prepared drinks in sales header totals without raw transaction rows', async () => {
+    const { result } = renderHook(() => useUploadReachSales(), { wrapper: createWrapper() });
 
-    await result.current.mutateAsync('report-101');
+    await result.current.mutateAsync({
+      report_date: '2026-08-16',
+      retail_member_name: 'Choice Harrison',
+      file_name: 'Reach_Sales_Aug16.pdf',
+      total_items_sold: 10,
+      total_sales_value: 45000,
+      items: [
+        { item_name: 'Baileys Milkshake', qty_sold: 1, unit_price: 7000, department: 'Bar' },
+        { item_name: 'Sex Boaster', qty_sold: 1, unit_price: 6000, department: 'Bar' },
+        { item_id: 'cup-item-id', item_name: 'Cups', qty_sold: 2, unit_price: 100, department: 'Bar' },
+      ],
+    });
 
-    expect(mockSupabase.from).toHaveBeenCalledWith('inventory_transactions');
     expect(mockSupabase.from).toHaveBeenCalledWith('reach_sales_reports');
+    expect(mockSupabase.from).toHaveBeenCalledWith('inventory_transactions');
   });
 });

@@ -113,7 +113,31 @@ const DEFINITE_CUP_KEYWORDS = [
   'lemonade',
   'sangria',
   'cosmopolitan',
+  'bailey',
+  'boaster',
+  'booster',
+  'sex on the beach',
+  'shake',
+  'blast',
+  'punch',
+  'slush',
+  'slushy',
+  'fizz',
 ];
+
+/**
+ * Returns true if the item is a prepared bar cocktail, mocktail, milkshake, or mixed drink
+ * that should be recorded in the sales report for revenue and cup deduction,
+ * without creating an inventory catalog item or raw transaction ledger entry.
+ */
+export function isPreparedBarDrink(itemName: string): boolean {
+  if (!itemName) return false;
+  const lower = itemName.toLowerCase().trim();
+  if (NO_CUP_EXACT_OR_KEYWORD.some(kw => lower.includes(kw))) {
+    return false;
+  }
+  return DEFINITE_CUP_KEYWORDS.some(kw => lower.includes(kw));
+}
 
 /**
  * Returns true if the sold item in Bar consumes 1 physical Cup.
