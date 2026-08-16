@@ -158,13 +158,15 @@ describe('Reach POS PDF Parsing — Item Focus', () => {
   });
 
   describe('Ticket Identification (Non-Inventory Exclusion)', () => {
-    it('correctly identifies cinema ticket and access items', () => {
+    it('identifies ticket and admission items', () => {
       expect(isTicketItem('Regular Ticket')).toBe(true);
       expect(isTicketItem('Gold Seat')).toBe(true);
       expect(isTicketItem('Platinum Seat')).toBe(true);
-      expect(isTicketItem('VR Game')).toBe(true);
-      expect(isTicketItem('Box-Signatr Access (Single)')).toBe(true);
+      expect(isTicketItem('VR GAME')).toBe(true);
+      expect(isTicketItem('BOX-SIGNATR ACCESS (SINGLE)')).toBe(true);
+      expect(isTicketItem('BOX-SIGNATR ACCESS(COUPLE SEAT)')).toBe(true);
       expect(isTicketItem('MID WEEK JOLLY')).toBe(true);
+      expect(isTicketItem('Cinema Access Pass')).toBe(true);
     });
 
     it('correctly distinguishes physical inventory items from tickets', () => {
@@ -173,6 +175,7 @@ describe('Reach POS PDF Parsing — Item Focus', () => {
       expect(isTicketItem('WATER')).toBe(false);
       expect(isTicketItem('FROZEN MAGARITA')).toBe(false);
       expect(isTicketItem('BAILEYS MILKSHAKE')).toBe(false);
+      expect(isTicketItem('Sex Boaster')).toBe(false);
     });
   });
 

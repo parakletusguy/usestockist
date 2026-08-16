@@ -45,11 +45,13 @@ export function isTicketItem(name: string): boolean {
   const lower = name.toLowerCase().trim();
   return (
     lower.includes('ticket') ||
-    lower.includes('gold seat') ||
-    lower.includes('platinum seat') ||
+    lower.includes('seat') ||
+    lower.includes('access') ||
+    lower.includes('signat') ||
+    lower.includes('signatr') ||
+    lower.includes('gold') ||
+    lower.includes('platinum') ||
     lower.includes('vr game') ||
-    lower.includes('box-signatr') ||
-    lower.includes('box signatr') ||
     lower.includes('cinema access') ||
     lower.includes('mid week jolly') ||
     lower.includes('admission')
