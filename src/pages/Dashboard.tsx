@@ -11,7 +11,16 @@ import { Badge } from '@/components/ui/badge';
 import { Package, TrendingUp, ArrowRightLeft, PackageCheck, Send, ClipboardList, Plus, AlertTriangle, Sparkles, ShoppingCart } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 
-const COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
+const CHART_COLORS = [
+  '#3b82f6', // Blue (Retail / Beverages)
+  '#10b981', // Emerald (Food)
+  '#f59e0b', // Amber (Supplies)
+  '#8b5cf6', // Violet (Alcohol / Spirits)
+  '#ec4899', // Pink (Syrups)
+  '#06b6d4', // Cyan (Packaging)
+  '#f97316', // Orange (Snacks)
+  '#6366f1', // Indigo
+];
 
 type IssuanceRow = {
   id: string;
@@ -24,8 +33,8 @@ type IssuanceRow = {
 function useDashboardData(branchId?: string) {
   return useQuery({
     queryKey: ['dashboard', branchId || 'all'],
-    staleTime: 60_000,
-    refetchOnWindowFocus: false,
+    staleTime: 5_000,
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const today = new Date().toISOString().split('T')[0];
 
@@ -63,7 +72,8 @@ function useDashboardData(branchId?: string) {
         (sum: number, t) => sum + Number((t as { quantity: number }).quantity || 0), 0
       );
 
-      // Latest close_qty per item from daily sheets
+      // Latest close_qty per item from daily sheets for this branch
+      const hasBranchSheets = (sheetsRes.data || []).length > 0;
       const latestClose = new Map<string, number>();
       for (const s of (sheetsRes.data || [])) {
         const row = s as { item_id: string; close_qty: number | null };
@@ -72,12 +82,14 @@ function useDashboardData(branchId?: string) {
 
       let outOfStock = 0;
       let lowStock = 0;
-      for (const item of (itemsRes.data || [])) {
-        const typed = item as { id: string; category: string; low_stock_threshold: number };
-        const stock = latestClose.get(typed.id) ?? 0;
-        const threshold = Number(typed.low_stock_threshold || 0);
-        if (stock === 0) outOfStock++;
-        else if (threshold > 0 && stock <= threshold) lowStock++;
+      if (hasBranchSheets) {
+        for (const item of (itemsRes.data || [])) {
+          const typed = item as { id: string; category: string; low_stock_threshold: number };
+          const stock = latestClose.get(typed.id) ?? 0;
+          const threshold = Number(typed.low_stock_threshold || 0);
+          if (stock === 0) outOfStock++;
+          else if (threshold > 0 && stock <= threshold) lowStock++;
+        }
       }
 
       return {
@@ -89,6 +101,7 @@ function useDashboardData(branchId?: string) {
         categoryData,
         outOfStock,
         lowStock,
+        hasBranchSheets,
       };
     },
   });
@@ -115,7 +128,9 @@ const Dashboard = () => {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground text-sm sm:text-base">Overview of your inventory management</p>
+        <p className="text-muted-foreground text-sm sm:text-base">
+          Overview of inventory management for {activeBranch?.name || 'All Branches'}
+        </p>
       </div>
 
       {/* Metrics Cards — 2 cols on mobile, 3 on sm, 5 on lg */}
@@ -130,12 +145,20 @@ const Dashboard = () => {
               {(data?.outOfStock || 0) + (data?.lowStock || 0)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              <span className="text-destructive">{data?.outOfStock || 0} out</span>
-              {' · '}
-              <span className="text-amber-600 dark:text-amber-500">{data?.lowStock || 0} low</span>
+              {data?.hasBranchSheets ? (
+                <>
+                  <span className="text-destructive">{data?.outOfStock || 0} out</span>
+                  {' · '}
+                  <span className="text-amber-600 dark:text-amber-500">{data?.lowStock || 0} low</span>
+                </>
+              ) : (
+                <span className="text-muted-foreground">Awaiting initial count</span>
+              )}
             </p>
             <Button asChild variant="link" size="sm" className="h-auto p-0 mt-1 text-xs">
-              <Link to="/daily-stock-count?filter=flagged">View flagged</Link>
+              <Link to="/ledgers/stock-count">
+                {data?.hasBranchSheets ? 'View flagged' : 'Start count'}
+              </Link>
             </Button>
           </CardContent>
         </Card>
@@ -235,7 +258,7 @@ const Dashboard = () => {
                     dataKey="value"
                   >
                     {data.categoryData.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                     ))}
                   </Pie>
                   <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }} />
