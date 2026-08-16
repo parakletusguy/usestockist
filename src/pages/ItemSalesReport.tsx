@@ -3,7 +3,7 @@ import { format } from 'date-fns';
 import { useItems, useCreateItem } from '@/hooks/useItems';
 import { useReachSalesReports, useUploadReachSales, useReachSalesReportDetails, useDeleteReachSalesReport, ReachSalesReport } from '@/hooks/useReachSales';
 import { parsePdfSalesReport, ParsedPdfRow } from '@/lib/parsePdf';
-import { calculateBarCupDeductions, isPreparedBarDrink } from '@/lib/barCupMapping';
+import { calculateBarCupDeductions, isPreparedBarDrink, isBarCupConsumingDrink } from '@/lib/barCupMapping';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -99,6 +99,11 @@ export default function ItemSalesReport() {
   /** Advanced 4-stage matching algorithm */
   const matchToCatalog = useCallback((rawName: string): { id: string; name: string; unit_cost: number; department?: string } | null => {
     if (!items || items.length === 0 || !rawName) return null;
+
+    // If it is a prepared cocktail, mocktail, smoothie, milkshake, tea, or shot, do not match raw syrup/fruit catalog items
+    if (isPreparedBarDrink(rawName)) {
+      return null;
+    }
 
     const rawLower = rawName.toLowerCase().trim();
     const rawNorm = normalizeStr(rawName);
@@ -747,9 +752,15 @@ export default function ItemSalesReport() {
                                 <div className="space-y-1">
                                   <div className="flex items-center gap-2">
                                     <span className="font-semibold text-xs sm:text-sm text-foreground">{row.itemName}</span>
-                                    <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-medium text-blue-700 dark:text-blue-300">
-                                      <Coffee className="h-3 w-3" /> Prepared Drink (1 Cup Auto-Deduct)
-                                    </span>
+                                    {isBarCupConsumingDrink(row.itemName) ? (
+                                      <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-medium text-blue-700 dark:text-blue-300">
+                                        <Coffee className="h-3 w-3" /> Prepared Drink (1 Cup Auto-Deduct)
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-300">
+                                        <Coffee className="h-3 w-3" /> Prepared Beverage (Hot / Service)
+                                      </span>
+                                    )}
                                   </div>
                                 </div>
                               ) : (

@@ -219,6 +219,43 @@ describe('Reach POS PDF Parsing — Item Focus', () => {
       expect(result.cupEligibleItems.length).toBe(3);
       expect(result.nonCupItems.length).toBe(3);
     });
+
+    it('calculates exact 20 cups for Raphael Favour Bar session report', () => {
+      const favourReport = [
+        { itemName: 'screw driver', qtySold: 1, department: 'Bar' },
+        { itemName: 'Sex Boaster', qtySold: 1, department: 'Bar' },
+        { itemName: 'BANANA PINK SMOOTHIE', qtySold: 1, department: 'Bar' },
+        { itemName: 'Vanilla Milkshae', qtySold: 8, department: 'Bar' },
+        { itemName: 'BOX OFFICE (MILKSHAKE)', qtySold: 1, department: 'Bar' },
+        { itemName: 'Porn Star Martini', qtySold: 1, department: 'Bar' },
+        { itemName: 'sex on the beach', qtySold: 2, department: 'Bar' },
+        { itemName: 'MOJITO VIRGIN', qtySold: 1, department: 'Bar' },
+        { itemName: 'TEQUILA SHOT', qtySold: 2, department: 'Bar' },
+        { itemName: 'ARABIAN TEA', qtySold: 1, department: 'Bar' },
+        { itemName: 'Chocolate Milshake', qtySold: 4, department: 'Bar' },
+        { itemName: 'MEMBERSHIP', qtySold: 2, department: 'Bar' },
+      ];
+
+      const result = calculateBarCupDeductions(favourReport);
+      // 1+1+1+8+1+1+2+1+4 = 20 cups
+      expect(result.totalCupsToDeduct).toBe(20);
+      expect(result.cupEligibleItems.map(i => i.name)).toEqual([
+        'screw driver',
+        'Sex Boaster',
+        'BANANA PINK SMOOTHIE',
+        'Vanilla Milkshae',
+        'BOX OFFICE (MILKSHAKE)',
+        'Porn Star Martini',
+        'sex on the beach',
+        'MOJITO VIRGIN',
+        'Chocolate Milshake',
+      ]);
+      expect(result.nonCupItems.map(i => i.name)).toEqual([
+        'TEQUILA SHOT',
+        'ARABIAN TEA',
+        'MEMBERSHIP',
+      ]);
+    });
   });
 
   describe('Skipping Summary & Total Lines', () => {

@@ -96,6 +96,8 @@ const DEFINITE_CUP_KEYWORDS = [
   'mocktail',
   'milkshake',
   'milk shake',
+  'milkshae',
+  'milshake',
   'smoothie',
   'margarita',
   'magarita',
@@ -114,9 +116,12 @@ const DEFINITE_CUP_KEYWORDS = [
   'sangria',
   'cosmopolitan',
   'bailey',
+  'baileys',
   'boaster',
   'booster',
   'sex on the beach',
+  'screw driver',
+  'screwdriver',
   'shake',
   'blast',
   'punch',
@@ -125,43 +130,63 @@ const DEFINITE_CUP_KEYWORDS = [
   'fizz',
 ];
 
+const PREPARED_BEVERAGES_AND_SERVICES = [
+  ...DEFINITE_CUP_KEYWORDS,
+  'shot',
+  'tequila shot',
+  'tea',
+  'arabian tea',
+  'green tea',
+  'black tea',
+  'coffee',
+  'espresso',
+  'cappuccino',
+  'latte',
+  'hot chocolate',
+  'membership',
+];
+
 /**
- * Returns true if the item is a prepared bar cocktail, mocktail, milkshake, or mixed drink
- * that should be recorded in the sales report for revenue and cup deduction,
- * without creating an inventory catalog item or raw transaction ledger entry.
+ * Returns true if the item is a prepared cocktail, mocktail, milkshake, tea, coffee,
+ * shot, or service that should be recorded in the sales report for revenue (and cup deduction if applicable),
+ * without requiring a physical raw stock catalog entry or transaction ledger entry.
  */
 export function isPreparedBarDrink(itemName: string): boolean {
   if (!itemName) return false;
   const lower = itemName.toLowerCase().trim();
+
+  // If it matches a prepared beverage or bar service keyword, it is a prepared drink!
+  if (PREPARED_BEVERAGES_AND_SERVICES.some(kw => lower.includes(kw))) {
+    return true;
+  }
+
+  // Fallback: if it's a known non-raw item in Bar
   if (NO_CUP_EXACT_OR_KEYWORD.some(kw => lower.includes(kw))) {
     return false;
   }
-  return DEFINITE_CUP_KEYWORDS.some(kw => lower.includes(kw));
+
+  return false;
 }
 
 /**
- * Returns true if the sold item in Bar consumes 1 physical Cup.
+ * Returns true if the sold item consumes 1 physical Cup from the Bar department.
  */
 export function isBarCupConsumingDrink(itemName: string): boolean {
   if (!itemName) return false;
   const lower = itemName.toLowerCase().trim();
 
-  // If explicitly a definite cup drink keyword
+  // If explicitly a definite cup drink keyword (cold cocktail, milkshake, smoothie, mojito)
   if (DEFINITE_CUP_KEYWORDS.some(kw => lower.includes(kw))) {
     return true;
   }
 
-  // If in no-cup list
-  if (NO_CUP_EXACT_OR_KEYWORD.some(kw => lower.includes(kw))) {
-    return false;
-  }
-
-  // Default: if it's in Bar and looks like a beverage, treat as cup-consuming
-  return true;
+  // Non-cup items (shots, hot tea, coffee, bottled beer, wine, supplies)
+  return false;
 }
 
 /**
- * Calculate total cups to deduct from an array of parsed Bar sales rows.
+ * Calculate total cups to deduct from Bar department inventory.
+ * Cups are exclusive to Bar: all served cocktails, milkshakes, and smoothies deduct Bar cups.
  */
 export function calculateBarCupDeductions(
   rows: Array<{ itemName: string; qtySold: number; department?: string }>
@@ -175,13 +200,11 @@ export function calculateBarCupDeductions(
   const nonCupItems: Array<{ name: string; qty: number }> = [];
 
   for (const row of rows) {
-    if (row.department === 'Bar' || !row.department) {
-      if (isBarCupConsumingDrink(row.itemName)) {
-        totalCupsToDeduct += row.qtySold;
-        cupEligibleItems.push({ name: row.itemName, qty: row.qtySold });
-      } else {
-        nonCupItems.push({ name: row.itemName, qty: row.qtySold });
-      }
+    if (isBarCupConsumingDrink(row.itemName)) {
+      totalCupsToDeduct += row.qtySold;
+      cupEligibleItems.push({ name: row.itemName, qty: row.qtySold });
+    } else {
+      nonCupItems.push({ name: row.itemName, qty: row.qtySold });
     }
   }
 
