@@ -128,3 +128,36 @@ export function useRemoveUserBranch() {
     },
   });
 }
+
+/**
+ * Atomically replaces a user's branch assignment by calling the
+ * set_user_branch RPC (manager-only, security definer).
+ * Passing branchId = null clears all assignments.
+ */
+export function useSetUserBranch() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      userId,
+      branchId,
+    }: {
+      userId: string;
+      branchId: string | null;
+    }) => {
+      const { error } = await (supabase as any).rpc('set_user_branch', {
+        p_user_id: userId,
+        p_branch_id: branchId,
+        p_is_default: true,
+      });
+      if (error) throw error;
+    },
+    onSuccess: (_, variables) => {
+      qc.invalidateQueries({ queryKey: ['user_branches', variables.userId] });
+      qc.invalidateQueries({ queryKey: ['all-users'] });
+      toast({ title: 'Branch updated', description: 'User branch assignment saved.' });
+    },
+    onError: (e: Error) => {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    },
+  });
+}

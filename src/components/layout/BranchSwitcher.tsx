@@ -1,5 +1,5 @@
 import React from 'react';
-import { Building2, Check, ChevronDown } from 'lucide-react';
+import { Building2, Check, ChevronDown, Lock } from 'lucide-react';
 import { useBranch } from '@/contexts/BranchContext';
 import {
   DropdownMenu,
@@ -10,7 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 
 export function BranchSwitcher() {
-  const { activeBranch, branches, setActiveBranch, loading } = useBranch();
+  const { activeBranch, branches, setActiveBranch, loading, isBranchLocked } = useBranch();
 
   if (loading) {
     return (
@@ -22,12 +22,16 @@ export function BranchSwitcher() {
     return null;
   }
 
-  // If user only has 1 branch, show a clean static badge
-  if (branches.length === 1) {
+  // Locked users (non-manager with a single assigned branch): show static badge
+  if (isBranchLocked || branches.length === 1) {
     return (
-      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-muted text-xs font-medium border border-border">
+      <div
+        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-muted text-xs font-medium border border-border"
+        title="Your branch access is managed by an admin"
+      >
         <Building2 className="h-3.5 w-3.5 text-primary" />
         <span className="truncate max-w-[120px]">{activeBranch.name}</span>
+        <Lock className="h-3 w-3 text-muted-foreground opacity-60" />
       </div>
     );
   }

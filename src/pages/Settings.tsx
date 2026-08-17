@@ -18,6 +18,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { useBranches, useSetUserBranch } from '@/hooks/useBranches';
 
 type AppRole = 'manager' | 'inventory' | 'cube_staff' | 'viewer';
 
@@ -26,6 +27,8 @@ interface AppUser {
   email: string;
   role: AppRole;
   created_at: string;
+  branch_id: string | null;
+  branch_name: string | null;
 }
 
 const roleBadgeClass = (r: string) => {
@@ -55,6 +58,8 @@ export default function Settings() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { data: allBranches = [] } = useBranches();
+  const setUserBranch = useSetUserBranch();
 
   // Profile state
   const [displayName, setDisplayName] = useState(user?.user_metadata?.full_name || '');
@@ -264,9 +269,10 @@ export default function Settings() {
             ) : (
               <div className="rounded-md border overflow-hidden">
                 {/* Table header */}
-                <div className="grid grid-cols-[1fr_auto_auto] gap-4 px-4 py-2.5 bg-muted/50 text-xs font-semibold uppercase tracking-wider text-muted-foreground border-b">
+                <div className="grid grid-cols-[1fr_auto_auto_auto] gap-4 px-4 py-2.5 bg-muted/50 text-xs font-semibold uppercase tracking-wider text-muted-foreground border-b">
                   <div>Email</div>
                   <div>Role</div>
+                  <div>Branch</div>
                   <div>Joined</div>
                 </div>
                 {/* Rows */}
@@ -274,9 +280,11 @@ export default function Settings() {
                   {otherUsers.map((u) => (
                     <div
                       key={u.id}
-                      className="grid grid-cols-[1fr_auto_auto] gap-4 px-4 py-3 items-center"
+                      className="grid grid-cols-[1fr_auto_auto_auto] gap-4 px-4 py-3 items-center"
                     >
                       <div className="truncate text-sm">{u.email}</div>
+
+                      {/* Role selector */}
                       <div>
                         <Select
                           value={u.role}
@@ -302,6 +310,34 @@ export default function Settings() {
                           </SelectContent>
                         </Select>
                       </div>
+
+                      {/* Branch selector */}
+                      <div>
+                        <Select
+                          value={u.branch_id ?? '__all__'}
+                          onValueChange={(val) =>
+                            setUserBranch.mutate({
+                              userId: u.id,
+                              branchId: val === '__all__' ? null : val,
+                            })
+                          }
+                        >
+                          <SelectTrigger className="h-7 w-[160px] text-xs">
+                            <SelectValue placeholder="All branches" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__all__">
+                              <span className="text-muted-foreground">All branches</span>
+                            </SelectItem>
+                            {allBranches.map((b) => (
+                              <SelectItem key={b.id} value={b.id}>
+                                {b.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
                       <div className="text-xs text-muted-foreground whitespace-nowrap">
                         {new Date(u.created_at).toLocaleDateString()}
                       </div>
