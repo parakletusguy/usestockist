@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { BranchProvider } from "@/contexts/BranchContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { AppLayout } from "@/components/layout/AppLayout";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
