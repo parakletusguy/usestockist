@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { BranchProvider } from "@/contexts/BranchContext";
-import { AppLayout } from "@/components/layout/AppLayout";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
@@ -34,13 +34,14 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <BranchProvider>
-            <Routes>
-              <Route path="/login" element={<Login />} />
-              <Route path="/signup" element={<Signup />} />
-              <Route path="/install" element={<Install />} />
-              <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
-              
-              <Route element={<AppLayout />}>
+            <ErrorBoundary>
+              <Routes>
+                <Route path="/login" element={<Login />} />
+                <Route path="/signup" element={<Signup />} />
+                <Route path="/install" element={<Install />} />
+                <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
+                
+                <Route element={<AppLayout />}>
                 <Route path="/" element={<Dashboard />} />
                 
                 {/* Ledgers Group */}
@@ -72,7 +73,8 @@ const App = () => (
               <Route path="/settings/branches" element={<BranchManager />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
-          </BranchProvider>
+          </ErrorBoundary>
+        </BranchProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

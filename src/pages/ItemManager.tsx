@@ -9,7 +9,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Pencil, Trash2, Search, Building2, Info, Lock, Check, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -96,34 +95,37 @@ export default function ItemManager() {
   };
 
   const toggleDepartment = (dept: string) => {
-    const current = formData.departments || [];
-    const updated = current.includes(dept)
-      ? current.filter(d => d !== dept)
-      : [...current, dept];
-    setFormData({
-      ...formData,
-      departments: updated,
-      department: updated[0] || 'Retail',
+    setFormData(prev => {
+      const current = prev.departments || [];
+      const updated = current.includes(dept)
+        ? current.filter(d => d !== dept)
+        : [...current, dept];
+      return {
+        ...prev,
+        departments: updated,
+        department: updated[0] || 'Retail',
+      };
     });
   };
 
   const selectAllDepartments = () => {
-    setFormData({
-      ...formData,
+    setFormData(prev => ({
+      ...prev,
       departments: [...DEPARTMENTS],
       department: 'Retail',
-    });
+    }));
   };
 
   const clearAllDepartments = () => {
-    setFormData({
-      ...formData,
+    setFormData(prev => ({
+      ...prev,
       departments: ['Retail'],
       department: 'Retail',
-    });
+    }));
   };
 
-  const toTitleCase = (str: string) => {
+  const toTitleCase = (str?: string) => {
+    if (!str) return '';
     return str.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substring(1).toLowerCase());
   };
 
@@ -489,24 +491,30 @@ export default function ItemManager() {
                   {DEPARTMENTS.map(dept => {
                     const isSelected = (formData.departments || []).includes(dept);
                     return (
-                      <div
+                      <button
                         key={dept}
+                        type="button"
                         onClick={() => toggleDepartment(dept)}
+                        aria-pressed={isSelected}
                         className={cn(
-                          'flex items-center gap-2 p-2 rounded-md border text-xs font-medium cursor-pointer transition-all select-none',
+                          'flex items-center gap-2.5 p-2 rounded-md border text-xs font-medium transition-all text-left select-none cursor-pointer',
                           isSelected
-                            ? 'border-primary bg-primary/10 text-primary font-semibold'
-                            : 'border-transparent hover:bg-muted text-muted-foreground'
+                            ? 'border-primary bg-primary/10 text-primary font-semibold ring-1 ring-primary/30'
+                            : 'border-border bg-card hover:bg-muted/70 text-muted-foreground'
                         )}
                       >
-                        <Checkbox
-                          id={`dept-${dept}`}
-                          checked={isSelected}
-                          className="h-4 w-4 pointer-events-none"
-                          tabIndex={-1}
-                        />
-                        <span>{dept}</span>
-                      </div>
+                        <div
+                          className={cn(
+                            'h-4 w-4 rounded border flex items-center justify-center transition-colors shrink-0',
+                            isSelected
+                              ? 'bg-primary border-primary text-primary-foreground'
+                              : 'border-muted-foreground/40 bg-background'
+                          )}
+                        >
+                          {isSelected && <Check className="h-3 w-3 stroke-[3]" />}
+                        </div>
+                        <span className="truncate">{dept}</span>
+                      </button>
                     );
                   })}
                 </div>
