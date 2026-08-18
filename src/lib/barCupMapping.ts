@@ -147,6 +147,20 @@ const PREPARED_BEVERAGES_AND_SERVICES = [
 ];
 
 /**
+ * Packaged/canned product names that contain prepared-drink keywords
+ * but are NOT prepared bar drinks — they are physical catalog items
+ * (e.g. Schweppes Chapman Can sold from Retail).
+ * Listed in lowercase; any item name matching one of these substrings
+ * is treated as a raw catalog product, not a prepared drink.
+ */
+const PACKAGED_PRODUCT_OVERRIDES = [
+  'schweppes chapman',
+  'mojito chapman',
+  'chapman can',
+  'mojito can',
+];
+
+/**
  * Returns true if the item is a prepared cocktail, mocktail, milkshake, tea, coffee,
  * shot, or service that should be recorded in the sales report for revenue (and cup deduction if applicable),
  * without requiring a physical raw stock catalog entry or transaction ledger entry.
@@ -154,6 +168,12 @@ const PREPARED_BEVERAGES_AND_SERVICES = [
 export function isPreparedBarDrink(itemName: string): boolean {
   if (!itemName) return false;
   const lower = itemName.toLowerCase().trim();
+
+  // Packaged products (cans/bottles) that share prepared-drink keyword names
+  // must NOT be treated as prepared drinks — they match catalog items instead.
+  if (PACKAGED_PRODUCT_OVERRIDES.some(kw => lower.includes(kw))) {
+    return false;
+  }
 
   // If it matches a prepared beverage or bar service keyword, it is a prepared drink!
   if (PREPARED_BEVERAGES_AND_SERVICES.some(kw => lower.includes(kw))) {
@@ -168,12 +188,18 @@ export function isPreparedBarDrink(itemName: string): boolean {
   return false;
 }
 
+
 /**
  * Returns true if the sold item consumes 1 physical Cup from the Bar department.
  */
 export function isBarCupConsumingDrink(itemName: string): boolean {
   if (!itemName) return false;
   const lower = itemName.toLowerCase().trim();
+
+  // Packaged/canned products never consume a bar cup
+  if (PACKAGED_PRODUCT_OVERRIDES.some(kw => lower.includes(kw))) {
+    return false;
+  }
 
   // If explicitly a definite cup drink keyword (cold cocktail, milkshake, smoothie, mojito)
   if (DEFINITE_CUP_KEYWORDS.some(kw => lower.includes(kw))) {

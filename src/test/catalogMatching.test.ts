@@ -125,4 +125,37 @@ describe('Catalog Matching Algorithm', () => {
     const res = matchToCatalog('UNKNOWN ITEM XYZ 99', catalog);
     expect(res).toBeNull();
   });
+
+  it('matches MOJITO CHAPMAN CAN to Schweppes Chapman Can catalog item', () => {
+    const extendedCatalog: MockItem[] = [
+      ...catalog,
+      { id: '20', name: 'Schweppes Chapman Can', unit_cost: 1500 },
+    ];
+    const res = matchToCatalog('MOJITO CHAPMAN CAN', extendedCatalog);
+    expect(res?.name).toBe('Schweppes Chapman Can');
+  });
+});
+
+import { isPreparedBarDrink, isBarCupConsumingDrink } from '@/lib/barCupMapping';
+
+describe('barCupMapping — packaged product overrides', () => {
+  it('isPreparedBarDrink returns false for MOJITO CHAPMAN CAN', () => {
+    expect(isPreparedBarDrink('MOJITO CHAPMAN CAN')).toBe(false);
+  });
+
+  it('isPreparedBarDrink returns false for Schweppes Chapman Can', () => {
+    expect(isPreparedBarDrink('Schweppes Chapman Can')).toBe(false);
+  });
+
+  it('isPreparedBarDrink returns true for a genuine mojito cocktail', () => {
+    expect(isPreparedBarDrink('Virgin Mojito')).toBe(true);
+  });
+
+  it('isBarCupConsumingDrink returns false for MOJITO CHAPMAN CAN', () => {
+    expect(isBarCupConsumingDrink('MOJITO CHAPMAN CAN')).toBe(false);
+  });
+
+  it('isBarCupConsumingDrink returns true for a genuine mojito cocktail', () => {
+    expect(isBarCupConsumingDrink('Mojito Cocktail')).toBe(true);
+  });
 });
