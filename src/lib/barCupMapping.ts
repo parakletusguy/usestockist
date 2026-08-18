@@ -162,6 +162,17 @@ const PACKAGED_PRODUCT_OVERRIDES = [
 ];
 
 /**
+ * Returns true if the item name matches a known packaged/canned product
+ * that shares prepared-drink keywords but is NOT a bar drink.
+ * Use this to exempt items like "MOJITO CHAPMAN CAN" from bar classification.
+ */
+export function isPackagedProductOverride(itemName: string): boolean {
+  if (!itemName) return false;
+  const lower = itemName.toLowerCase().trim();
+  return PACKAGED_PRODUCT_OVERRIDES.some(kw => lower.includes(kw));
+}
+
+/**
  * Returns true if the item is a prepared cocktail, mocktail, milkshake, tea, coffee,
  * shot, or service that should be recorded in the sales report for revenue (and cup deduction if applicable),
  * without requiring a physical raw stock catalog entry or transaction ledger entry.

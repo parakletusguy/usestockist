@@ -3,7 +3,7 @@ import { format } from 'date-fns';
 import { useItems, useCreateItem } from '@/hooks/useItems';
 import { useReachSalesReports, useUploadReachSales, useReachSalesReportDetails, useDeleteReachSalesReport, ReachSalesReport } from '@/hooks/useReachSales';
 import { parsePdfSalesReport, ParsedPdfRow } from '@/lib/parsePdf';
-import { calculateBarCupDeductions, isPreparedBarDrink, isBarCupConsumingDrink } from '@/lib/barCupMapping';
+import { calculateBarCupDeductions, isPreparedBarDrink, isBarCupConsumingDrink, isPackagedProductOverride } from '@/lib/barCupMapping';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -51,6 +51,8 @@ const isKitchenItemName = (name: string) => {
 /** Identify bar items */
 const isBarItemName = (name: string) => {
   const lower = name.toLowerCase();
+  // Packaged canned products that share bar keyword names must never be treated as bar items
+  if (isPackagedProductOverride(name)) return false;
   return [
     'cocktail', 'mocktail', 'mojito', 'margarita', 'magarita', 'martini', 'long island',
     'milkshake', 'smoothie', 'blast', 'shot', 'vodka', 'gin', 'rum', 'whisky', 'whiskey',
