@@ -493,7 +493,7 @@ export default function ItemManager() {
                         key={dept}
                         onClick={() => toggleDepartment(dept)}
                         className={cn(
-                          'flex items-center gap-2 p-2 rounded-md border text-xs font-medium cursor-pointer transition-all',
+                          'flex items-center gap-2 p-2 rounded-md border text-xs font-medium cursor-pointer transition-all select-none',
                           isSelected
                             ? 'border-primary bg-primary/10 text-primary font-semibold'
                             : 'border-transparent hover:bg-muted text-muted-foreground'
@@ -502,10 +502,10 @@ export default function ItemManager() {
                         <Checkbox
                           id={`dept-${dept}`}
                           checked={isSelected}
-                          onCheckedChange={() => toggleDepartment(dept)}
-                          className="h-4 w-4"
+                          className="h-4 w-4 pointer-events-none"
+                          tabIndex={-1}
                         />
-                        <span className="select-none">{dept}</span>
+                        <span>{dept}</span>
                       </div>
                     );
                   })}
