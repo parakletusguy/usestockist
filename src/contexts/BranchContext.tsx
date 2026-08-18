@@ -80,6 +80,11 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             availableBranches = allActiveBranches.filter((b) => b.id === MAIN_BRANCH_ID);
           }
 
+          // Safe fallback: if filtered list is empty but active branches exist, use all
+          if (availableBranches.length === 0 && allActiveBranches.length > 0) {
+            availableBranches = allActiveBranches;
+          }
+
           // Lock when user can only access one branch
           locked = availableBranches.length <= 1;
         }

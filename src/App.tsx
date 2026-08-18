@@ -28,14 +28,14 @@ import BranchManager from "./pages/BranchManager";
 const queryClient = new QueryClient();
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AuthProvider>
-          <BranchProvider>
-            <ErrorBoundary>
+  <ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <AuthProvider>
+            <BranchProvider>
               <Routes>
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<Signup />} />
@@ -43,43 +43,46 @@ const App = () => (
                 <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
                 
                 <Route element={<AppLayout />}>
-                <Route path="/" element={<Dashboard />} />
-                
-                {/* Ledgers Group */}
-                <Route path="/ledgers/received" element={<Received />} />
-                <Route path="/ledgers/transfers" element={<Transfers />} />
-                <Route path="/ledgers/issuance" element={<Issuance />} />
-                <Route path="/ledgers/stock-count" element={<StockCount />} />
-                <Route path="/ledgers/item-sales" element={<ItemSalesReport />} />
-                <Route path="/ledgers/items" element={<ItemManager />} />
-                <Route path="/ledgers/purchase-orders" element={<PurchaseOrders />} />
-                
-                {/* Departments Group */}
-                <Route path="/departments/:departmentId" element={<DepartmentView />} />
-                
-                {/* AI Assistant */}
-                <Route path="/ai-assistant" element={<AIAssistantPage />} />
+                  <Route path="/" element={<Dashboard />} />
+                  
+                  {/* Ledgers Group */}
+                  <Route path="/ledgers/received" element={<Received />} />
+                  <Route path="/ledgers/transfers" element={<Transfers />} />
+                  <Route path="/ledgers/issuance" element={<Issuance />} />
+                  <Route path="/ledgers/stock-count" element={<StockCount />} />
+                  <Route path="/ledgers/item-sales" element={<ItemSalesReport />} />
+                  <Route path="/ledgers/items" element={<ItemManager />} />
+                  <Route path="/ledgers/purchase-orders" element={<PurchaseOrders />} />
+                  
+                  {/* Departments Group */}
+                  <Route path="/departments/:departmentId" element={<DepartmentView />} />
+                  
+                  {/* AI Assistant */}
+                  <Route path="/ai-assistant" element={<AIAssistantPage />} />
 
-                {/* Backward compatibility redirects */}
-                <Route path="/items" element={<Navigate to="/ledgers/items" replace />} />
-                <Route path="/received" element={<Navigate to="/ledgers/received" replace />} />
-                <Route path="/transfers" element={<Navigate to="/ledgers/transfers" replace />} />
-                <Route path="/issuance" element={<Navigate to="/ledgers/issuance" replace />} />
-                <Route path="/daily-stock-count" element={<Navigate to="/ledgers/stock-count" replace />} />
-                <Route path="/reports" element={<Navigate to="/ledgers/item-sales" replace />} />
-                <Route path="/purchase-orders" element={<Navigate to="/ledgers/purchase-orders" replace />} />
-                <Route path="/insights" element={<Navigate to="/ai-assistant" replace />} />
-              </Route>
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/settings/branches" element={<BranchManager />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </ErrorBoundary>
-        </BranchProvider>
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+                  {/* Settings within AppLayout */}
+                  <Route path="/settings" element={<Settings />} />
+                  <Route path="/settings/branches" element={<BranchManager />} />
+
+                  {/* Backward compatibility redirects */}
+                  <Route path="/items" element={<Navigate to="/ledgers/items" replace />} />
+                  <Route path="/received" element={<Navigate to="/ledgers/received" replace />} />
+                  <Route path="/transfers" element={<Navigate to="/ledgers/transfers" replace />} />
+                  <Route path="/issuance" element={<Navigate to="/ledgers/issuance" replace />} />
+                  <Route path="/daily-stock-count" element={<Navigate to="/ledgers/stock-count" replace />} />
+                  <Route path="/reports" element={<Navigate to="/ledgers/item-sales" replace />} />
+                  <Route path="/purchase-orders" element={<Navigate to="/ledgers/purchase-orders" replace />} />
+                  <Route path="/insights" element={<Navigate to="/ai-assistant" replace />} />
+                </Route>
+
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </BranchProvider>
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;
