@@ -120,6 +120,7 @@ const DEFINITE_CUP_KEYWORDS = [
   'boaster',
   'booster',
   'sex on the beach',
+  'sex on the driveway',
   'screw driver',
   'screwdriver',
   'shake',
