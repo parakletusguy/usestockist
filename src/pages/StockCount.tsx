@@ -234,8 +234,11 @@ export default function StockCount() {
   }, [period, singleDate, customStart, customEnd]);
 
   const { activeBranch } = useBranch();
-  const { data: rows, isLoading } = useDailyStockCount(dateRange.start, dateRange.end, departmentFilter, activeBranch?.id);
+  const standardQuery = useDailyStockCount(dateRange.start, dateRange.end, departmentFilter, activeBranch?.id, { enabled: !isCubeStaff });
+  const cubeQuery = useCubeStockCount(dateRange.start, dateRange.end, activeBranch?.id, { enabled: isCubeStaff });
+  const { data: rows, isLoading } = isCubeStaff ? cubeQuery : standardQuery;
   const saveStockCount = useSaveDailyStockCount(dateRange.start);
+
   const { isOnline, pendingCount, addToQueue } = useOfflineSync();
 
   useEffect(() => {
