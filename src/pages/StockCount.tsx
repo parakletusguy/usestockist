@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
-import { useDailyStockCount, useSaveDailyStockCount, DailyStockCountRow, DailyStockEntryInput } from '@/hooks/useDailyStockCount';
+import { useDailyStockCount, useCubeStockCount, useSaveDailyStockCount, DailyStockCountRow, DailyStockEntryInput } from '@/hooks/useDailyStockCount';
 import { useOfflineSync } from '@/hooks/useOfflineSync';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBranch } from '@/contexts/BranchContext';
@@ -313,7 +313,7 @@ export default function StockCount() {
         damages: Number(edit.damages) || 0,
         phy_count: edit.phy_count === '' ? null : Number(edit.phy_count),
         comment: edit.comment,
-        department: itemRow?.department || 'Retail',
+        department: departmentLock || itemRow?.department || 'Retail',
         branchId: activeBranch?.id,
       };
     });
