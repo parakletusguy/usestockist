@@ -1,6 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { isCubeItem } from '@/lib/cubeItems';
+
+const CUBE_DEPARTMENT = 'Cube';
+const GUEST_GROUP = 'Guest';
+
 
 export interface DailyStockCountRow {
   item_id: string;
