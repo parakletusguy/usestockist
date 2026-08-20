@@ -74,7 +74,7 @@ interface TxRow {
   branch_id?: string;
 }
 
-export function useDailyStockCount(startDate: string, endDate?: string, department?: string, branchId?: string) {
+export function useDailyStockCount(startDate: string, endDate?: string, department?: string, branchId?: string, options?: { enabled?: boolean }) {
   const deptParam = department && department !== 'all' ? department : undefined;
   return useQuery({
     queryKey: ['stock_count', startDate, endDate || startDate, deptParam || 'all', branchId || 'all'],
