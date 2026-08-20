@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
-import { useDailyStockCount, useSaveDailyStockCount, DailyStockCountRow, DailyStockEntryInput } from '@/hooks/useDailyStockCount';
+import { useDailyStockCount, useCubeStockCount, useSaveDailyStockCount, DailyStockCountRow, DailyStockEntryInput } from '@/hooks/useDailyStockCount';
 import { useOfflineSync } from '@/hooks/useOfflineSync';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBranch } from '@/contexts/BranchContext';
@@ -234,8 +234,11 @@ export default function StockCount() {
   }, [period, singleDate, customStart, customEnd]);
 
   const { activeBranch } = useBranch();
-  const { data: rows, isLoading } = useDailyStockCount(dateRange.start, dateRange.end, departmentFilter, activeBranch?.id);
+  const standardQuery = useDailyStockCount(dateRange.start, dateRange.end, departmentFilter, activeBranch?.id, { enabled: !isCubeStaff });
+  const cubeQuery = useCubeStockCount(dateRange.start, dateRange.end, activeBranch?.id, { enabled: isCubeStaff });
+  const { data: rows, isLoading } = isCubeStaff ? cubeQuery : standardQuery;
   const saveStockCount = useSaveDailyStockCount(dateRange.start);
+
   const { isOnline, pendingCount, addToQueue } = useOfflineSync();
 
   useEffect(() => {
@@ -310,7 +313,7 @@ export default function StockCount() {
         damages: Number(edit.damages) || 0,
         phy_count: edit.phy_count === '' ? null : Number(edit.phy_count),
         comment: edit.comment,
-        department: itemRow?.department || 'Retail',
+        department: departmentLock || itemRow?.department || 'Retail',
         branchId: activeBranch?.id,
       };
     });
