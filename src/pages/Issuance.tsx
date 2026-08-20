@@ -23,6 +23,7 @@ import { exportToCSV } from '@/lib/export';
 import { EditDeleteActions } from '@/components/ledger/EditDeleteActions';
 
 import { DEPARTMENTS } from '@/lib/validation';
+import { CUBE_RECIPIENT_GROUPS, isCubeItem } from '@/lib/cubeItems';
 
 const RECIPIENT_GROUPS = DEPARTMENTS;
 
@@ -30,17 +31,20 @@ const Issuance = () => {
   const { user, canWriteLedgers, departmentLock } = useAuth();
   const { activeBranch } = useBranch();
   const [date, setDate] = useState<Date>(new Date());
-  const [recipientGroup, setRecipientGroup] = useState<string>(departmentLock || '');
+  const isCube = departmentLock === 'Cube';
+  const [recipientGroup, setRecipientGroup] = useState<string>(isCube ? CUBE_RECIPIENT_GROUPS[0] : '');
   const [selectedItem, setSelectedItem] = useState<string>('');
   const [quantity, setQuantity] = useState<string>('');
-  const [filterGroup, setFilterGroup] = useState<string>(departmentLock || 'all');
+  const [filterGroup, setFilterGroup] = useState<string>(isCube ? CUBE_RECIPIENT_GROUPS[0] : 'all');
   const [editingEntry, setEditingEntry] = useState<IssuanceLedger | null>(null);
   const [editDate, setEditDate] = useState<Date>(new Date());
-  const [editGroup, setEditGroup] = useState(departmentLock || '');
+  const [editGroup, setEditGroup] = useState(isCube ? CUBE_RECIPIENT_GROUPS[0] : '');
   const [editItem, setEditItem] = useState('');
   const [editQty, setEditQty] = useState('');
 
-  const { data: items } = useItems();
+  const { data: allItems } = useItems();
+  const items = isCube ? allItems?.filter(item => isCubeItem(item.name)) : allItems;
+  const groupOptions: readonly string[] = isCube ? CUBE_RECIPIENT_GROUPS : RECIPIENT_GROUPS;
   const { data: ledger, isLoading } = useIssuanceLedger(activeBranch?.id);
   const createIssuance = useCreateIssuance();
   const updateIssuance = useUpdateIssuance();
@@ -60,12 +64,13 @@ const Issuance = () => {
       item_id: selectedItem,
       quantity: Number(quantity),
       issued_by: user?.email || 'Unknown',
+      department: departmentLock || undefined,
       branchId: activeBranch?.id,
     });
 
     setSelectedItem('');
     setQuantity('');
-    setRecipientGroup('');
+    setRecipientGroup(isCube ? CUBE_RECIPIENT_GROUPS[0] : '');
   };
 
   const openEdit = (entry: IssuanceLedger) => {
@@ -123,7 +128,9 @@ const Issuance = () => {
     <div className="space-y-4 sm:space-y-6">
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold">Issuance Ledger</h1>
-        <p className="text-muted-foreground text-xs sm:text-sm">Record items issued to various groups</p>
+        <p className="text-muted-foreground text-xs sm:text-sm">
+          {isCube ? 'Record items given out to guests from Cube stock' : 'Record items issued to various groups'}
+        </p>
       </div>
 
       {/* Entry Form */}
@@ -152,10 +159,10 @@ const Issuance = () => {
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs">Recipient Group</Label>
-                  <Select value={recipientGroup} onValueChange={setRecipientGroup}>
+                  <Select value={recipientGroup} onValueChange={setRecipientGroup} disabled={isCube}>
                     <SelectTrigger className="h-11 sm:h-9 text-base sm:text-xs"><SelectValue placeholder="Select group" /></SelectTrigger>
                     <SelectContent className="bg-background">
-                      {RECIPIENT_GROUPS.map(group => (
+                      {groupOptions.map(group => (
                         <SelectItem key={group} value={group}>{group}</SelectItem>
                       ))}
                     </SelectContent>
@@ -202,8 +209,8 @@ const Issuance = () => {
             <Select value={filterGroup} onValueChange={setFilterGroup}>
               <SelectTrigger className="w-full sm:w-[180px] h-11 sm:h-9 text-base sm:text-xs"><SelectValue /></SelectTrigger>
               <SelectContent className="bg-background">
-                <SelectItem value="all">All Groups</SelectItem>
-                {RECIPIENT_GROUPS.map(group => (
+                {!isCube && <SelectItem value="all">All Groups</SelectItem>}
+                {groupOptions.map(group => (
                   <SelectItem key={group} value={group}>{group}</SelectItem>
                 ))}
               </SelectContent>
@@ -301,10 +308,10 @@ const Issuance = () => {
               </div>
               <div className="space-y-1.5">
                 <Label className="text-sm">Recipient Group</Label>
-                <Select value={editGroup} onValueChange={setEditGroup}>
+                <Select value={editGroup} onValueChange={setEditGroup} disabled={isCube}>
                   <SelectTrigger className="h-11 sm:h-9 text-base sm:text-sm"><SelectValue /></SelectTrigger>
                   <SelectContent className="bg-background">
-                    {RECIPIENT_GROUPS.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+                    {groupOptions.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
