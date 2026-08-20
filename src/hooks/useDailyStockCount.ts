@@ -263,8 +263,101 @@ export function useDailyStockCount(startDate: string, endDate?: string, departme
         .sort((a: DailyStockCountRow, b: DailyStockCountRow) =>
           a.category.localeCompare(b.category) || a.item_name.localeCompare(b.item_name));
     },
+    enabled: options?.enabled ?? true,
   });
 }
+
+/**
+ * Cube-only stock view.
+ * On-hand = what Retail transferred/issued INTO Cube, minus what Cube gave out to guests
+ * (issuance to "Guest") and minus sales/damages recorded on Cube stock sheets.
+ * It never reflects company-wide quantities.
+ */
+export function useCubeStockCount(
+  startDate: string,
+  endDate?: string,
+  branchId?: string,
+  options?: { enabled?: boolean },
+) {
+  return useQuery({
+    queryKey: ['stock_count', 'cube', startDate, endDate || startDate, branchId || 'all'],
+    staleTime: 5_000,
+    refetchOnWindowFocus: true,
+    enabled: options?.enabled ?? true,
+    queryFn: async () => {
+      const startD = startDate;
+      const endD = endDate || startDate;
+
+      const withBranch = <T>(query: T): T => {
+        if (branchId && typeof (query as any).eq === 'function') {
+          return (query as any).eq('branch_id', branchId);
+        }
+        return query;
+      };
+
+      const [
+        itemsRes,
+        transferInCurr, issuanceInCurr, issuanceOutCurr, sheetsCurr,
+        transferInPrior, issuanceInPrior, issuanceOutPrior, sheetsPrior,
+      ] = await Promise.all([
+        supabase.from('items').select('*').order('name'),
+        withBranch(supabase.from('transfer_ledger').select('item_id, quantity').eq('destination', CUBE_DEPARTMENT).gte('date', startD).lte('date', endD)),
+        withBranch(supabase.from('issuance_ledger').select('item_id, quantity').eq('recipient_group', CUBE_DEPARTMENT).gte('date', startD).lte('date', endD)),
+        withBranch(supabase.from('issuance_ledger').select('item_id, quantity').eq('recipient_group', GUEST_GROUP).gte('date', startD).lte('date', endD)),
+        withBranch(supabase.from('daily_stock_sheets').select('item_id, sales_qty, close_qty, remark').eq('retail_team_name', CUBE_DEPARTMENT).gte('date', startD).lte('date', endD)),
+        withBranch(supabase.from('transfer_ledger').select('item_id, quantity').eq('destination', CUBE_DEPARTMENT).lt('date', startD)),
+        withBranch(supabase.from('issuance_ledger').select('item_id, quantity').eq('recipient_group', CUBE_DEPARTMENT).lt('date', startD)),
+        withBranch(supabase.from('issuance_ledger').select('item_id, quantity').eq('recipient_group', GUEST_GROUP).lt('date', startD)),
+        withBranch(supabase.from('daily_stock_sheets').select('item_id, sales_qty').eq('retail_team_name', CUBE_DEPARTMENT).lt('date', startD)),
+      ]);
+
+      if (itemsRes.error) throw itemsRes.error;
+
+      const sum = (rows: any[] | null, id: string, field = 'quantity') =>
+        (rows || []).filter((r) => r.item_id === id).reduce((s, r) => s + Number(r[field] || 0), 0);
+
+      const cubeItems = ((itemsRes.data as ItemRow[]) || []).filter((i) => isCubeItem(i.name));
+
+      return cubeItems
+        .map((item): DailyStockCountRow => {
+          const priorIn =
+            sum(transferInPrior.data as any[], item.id) + sum(issuanceInPrior.data as any[], item.id);
+          const priorOut =
+            sum(issuanceOutPrior.data as any[], item.id) +
+            sum(sheetsPrior.data as any[], item.id, 'sales_qty');
+
+          const currIn =
+            sum(transferInCurr.data as any[], item.id) + sum(issuanceInCurr.data as any[], item.id);
+          const currOut = sum(issuanceOutCurr.data as any[], item.id);
+          const currSheets = ((sheetsCurr.data as any[]) || []).filter((r) => r.item_id === item.id);
+          const sold = currSheets.reduce((s, r) => s + Number(r.sales_qty || 0), 0);
+          const closing = currSheets.reduce((s, r) => s + Number(r.close_qty || 0), 0);
+          const comment = currSheets.map((r) => r.remark).filter(Boolean).join('; ');
+
+          return {
+            item_id: item.id,
+            item_name: item.name,
+            category: item.category,
+            department: CUBE_DEPARTMENT,
+            departments: [CUBE_DEPARTMENT],
+            unit_of_measure: item.unit_of_measure,
+            unit_cost: Number(item.unit_cost) || 0,
+            low_stock_threshold: Number(item.low_stock_threshold) || 0,
+            opening_stock: Math.max(0, priorIn - priorOut),
+            qty_received: currIn,
+            qty_issued: currOut,
+            qty_transferred: 0,
+            qty_sold: sold,
+            damages: 0,
+            phy_count: closing || null,
+            comment,
+          };
+        })
+        .sort((a, b) => a.category.localeCompare(b.category) || a.item_name.localeCompare(b.item_name));
+    },
+  });
+}
+
 
 export async function saveDailyStockEntries(entries: DailyStockEntryInput[]) {
   if (!entries || entries.length === 0) return;
