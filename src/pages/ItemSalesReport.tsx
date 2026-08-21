@@ -483,7 +483,7 @@ export default function ItemSalesReport() {
         unit_price: r.unitPrice,
         department: r.department || 'Bar',
       }];
-    });
+    }) as Array<{ item_name: string; qty_sold: number; unit_price: number; department: string; item_id?: string }>;
 
     // Auto-append Bar Cups deduction if Bar drinks were sold
     if (barCupStats.totalCupsToDeduct > 0 && barCupsItem) {
