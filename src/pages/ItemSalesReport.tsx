@@ -98,16 +98,35 @@ export default function ItemSalesReport() {
     ) || items.find(it => it.name.toLowerCase() === 'cups');
   }, [items]);
 
+  /**
+   * Stage 0 alias table: maps raw POS item names (lowercase) to the exact catalog
+   * item name they should always resolve to. This overrides ALL fuzzy matching.
+   * Add entries here whenever a POS name is ambiguous or matches the wrong catalog item.
+   */
+  const ITEM_NAME_ALIASES: Record<string, string> = {
+    'mojito chapman can': 'schweppes chapman can',
+    'mojito chapman':     'schweppes chapman can',
+    'chapman can':        'schweppes chapman can',
+  };
+
   /** Advanced 4-stage matching algorithm */
   const matchToCatalog = useCallback((rawName: string): { id: string; name: string; unit_cost: number; department?: string } | null => {
     if (!items || items.length === 0 || !rawName) return null;
+
+    const rawLower = rawName.toLowerCase().trim();
+
+    // Stage 0: Explicit alias override — resolves ambiguous POS names directly to the correct catalog item
+    const aliasTarget = ITEM_NAME_ALIASES[rawLower];
+    if (aliasTarget) {
+      const aliasMatch = items.find(it => it.name.toLowerCase().trim() === aliasTarget);
+      if (aliasMatch) return aliasMatch;
+    }
 
     // If it is a prepared cocktail, mocktail, smoothie, milkshake, tea, or shot, do not match raw syrup/fruit catalog items
     if (isPreparedBarDrink(rawName)) {
       return null;
     }
 
-    const rawLower = rawName.toLowerCase().trim();
     const rawNorm = normalizeStr(rawName);
     const rawTokens = tokenizeStr(rawName);
 
