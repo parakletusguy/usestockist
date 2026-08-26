@@ -310,10 +310,10 @@ export function useCubeStockCount(
         withBranch(supabase.from('issuance_ledger').select('item_id, quantity').eq('recipient_group', CUBE_DEPARTMENT).gte('date', startD).lte('date', endD)),
         withBranch(supabase.from('issuance_ledger').select('item_id, quantity').eq('recipient_group', GUEST_GROUP).gte('date', startD).lte('date', endD)),
         withBranch(supabase.from('daily_stock_sheets').select('item_id, sales_qty, close_qty, remark').eq('retail_team_name', CUBE_DEPARTMENT).gte('date', startD).lte('date', endD)),
-        withBranch(supabase.from('transfer_ledger').select('item_id, quantity').eq('destination', CUBE_DEPARTMENT).lt('date', startD)),
-        withBranch(supabase.from('issuance_ledger').select('item_id, quantity').eq('recipient_group', CUBE_DEPARTMENT).lt('date', startD)),
-        withBranch(supabase.from('issuance_ledger').select('item_id, quantity').eq('recipient_group', GUEST_GROUP).lt('date', startD)),
-        withBranch(supabase.from('daily_stock_sheets').select('item_id, sales_qty').eq('retail_team_name', CUBE_DEPARTMENT).lt('date', startD)),
+        withBranch(supabase.from('transfer_ledger').select('item_id, quantity').eq('destination', CUBE_DEPARTMENT).gte('date', CUBE_BASELINE_DATE).lt('date', startD)),
+        withBranch(supabase.from('issuance_ledger').select('item_id, quantity').eq('recipient_group', CUBE_DEPARTMENT).gte('date', CUBE_BASELINE_DATE).lt('date', startD)),
+        withBranch(supabase.from('issuance_ledger').select('item_id, quantity').eq('recipient_group', GUEST_GROUP).gte('date', CUBE_BASELINE_DATE).lt('date', startD)),
+        withBranch(supabase.from('daily_stock_sheets').select('item_id, sales_qty').eq('retail_team_name', CUBE_DEPARTMENT).gte('date', CUBE_BASELINE_DATE).lt('date', startD)),
       ]);
 
       if (itemsRes.error) throw itemsRes.error;
