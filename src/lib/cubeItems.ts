@@ -40,6 +40,7 @@ export const CUBE_BASELINE_DATE = '2026-08-26';
 
 export const CUBE_BASELINE_STOCK: Record<string, number> = {
   'Alita': 1,
+  'Bombay': 2,
   'Louis Roederer': 1,
   'Chamdor': 5,
   'Lamothe Parrot': 4,
