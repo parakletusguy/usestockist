@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import { isCubeItem } from '@/lib/cubeItems';
+import { isCubeItem, getCubeBaselineStock, CUBE_BASELINE_DATE } from '@/lib/cubeItems';
 
 const CUBE_DEPARTMENT = 'Cube';
 const GUEST_GROUP = 'Guest';
@@ -310,10 +310,10 @@ export function useCubeStockCount(
         withBranch(supabase.from('issuance_ledger').select('item_id, quantity').eq('recipient_group', CUBE_DEPARTMENT).gte('date', startD).lte('date', endD)),
         withBranch(supabase.from('issuance_ledger').select('item_id, quantity').eq('recipient_group', GUEST_GROUP).gte('date', startD).lte('date', endD)),
         withBranch(supabase.from('daily_stock_sheets').select('item_id, sales_qty, close_qty, remark').eq('retail_team_name', CUBE_DEPARTMENT).gte('date', startD).lte('date', endD)),
-        withBranch(supabase.from('transfer_ledger').select('item_id, quantity').eq('destination', CUBE_DEPARTMENT).lt('date', startD)),
-        withBranch(supabase.from('issuance_ledger').select('item_id, quantity').eq('recipient_group', CUBE_DEPARTMENT).lt('date', startD)),
-        withBranch(supabase.from('issuance_ledger').select('item_id, quantity').eq('recipient_group', GUEST_GROUP).lt('date', startD)),
-        withBranch(supabase.from('daily_stock_sheets').select('item_id, sales_qty').eq('retail_team_name', CUBE_DEPARTMENT).lt('date', startD)),
+        withBranch(supabase.from('transfer_ledger').select('item_id, quantity').eq('destination', CUBE_DEPARTMENT).gte('date', CUBE_BASELINE_DATE).lt('date', startD)),
+        withBranch(supabase.from('issuance_ledger').select('item_id, quantity').eq('recipient_group', CUBE_DEPARTMENT).gte('date', CUBE_BASELINE_DATE).lt('date', startD)),
+        withBranch(supabase.from('issuance_ledger').select('item_id, quantity').eq('recipient_group', GUEST_GROUP).gte('date', CUBE_BASELINE_DATE).lt('date', startD)),
+        withBranch(supabase.from('daily_stock_sheets').select('item_id, sales_qty').eq('retail_team_name', CUBE_DEPARTMENT).gte('date', CUBE_BASELINE_DATE).lt('date', startD)),
       ]);
 
       if (itemsRes.error) throw itemsRes.error;
@@ -348,7 +348,7 @@ export function useCubeStockCount(
             unit_of_measure: item.unit_of_measure,
             unit_cost: Number(item.unit_cost) || 0,
             low_stock_threshold: Number(item.low_stock_threshold) || 0,
-            opening_stock: Math.max(0, priorIn - priorOut),
+            opening_stock: Math.max(0, getCubeBaselineStock(item.name) + priorIn - priorOut),
             qty_received: currIn,
             qty_issued: currOut,
             qty_transferred: 0,
