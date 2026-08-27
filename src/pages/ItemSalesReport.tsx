@@ -42,6 +42,18 @@ const tokenizeStr = (str: string) =>
     .split(/\s+/)
     .filter(w => w.length > 1 && !['can', 'bottle', 'pack', 'pcs', 'drink', 'item', 'product'].includes(w));
 
+/**
+ * Explicit POS-name → catalog-name aliases.
+ * These resolve BEFORE any fuzzy matching.
+ * Keys are lowercase raw POS names (or substrings); values are exact catalog item names (lowercase).
+ * Add an entry here whenever a POS item name is ambiguous and matches the wrong catalog item.
+ */
+const ITEM_NAME_ALIASES: Record<string, string> = {
+  'mojito chapman can':  'schweppes chapman can',
+  'mojito chapman':      'schweppes chapman can',
+  'chapman can':         'schweppes chapman can',
+};
+
 /** Identify kitchen items (e.g. Shawarma, Chicken, Sausages) to route to Kitchen department */
 const isKitchenItemName = (name: string) => {
   const lower = name.toLowerCase();
@@ -98,25 +110,20 @@ export default function ItemSalesReport() {
     ) || items.find(it => it.name.toLowerCase() === 'cups');
   }, [items]);
 
-  /**
-   * Stage 0 alias table: maps raw POS item names (lowercase) to the exact catalog
-   * item name they should always resolve to. This overrides ALL fuzzy matching.
-   * Add entries here whenever a POS name is ambiguous or matches the wrong catalog item.
-   */
-  const ITEM_NAME_ALIASES: Record<string, string> = {
-    'mojito chapman can': 'schweppes chapman can',
-    'mojito chapman':     'schweppes chapman can',
-    'chapman can':        'schweppes chapman can',
-  };
-
   /** Advanced 4-stage matching algorithm */
   const matchToCatalog = useCallback((rawName: string): { id: string; name: string; unit_cost: number; department?: string } | null => {
     if (!items || items.length === 0 || !rawName) return null;
 
     const rawLower = rawName.toLowerCase().trim();
 
-    // Stage 0: Explicit alias override — resolves ambiguous POS names directly to the correct catalog item
-    const aliasTarget = ITEM_NAME_ALIASES[rawLower];
+    // Stage 0: Explicit alias override — resolves ambiguous POS names to the correct catalog item.
+    // Checks exact match first, then substring containment so variants like "MOJITO CHAPMAN CAN 330ml"
+    // are still caught even if the raw POS name has extra text around the alias key.
+    const aliasTargetExact = ITEM_NAME_ALIASES[rawLower];
+    const aliasTargetSubstr = !aliasTargetExact
+      ? Object.entries(ITEM_NAME_ALIASES).find(([key]) => rawLower.includes(key))?.[1]
+      : undefined;
+    const aliasTarget = aliasTargetExact ?? aliasTargetSubstr;
     if (aliasTarget) {
       const aliasMatch = items.find(it => it.name.toLowerCase().trim() === aliasTarget);
       if (aliasMatch) return aliasMatch;

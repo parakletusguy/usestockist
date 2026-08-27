@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useItems } from '@/hooks/useItems';
-import { useDailyStockCount } from '@/hooks/useDailyStockCount';
+import { useDailyStockCount, useCubeStockCount } from '@/hooks/useDailyStockCount';
 import { useBranch } from '@/contexts/BranchContext';
 import { format } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -27,12 +27,18 @@ export default function DepartmentView() {
   const { departmentId } = useParams<{ departmentId: string }>();
   const { activeBranch } = useBranch();
   const departmentName = DEPARTMENT_MAP[departmentId || ''] || 'Retail';
+  const isCube = departmentName === 'Cube';
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'out' | 'low' | 'healthy'>('all');
 
-  const { data: stockRows, isLoading } = useDailyStockCount(todayStr, todayStr, departmentName, activeBranch?.id);
+  // Cube uses its own isolated stock hook — only transfers/issuances INTO Cube, minus guest issuances
+  // All other departments use the standard general ledger hook
+  const cubeQuery = useCubeStockCount(todayStr, todayStr, activeBranch?.id, { enabled: isCube });
+  const standardQuery = useDailyStockCount(todayStr, todayStr, departmentName, activeBranch?.id, { enabled: !isCube });
+
+  const { data: stockRows, isLoading } = isCube ? cubeQuery : standardQuery;
 
   const computedItems = useMemo(() => {
     if (!stockRows) return [];
