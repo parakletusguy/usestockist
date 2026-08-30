@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
-import { Package, Eye, EyeOff } from 'lucide-react';
+import { Package, Eye, EyeOff, KeyRound } from 'lucide-react';
 
 // Only accept same-origin relative paths as `next`, to prevent open redirects.
 function safeNext(next: string | null): string {
@@ -23,6 +25,11 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Forgot Password modal state
+  const [isForgotOpen, setIsForgotOpen] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [isSendingReset, setIsSendingReset] = useState(false);
 
   if (loading) {
     return (
@@ -54,6 +61,40 @@ const Login = () => {
     setIsLoading(false);
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const targetEmail = forgotEmail.trim() || email.trim();
+    if (!targetEmail) {
+      toast({
+        title: 'Email Required',
+        description: 'Please enter your email address to receive a reset link.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsSendingReset(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(targetEmail, {
+      redirectTo: `${window.location.origin}/settings`,
+    });
+
+    setIsSendingReset(false);
+
+    if (error) {
+      toast({
+        title: 'Reset Failed',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } else {
+      toast({
+        title: 'Reset Link Sent',
+        description: `A password reset link has been sent to ${targetEmail}. Please check your inbox and spam folder.`,
+      });
+      setIsForgotOpen(false);
+    }
+  };
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4 sm:p-6">
       <Card className="w-full max-w-md border shadow-md">
@@ -81,7 +122,19 @@ const Login = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-sm">Password</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password" className="text-sm">Password</Label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setForgotEmail(email);
+                    setIsForgotOpen(true);
+                  }}
+                  className="text-xs text-primary hover:underline font-medium"
+                >
+                  Forgot password?
+                </button>
+              </div>
               <div className="relative">
                 <Input
                   id="password"
@@ -119,8 +172,54 @@ const Login = () => {
           </CardFooter>
         </form>
       </Card>
+
+      {/* Forgot Password Dialog */}
+      <Dialog open={isForgotOpen} onOpenChange={setIsForgotOpen}>
+        <DialogContent className="sm:max-w-md">
+          <form onSubmit={handleForgotPassword}>
+            <DialogHeader>
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-full bg-primary/10">
+                  <KeyRound className="h-5 w-5 text-primary" />
+                </div>
+                <DialogTitle>Reset Password</DialogTitle>
+              </div>
+              <DialogDescription className="text-xs sm:text-sm pt-1">
+                Enter your email address and we'll send you a link to reset your password.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4 space-y-2">
+              <Label htmlFor="forgot-email" className="text-sm">Email Address</Label>
+              <Input
+                id="forgot-email"
+                type="email"
+                placeholder="you@example.com"
+                value={forgotEmail}
+                onChange={(e) => setForgotEmail(e.target.value)}
+                className="h-10 text-sm"
+                required
+                autoFocus
+              />
+            </div>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsForgotOpen(false)}
+                disabled={isSendingReset}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isSendingReset}>
+                {isSendingReset ? 'Sending...' : 'Send Reset Link'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
 
 export default Login;
+
