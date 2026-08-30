@@ -30,7 +30,8 @@ const DESTINATIONS = ['Nox', 'PPK', 'Cube'] as const;
 
 
 const Transfers = () => {
-  const { canWriteLedgers } = useAuth();
+  const { canWriteLedgers, isCubeStaff } = useAuth();
+  const canWriteTransfers = canWriteLedgers && !isCubeStaff;
   const { activeBranch, branches } = useBranch();
   const [date, setDate] = useState<Date>(new Date());
   const [destination, setDestination] = useState('');
@@ -134,7 +135,7 @@ const Transfers = () => {
         <p className="text-muted-foreground text-xs sm:text-sm">Record items transferred to other locations</p>
       </div>
 
-      {canWriteLedgers ? (
+      {canWriteTransfers ? (
         <Card>
           <CardHeader>
             <CardTitle className="text-base sm:text-lg">New Transfer</CardTitle>
@@ -225,9 +226,11 @@ const Transfers = () => {
                   {format(new Date(entry.date), 'PP')} · To: <strong className="text-foreground">{entry.destination}</strong>
                 </div>
                 {entry.reason && <p className="text-xs text-muted-foreground italic truncate">{entry.reason}</p>}
-                <div className="flex justify-end pt-1 border-t">
-                  <EditDeleteActions onEdit={() => openEdit(entry)} onDelete={() => deleteTransfer.mutate(entry.id)} isDeleting={deleteTransfer.isPending} />
-                </div>
+                {canWriteTransfers && (
+                  <div className="flex justify-end pt-1 border-t">
+                    <EditDeleteActions onEdit={() => openEdit(entry)} onDelete={() => deleteTransfer.mutate(entry.id)} isDeleting={deleteTransfer.isPending} />
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -241,13 +244,13 @@ const Transfers = () => {
                   <TableHead className="whitespace-nowrap">Item</TableHead>
                   <TableHead className="whitespace-nowrap">Quantity</TableHead>
                   <TableHead className="whitespace-nowrap">Reason</TableHead>
-                  <TableHead className="w-[80px]">Actions</TableHead>
+                  {canWriteTransfers && <TableHead className="w-[80px]">Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {ledger?.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">No transfers recorded yet</TableCell>
+                    <TableCell colSpan={canWriteTransfers ? 6 : 5} className="text-center text-muted-foreground py-8">No transfers recorded yet</TableCell>
                   </TableRow>
                 ) : (
                   ledger?.map(entry => (
@@ -257,9 +260,11 @@ const Transfers = () => {
                       <TableCell className="font-medium whitespace-nowrap">{entry.items?.name}</TableCell>
                       <TableCell className="whitespace-nowrap">{entry.quantity} {entry.items?.unit_of_measure}</TableCell>
                       <TableCell className="max-w-xs truncate">{entry.reason || '-'}</TableCell>
-                      <TableCell>
-                        <EditDeleteActions onEdit={() => openEdit(entry)} onDelete={() => deleteTransfer.mutate(entry.id)} isDeleting={deleteTransfer.isPending} />
-                      </TableCell>
+                      {canWriteTransfers && (
+                        <TableCell>
+                          <EditDeleteActions onEdit={() => openEdit(entry)} onDelete={() => deleteTransfer.mutate(entry.id)} isDeleting={deleteTransfer.isPending} />
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))
                 )}
