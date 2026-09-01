@@ -123,42 +123,60 @@ export default function PurchaseOrders() {
       cubeMap.set(r.item_id, bal);
     });
 
-    return stockRows.map((row) => {
-      const isCube = row.department === 'Cube' || (row.departments && row.departments.includes('Cube'));
-      const generalBalance =
-        row.opening_stock + row.qty_received - row.qty_issued - row.qty_transferred - row.qty_sold - row.damages;
-      const balance = isCube && cubeMap.has(row.item_id) ? cubeMap.get(row.item_id)! : generalBalance;
+    const itemsList: ReorderItem[] = [];
 
-      let status: 'out' | 'low' | 'healthy' = 'healthy';
-      if (balance <= 0) {
-        status = 'out';
-      } else if (balance <= row.low_stock_threshold) {
-        status = 'low';
-      }
+    stockRows.forEach((row) => {
+      const depts =
+        row.departments && row.departments.length > 0
+          ? row.departments
+          : [row.department || 'Retail'];
 
-      const threshold = Number(row.low_stock_threshold) || 10;
-      // Default suggested quantity: bring stock up to double the low stock threshold
-      const defaultSuggested = Math.max(1, threshold * 2 - Math.max(0, balance));
-      const suggestedQty =
-        customQuantities[row.item_id] !== undefined
-          ? customQuantities[row.item_id]
-          : defaultSuggested;
+      depts.forEach((dept) => {
+        const isCubeDept = dept === 'Cube';
+        const generalBalance =
+          row.opening_stock + row.qty_received - row.qty_issued - row.qty_transferred - row.qty_sold - row.damages;
+        const balance = isCubeDept && cubeMap.has(row.item_id) ? cubeMap.get(row.item_id)! : generalBalance;
 
-      const primaryDept = row.department || (row.departments && row.departments[0]) || 'Retail';
+        let status: 'out' | 'low' | 'healthy' = 'healthy';
+        if (balance <= 0) {
+          status = 'out';
+        } else if (balance <= row.low_stock_threshold) {
+          status = 'low';
+        }
 
-      return {
-        item_id: row.item_id,
-        item_name: row.item_name,
-        category: row.category,
-        department: primaryDept,
-        unit_of_measure: row.unit_of_measure,
-        unit_cost: Number(row.unit_cost) || 0,
-        low_stock_threshold: threshold,
-        balance,
-        suggestedQty,
-        status,
-      };
+        const threshold = Number(row.low_stock_threshold) || 10;
+        const defaultSuggested = Math.max(1, threshold * 2 - Math.max(0, balance));
+        const key = depts.length > 1 ? `${row.item_id}__${dept}` : row.item_id;
+        const suggestedQty =
+          customQuantities[key] !== undefined
+            ? customQuantities[key]
+            : customQuantities[row.item_id] !== undefined
+            ? customQuantities[row.item_id]
+            : defaultSuggested;
+
+        const displayName =
+          depts.length > 1 && dept === 'Cube'
+            ? `${row.item_name} (Cube)`
+            : depts.length > 1 && dept === 'Bar'
+            ? `${row.item_name} (Bar)`
+            : row.item_name;
+
+        itemsList.push({
+          item_id: key,
+          item_name: displayName,
+          category: row.category,
+          department: dept,
+          unit_of_measure: row.unit_of_measure,
+          unit_cost: Number(row.unit_cost) || 0,
+          low_stock_threshold: threshold,
+          balance,
+          suggestedQty,
+          status,
+        });
+      });
     });
+
+    return itemsList;
   }, [stockRows, cubeStockRows, customQuantities]);
 
   // Filter items based on search, department, and status filters
