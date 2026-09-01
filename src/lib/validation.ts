@@ -14,6 +14,13 @@ export const DEPARTMENTS = [
 
 export type DepartmentType = typeof DEPARTMENTS[number];
 
+export function getBranchDepartments(branchName?: string): string[] {
+  if (branchName && branchName.toUpperCase().includes('PPK')) {
+    return ['Retail', 'Bush Bar', 'Bar', 'Box Signature Bar', 'Housekeeping'];
+  }
+  return ['Retail', 'Bar', 'Kitchen', 'Housekeeping', 'Cube'];
+}
+
 const dateStr = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date (YYYY-MM-DD)');
 const uuid = z.string().uuid('Invalid ID');
 const qty = z.coerce.number().finite().min(0, 'Must be >= 0').max(9_999_999, 'Too large');

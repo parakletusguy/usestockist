@@ -4,6 +4,7 @@ import { useRole } from '@/hooks/useRole';
 import { useBranch } from '@/contexts/BranchContext';
 import { useDailyStockCount, useCubeStockCount } from '@/hooks/useDailyStockCount';
 import { exportToCSV } from '@/lib/export';
+import { getBranchDepartments } from '@/lib/validation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -76,6 +77,7 @@ export default function PurchaseOrders() {
   const { activeBranch } = useBranch();
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const activeDepts = useMemo(() => getBranchDepartments(activeBranch?.name), [activeBranch]);
 
   // Fetch live stock counts for all general items and Cube items
   const { data: stockRows, isLoading: isLoadingStock, refetch: refetchStock } = useDailyStockCount(
@@ -111,7 +113,7 @@ export default function PurchaseOrders() {
             </div>
             <CardTitle className="text-xl">Manager Access Required</CardTitle>
             <CardDescription>
-              The Requisition Planner is restricted to Manager roles.
+              Please contact your administrator if you require purchasing authority.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -143,14 +145,29 @@ export default function PurchaseOrders() {
           ? row.departments
           : [row.department || 'Retail'];
 
-      depts.forEach((dept) => {
+      // Only iterate over departments that exist in the active branch
+      const validDepts = depts.filter((d) => activeDepts.includes(d));
+
+      validDepts.forEach((dept) => {
         const isCubeDept = dept === 'Cube';
         const generalBalance =
           row.opening_stock + row.qty_received - row.qty_issued - row.qty_transferred - row.qty_sold - row.damages;
         const balance = isCubeDept && cubeMap.has(row.item_id) ? cubeMap.get(row.item_id)! : generalBalance;
 
+        // Check if this item has zero transactions and no initial physical count fed in for this branch
+        const isUncountedBranchItem =
+          row.phy_count === null &&
+          row.opening_stock === 0 &&
+          row.qty_received === 0 &&
+          row.qty_issued === 0 &&
+          row.qty_transferred === 0 &&
+          row.qty_sold === 0;
+
         let status: 'out' | 'low' | 'healthy' = 'healthy';
-        if (balance <= 0) {
+        if (isUncountedBranchItem) {
+          // Uncounted branch item: don't flag as critical out-of-stock until stock sheet or receipt is logged
+          status = 'healthy';
+        } else if (balance <= 0) {
           status = 'out';
         } else if (balance <= row.low_stock_threshold) {
           status = 'low';
@@ -158,7 +175,7 @@ export default function PurchaseOrders() {
 
         const threshold = Number(row.low_stock_threshold) || 10;
         const defaultSuggested = Math.max(1, threshold * 2 - Math.max(0, balance));
-        const key = depts.length > 1 ? `${row.item_id}__${dept}` : row.item_id;
+        const key = validDepts.length > 1 ? `${row.item_id}__${dept}` : row.item_id;
         const suggestedQty =
           customQuantities[key] !== undefined
             ? customQuantities[key]
@@ -167,9 +184,9 @@ export default function PurchaseOrders() {
             : defaultSuggested;
 
         const displayName =
-          depts.length > 1 && dept === 'Cube'
+          validDepts.length > 1 && dept === 'Cube'
             ? `${row.item_name} (Cube)`
-            : depts.length > 1 && dept === 'Bar'
+            : validDepts.length > 1 && dept === 'Bar'
             ? `${row.item_name} (Bar)`
             : row.item_name;
 
@@ -189,7 +206,7 @@ export default function PurchaseOrders() {
     });
 
     return itemsList;
-  }, [stockRows, cubeStockRows, customQuantities]);
+  }, [stockRows, cubeStockRows, customQuantities, activeDepts]);
 
   // Filter items based on search, department, and status filters
   const filteredItems = useMemo(() => {
@@ -213,8 +230,8 @@ export default function PurchaseOrders() {
   const groupedByDepartment = useMemo(() => {
     const groups = new Map<string, ReorderItem[]>();
 
-    // Initialise standard departments in fixed order
-    DEPARTMENTS.forEach((dept) => groups.set(dept, []));
+    // Initialise active branch departments in fixed order
+    activeDepts.forEach((dept) => groups.set(dept, []));
 
     filteredItems.forEach((item) => {
       const list = groups.get(item.department) || [];
@@ -235,7 +252,7 @@ export default function PurchaseOrders() {
         });
         return [dept, sorted] as [string, ReorderItem[]];
       });
-  }, [filteredItems]);
+  }, [filteredItems, activeDepts]);
 
   // Overall counts
   const kpis = useMemo(() => {
@@ -554,7 +571,7 @@ export default function PurchaseOrders() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Departments</SelectItem>
-                  {DEPARTMENTS.map((dept) => (
+                  {activeDepts.map((dept) => (
                     <SelectItem key={dept} value={dept}>
                       {dept}
                     </SelectItem>

@@ -5,7 +5,7 @@ import { useDailyStockCount, useCubeStockCount, useSaveDailyStockCount, DailySto
 import { useOfflineSync } from '@/hooks/useOfflineSync';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBranch } from '@/contexts/BranchContext';
-import { DEPARTMENTS } from '@/lib/validation';
+import { DEPARTMENTS, getBranchDepartments } from '@/lib/validation';
 import { exportToCSV } from '@/lib/export';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -494,7 +494,7 @@ export default function StockCount() {
             </SelectTrigger>
             <SelectContent>
               {!departmentLock && <SelectItem value="all">All Departments</SelectItem>}
-              {DEPARTMENTS.filter(d => !departmentLock || d === departmentLock).map((dept) => (
+              {getBranchDepartments(activeBranch?.name).filter(d => !departmentLock || d === departmentLock).map((dept) => (
                 <SelectItem key={dept} value={dept}>
                   {dept}
                 </SelectItem>
