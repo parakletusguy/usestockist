@@ -38,7 +38,8 @@ export default function DepartmentView() {
   const cubeQuery = useCubeStockCount(todayStr, todayStr, activeBranch?.id, { enabled: isCube });
   const standardQuery = useDailyStockCount(todayStr, todayStr, departmentName, activeBranch?.id, { enabled: !isCube });
 
-  const { data: stockRows, isLoading } = isCube ? cubeQuery : standardQuery;
+  const stockRows = isCube ? cubeQuery.data : standardQuery.data;
+  const isLoading = isCube ? cubeQuery.isLoading : standardQuery.isLoading;
 
   const computedItems = useMemo(() => {
     if (!stockRows) return [];
