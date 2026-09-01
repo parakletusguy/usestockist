@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo } from 'react';
 import { format } from 'date-fns';
 import { useItems, useCreateItem } from '@/hooks/useItems';
 import { useReachSalesReports, useUploadReachSales, useReachSalesReportDetails, useDeleteReachSalesReport, ReachSalesReport } from '@/hooks/useReachSales';
+import { useBranch } from '@/contexts/BranchContext';
 import { parsePdfSalesReport, ParsedPdfRow } from '@/lib/parsePdf';
 import { calculateBarCupDeductions, isPreparedBarDrink, isBarCupConsumingDrink, isPackagedProductOverride } from '@/lib/barCupMapping';
 import { Button } from '@/components/ui/button';
@@ -73,6 +74,7 @@ const isBarItemName = (name: string) => {
 };
 
 export default function ItemSalesReport() {
+  const { activeBranch } = useBranch();
   const [reportDate, setReportDate] = useState<Date>(new Date());
   const dateStr = format(reportDate, 'yyyy-MM-dd');
   const [retailMember, setRetailMember] = useState('');
@@ -90,7 +92,7 @@ export default function ItemSalesReport() {
 
   const { data: items } = useItems();
   const createItemMutation = useCreateItem();
-  const { data: reportsHistory, isLoading: isLoadingHistory } = useReachSalesReports();
+  const { data: reportsHistory, isLoading: isLoadingHistory } = useReachSalesReports(activeBranch?.id);
   const uploadSales = useUploadReachSales();
   
   const [selectedReport, setSelectedReport] = useState<ReachSalesReport | null>(null);
@@ -522,6 +524,7 @@ export default function ItemSalesReport() {
       file_name: fileName || 'Reach_Sales_Upload',
       total_items_sold: totalQty,
       total_sales_value: totalValue,
+      branch_id: activeBranch?.id,
       items: saleItems,
     });
 

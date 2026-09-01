@@ -11,6 +11,7 @@ export interface ReachSalesReport {
   total_items_sold: number | null;
   total_sales_value: number | null;
   uploaded_at: string;
+  branch_id?: string | null;
 }
 
 export interface UploadReachSalesInput {
@@ -19,6 +20,7 @@ export interface UploadReachSalesInput {
   file_name?: string;
   total_items_sold?: number;
   total_sales_value?: number;
+  branch_id?: string;
   items: {
     item_id?: string;
     item_name?: string;
@@ -28,15 +30,19 @@ export interface UploadReachSalesInput {
   }[];
 }
 
-export function useReachSalesReports() {
+export function useReachSalesReports(branchId?: string) {
   return useQuery({
-    queryKey: ['reach_sales_reports'],
+    queryKey: ['reach_sales_reports', branchId],
     queryFn: async () => {
-      const { data, error } = await (supabase as unknown as { from: (table: string) => any })
+      let query = (supabase as unknown as { from: (table: string) => any })
         .from('reach_sales_reports')
-        .select('*')
-        .order('uploaded_at', { ascending: false });
+        .select('*');
 
+      if (branchId) {
+        query = query.eq('branch_id', branchId);
+      }
+
+      const { data, error } = await query.order('uploaded_at', { ascending: false });
 
       if (error) {
         console.error('Error fetching reach_sales_reports:', error);
@@ -65,6 +71,8 @@ export function useUploadReachSales() {
         ? input.total_sales_value
         : input.items.reduce((sum, item) => sum + item.qty_sold * (item.unit_price || 0), 0);
 
+      const targetBranchId = input.branch_id || '00000000-0000-0000-0000-000000000001';
+
       // 1. Insert header row into reach_sales_reports table with full sales values
       const { data: header, error: headerError } = await (supabase as unknown as { from: (table: string) => ReturnType<typeof supabase.from> })
         .from('reach_sales_reports')
@@ -74,6 +82,7 @@ export function useUploadReachSales() {
           file_name: input.file_name || 'Reach_Sales_Report.pdf',
           total_items_sold: totalItemsSold,
           total_sales_value: totalSalesValue,
+          branch_id: targetBranchId,
         })
         .select()
         .single();
@@ -89,6 +98,7 @@ export function useUploadReachSales() {
           quantity: item.qty_sold,
           transaction_date: input.report_date,
           department: item.department || 'Retail',
+          branch_id: targetBranchId,
           metadata: {
             retail_member_name: input.retail_member_name,
             unit_price: item.unit_price || 0,
