@@ -342,6 +342,9 @@ export async function fetchCubeStockCount(
       const closing = currSheets.reduce((s, r) => s + Number(r.close_qty || 0), 0);
       const comment = currSheets.map((r) => r.remark).filter(Boolean).join('; ');
 
+      const isMainBranch = !branchId || branchId === '00000000-0000-0000-0000-000000000001';
+      const baselineStock = isMainBranch ? getCubeBaselineStock(item.name) : 0;
+
       return {
         item_id: item.id,
         item_name: item.name,
@@ -351,7 +354,7 @@ export async function fetchCubeStockCount(
         unit_of_measure: item.unit_of_measure,
         unit_cost: Number(item.unit_cost) || 0,
         low_stock_threshold: Number(item.low_stock_threshold) || 0,
-        opening_stock: Math.max(0, getCubeBaselineStock(item.name) + priorIn - priorOut),
+        opening_stock: Math.max(0, baselineStock + priorIn - priorOut),
         qty_received: currIn,
         qty_issued: currOut,
         qty_transferred: 0,
