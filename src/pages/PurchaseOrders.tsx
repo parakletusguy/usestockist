@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRole } from '@/hooks/useRole';
 import { useBranch } from '@/contexts/BranchContext';
 import { useDailyStockCount, useCubeStockCount } from '@/hooks/useDailyStockCount';
+import { exportToCSV } from '@/lib/export';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -30,6 +31,7 @@ import {
   CheckSquare,
   Square,
   PackageCheck,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -80,6 +82,7 @@ export default function PurchaseOrders() {
   const isLoading = isLoadingStock || isLoadingCube;
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [customQuantities, setCustomQuantities] = useState<Record<string, number>>({});
   const [searchTerm, setSearchTerm] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<'needs_reorder' | 'out' | 'low' | 'all'>('needs_reorder');
@@ -135,7 +138,11 @@ export default function PurchaseOrders() {
 
       const threshold = Number(row.low_stock_threshold) || 10;
       // Default suggested quantity: bring stock up to double the low stock threshold
-      const suggestedQty = Math.max(1, threshold * 2 - Math.max(0, balance));
+      const defaultSuggested = Math.max(1, threshold * 2 - Math.max(0, balance));
+      const suggestedQty =
+        customQuantities[row.item_id] !== undefined
+          ? customQuantities[row.item_id]
+          : defaultSuggested;
 
       const primaryDept = row.department || (row.departments && row.departments[0]) || 'Retail';
 
@@ -152,7 +159,7 @@ export default function PurchaseOrders() {
         status,
       };
     });
-  }, [stockRows, cubeStockRows]);
+  }, [stockRows, cubeStockRows, customQuantities]);
 
   // Filter items based on search, department, and status filters
   const filteredItems = useMemo(() => {
@@ -263,7 +270,7 @@ export default function PurchaseOrders() {
     });
   };
 
-  // Generate Requisition List PDF
+  // Generate Requisition List PDF (Item and Suggested Quantity ONLY)
   const generateRequisitionList = async () => {
     const selected = allReorderItems.filter((it) => selectedIds.has(it.item_id));
 
@@ -304,26 +311,12 @@ export default function PurchaseOrders() {
         return a.item_name.localeCompare(b.item_name);
       });
 
-      const tableColumn = [
-        '#',
-        'Department',
-        'Item Name',
-        'Category',
-        'Current Stock',
-        'Low Alert',
-        'Suggested Order',
-        'Unit',
-      ];
+      const tableColumn = ['#', 'Item', 'Order Quantity'];
 
       const tableRows = sortedSelected.map((item, idx) => [
         String(idx + 1),
-        item.department,
         item.item_name,
-        item.category,
-        item.balance <= 0 ? 'OUT OF STOCK' : String(item.balance),
-        String(item.low_stock_threshold),
-        String(item.suggestedQty),
-        item.unit_of_measure,
+        `${item.suggestedQty} ${item.unit_of_measure || ''}`.trim(),
       ]);
 
       autoTable(doc, {
@@ -331,13 +324,12 @@ export default function PurchaseOrders() {
         body: tableRows,
         startY: 40,
         theme: 'grid',
-        styles: { fontSize: 8.5 },
-        headStyles: { fillColor: [79, 70, 229] },
-        didParseCell: (data) => {
-          if (data.section === 'body' && String(data.row.raw[4]).includes('OUT OF STOCK')) {
-            data.cell.styles.textColor = [220, 38, 38];
-            data.cell.styles.fontStyle = 'bold';
-          }
+        styles: { fontSize: 10, cellPadding: 3.5 },
+        headStyles: { fillColor: [79, 70, 229], fontStyle: 'bold' },
+        columnStyles: {
+          0: { cellWidth: 15, halign: 'center' },
+          1: { cellWidth: 'auto' },
+          2: { cellWidth: 50, halign: 'center', fontStyle: 'bold' },
         },
       });
 
@@ -346,6 +338,36 @@ export default function PurchaseOrders() {
       console.error('Failed to generate PDF:', error);
       alert('Failed to generate PDF. Check console for details.');
     }
+  };
+
+  // Export CSV with Item and Suggested Quantity ONLY
+  const generateRequisitionCSV = () => {
+    const selected = allReorderItems.filter((it) => selectedIds.has(it.item_id));
+    if (selected.length === 0) {
+      alert('Please select at least one item to export.');
+      return;
+    }
+    const statusWeight: Record<string, number> = { out: 0, low: 1, healthy: 2 };
+    const sortedSelected = [...selected].sort((a, b) => {
+      const dCompare = a.department.localeCompare(b.department);
+      if (dCompare !== 0) return dCompare;
+      if (statusWeight[a.status] !== statusWeight[b.status]) {
+        return statusWeight[a.status] - statusWeight[b.status];
+      }
+      return a.item_name.localeCompare(b.item_name);
+    });
+
+    exportToCSV(
+      sortedSelected.map((item) => ({
+        item: item.item_name,
+        suggested_order_quantity: `${item.suggestedQty} ${item.unit_of_measure || ''}`.trim(),
+      })),
+      `requisition_list_${format(new Date(), 'yyyy-MM-dd_HHmm')}`,
+      [
+        { key: 'item', header: 'Item' },
+        { key: 'suggested_order_quantity', header: 'Suggested Order Quantity' },
+      ]
+    );
   };
 
   return (
@@ -358,7 +380,7 @@ export default function PurchaseOrders() {
             Requisition Planner
           </h1>
           <p className="text-muted-foreground text-sm">
-            Live stock status grouped by department. Select low or out-of-stock items and export a Requisition List PDF.
+            Live stock status grouped by department. Adjust quantities and export your Requisition List.
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -382,12 +404,22 @@ export default function PurchaseOrders() {
             Select All Flagged ({kpis.totalNeedsReorder})
           </Button>
           <Button
+            variant="outline"
+            size="sm"
+            onClick={generateRequisitionCSV}
+            disabled={selectedIds.size === 0}
+            className="gap-1.5"
+          >
+            <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
+            Export CSV {selectedIds.size > 0 && `(${selectedIds.size})`}
+          </Button>
+          <Button
             onClick={generateRequisitionList}
             disabled={selectedIds.size === 0}
             className="gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white shadow-md"
           >
             <Download className="h-4 w-4" />
-            Export Requisition PDF {selectedIds.size > 0 && `(${selectedIds.size})`}
+            Export PDF {selectedIds.size > 0 && `(${selectedIds.size})`}
           </Button>
         </div>
       </div>
@@ -712,13 +744,26 @@ export default function PurchaseOrders() {
                                 <TableCell className="text-center text-xs text-muted-foreground">
                                   {item.low_stock_threshold} {item.unit_of_measure}
                                 </TableCell>
-                                <TableCell className="text-center">
-                                  <span className="font-bold text-sm text-primary">
-                                    {item.suggestedQty}
-                                  </span>{' '}
-                                  <span className="text-xs text-muted-foreground">
-                                    {item.unit_of_measure}
-                                  </span>
+                                <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                                  <div className="flex items-center justify-center gap-1.5">
+                                    <Input
+                                      type="number"
+                                      min="0"
+                                      className="w-20 h-8 text-center font-bold text-sm bg-background border-input focus-visible:ring-1"
+                                      value={item.suggestedQty === 0 ? '' : item.suggestedQty}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        const num = val === '' ? 0 : parseInt(val, 10);
+                                        setCustomQuantities((prev) => ({
+                                          ...prev,
+                                          [item.item_id]: isNaN(num) ? 0 : Math.max(0, num),
+                                        }));
+                                      }}
+                                    />
+                                    <span className="text-xs text-muted-foreground whitespace-nowrap min-w-[28px] text-left">
+                                      {item.unit_of_measure}
+                                    </span>
+                                  </div>
                                 </TableCell>
                                 <TableCell className="text-right text-xs text-muted-foreground">
                                   {item.unit_cost > 0
