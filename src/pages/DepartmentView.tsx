@@ -52,11 +52,18 @@ export default function DepartmentView() {
   }, [stockRows]);
 
   const filteredItems = useMemo(() => {
-    return computedItems.filter((item) => {
-      const matchesSearch = item.item_name.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesStatus = statusFilter === 'all' || item.status === statusFilter;
-      return matchesSearch && matchesStatus;
-    });
+    return computedItems
+      .filter((item) => {
+        const matchesSearch = item.item_name.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesStatus = statusFilter === 'all' || item.status === statusFilter;
+        return matchesSearch && matchesStatus;
+      })
+      .sort((a, b) => {
+        const aInStock = a.balance > 0 ? 1 : 0;
+        const bInStock = b.balance > 0 ? 1 : 0;
+        if (aInStock !== bInStock) return bInStock - aInStock;
+        return a.item_name.localeCompare(b.item_name);
+      });
   }, [computedItems, searchTerm, statusFilter]);
 
   const kpiCounts = useMemo(() => {

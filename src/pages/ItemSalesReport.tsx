@@ -487,28 +487,22 @@ export default function ItemSalesReport() {
     }
 
     // Build base sale items — physical catalog items have item_id; prepared drinks have item_name (for report total, no ledger transaction)
-    const saleItems = parsedRows.flatMap(r => {
+    const saleItems = parsedRows.map(r => {
       if (r.itemId) {
-        const base = {
+        return {
           item_id: r.itemId,
           item_name: r.itemName,
           qty_sold: r.qtySold,
           unit_price: r.unitPrice,
+          department: r.department || 'Retail',
         };
-        if (r.department === 'Kitchen') {
-          return [
-            { ...base, department: 'Retail' },
-            { ...base, department: 'Kitchen' },
-          ];
-        }
-        return [{ ...base, department: r.department || 'Retail' }];
       }
-      return [{
+      return {
         item_name: r.itemName,
         qty_sold: r.qtySold,
         unit_price: r.unitPrice,
         department: r.department || 'Bar',
-      }];
+      };
     }) as Array<{ item_name: string; qty_sold: number; unit_price: number; department: string; item_id?: string }>;
 
     // Auto-append Bar Cups deduction if Bar drinks were sold

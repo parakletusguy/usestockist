@@ -292,7 +292,17 @@ export default function StockCount() {
       list.push(entry);
       groups.set(entry.row.category, list);
     });
-    return Array.from(groups.entries()).sort(([a], [b]) => a.localeCompare(b));
+    return Array.from(groups.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([cat, items]) => {
+        const sortedItems = [...items].sort((a, b) => {
+          const aInStock = a.balance > 0 ? 1 : 0;
+          const bInStock = b.balance > 0 ? 1 : 0;
+          if (aInStock !== bInStock) return bInStock - aInStock;
+          return a.row.item_name.localeCompare(b.row.item_name);
+        });
+        return [cat, sortedItems] as [string, typeof items];
+      });
   }, [filtered]);
 
   const summary = useMemo(() => {
@@ -330,8 +340,16 @@ export default function StockCount() {
 
   const handleExport = () => {
     if (computed.length === 0) return;
+    const sortedComputed = [...computed].sort((a, b) => {
+      const catCompare = a.row.category.localeCompare(b.row.category);
+      if (catCompare !== 0) return catCompare;
+      const aInStock = a.balance > 0 ? 1 : 0;
+      const bInStock = b.balance > 0 ? 1 : 0;
+      if (aInStock !== bInStock) return bInStock - aInStock;
+      return a.row.item_name.localeCompare(b.row.item_name);
+    });
     exportToCSV(
-      computed.map(({ row, sold, damages, balance, phyCount, variance, varianceValue }) => ({
+      sortedComputed.map(({ row, sold, damages, balance, phyCount, variance, varianceValue }) => ({
         category: row.category,
         department: row.department,
         item: row.item_name,
