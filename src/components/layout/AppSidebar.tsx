@@ -17,6 +17,8 @@ import {
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRole } from '@/hooks/useRole';
+import { useBranch } from '@/contexts/BranchContext';
+import { getBranchDepartments } from '@/lib/validation';
 import {
   Sidebar,
   SidebarContent,
@@ -49,15 +51,13 @@ const cubeLedgerItems = [
   { title: 'Issuance', url: '/ledgers/issuance', icon: Send },
 ];
 
-const allDepartmentItems = [
-  { title: 'Retail', url: '/departments/retail' },
-  { title: 'Cube', url: '/departments/cube' },
-  { title: 'Bar', url: '/departments/bar' },
-  { title: 'Kitchen', url: '/departments/kitchen' },
-  { title: 'Housekeeping', url: '/departments/housekeeping' },
-  { title: 'PPK', url: '/departments/ppk' },
-  { title: 'Nox', url: '/departments/nox' },
-];
+const getBranchDepartmentNavItems = (branchName?: string) => {
+  const depts = getBranchDepartments(branchName);
+  return depts.map((d) => ({
+    title: d,
+    url: `/departments/${encodeURIComponent(d)}`,
+  }));
+};
 
 const cubeDepartmentItems = [
   { title: 'Cube', url: '/departments/cube' },
@@ -73,6 +73,7 @@ export function MobileNavDrawer({
 }) {
   const { session, isCubeStaff } = useAuth();
   const { canManageReorders } = useRole(session);
+  const { activeBranch } = useBranch();
   const linkClass = 'flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors hover:bg-muted/60 min-h-[44px]';
   const activeLinkClass = 'bg-muted text-primary font-semibold';
 
@@ -83,7 +84,9 @@ export function MobileNavDrawer({
         ...(canManageReorders ? [{ title: 'Purchase Orders', url: '/ledgers/purchase-orders', icon: ShoppingCart }] : []),
       ];
 
-  const departmentItems = isCubeStaff ? cubeDepartmentItems : allDepartmentItems;
+  const departmentItems = isCubeStaff
+    ? cubeDepartmentItems
+    : getBranchDepartmentNavItems(activeBranch?.name);
 
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
@@ -194,6 +197,7 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const { session, isCubeStaff } = useAuth();
   const { canManageReorders } = useRole(session);
+  const { activeBranch } = useBranch();
   const collapsed = state === 'collapsed';
 
   const ledgerItems = isCubeStaff
@@ -203,7 +207,9 @@ export function AppSidebar() {
         ...(canManageReorders ? [{ title: 'Purchase Orders', url: '/ledgers/purchase-orders', icon: ShoppingCart }] : []),
       ];
 
-  const departmentItems = isCubeStaff ? cubeDepartmentItems : allDepartmentItems;
+  const departmentItems = isCubeStaff
+    ? cubeDepartmentItems
+    : getBranchDepartmentNavItems(activeBranch?.name);
 
   return (
     <Sidebar collapsible="icon" className="hidden md:flex">
