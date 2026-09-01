@@ -12,6 +12,14 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import {
   ClipboardList,
   AlertTriangle,
   PackageX,
@@ -32,6 +40,7 @@ import {
   Square,
   PackageCheck,
   FileSpreadsheet,
+  Eye,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -87,6 +96,7 @@ export default function PurchaseOrders() {
   const [departmentFilter, setDepartmentFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<'needs_reorder' | 'out' | 'low' | 'all'>('needs_reorder');
   const [collapsedDepts, setCollapsedDepts] = useState<Set<string>>(new Set());
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   // Non-manager role protection guard
   if (!canManageReorders) {
@@ -288,11 +298,23 @@ export default function PurchaseOrders() {
     });
   };
 
+  // Selected items sorted for Preview, PDF & CSV export
+  const selectedItemsSorted = useMemo(() => {
+    const selected = allReorderItems.filter((it) => selectedIds.has(it.item_id));
+    const statusWeight: Record<string, number> = { out: 0, low: 1, healthy: 2 };
+    return [...selected].sort((a, b) => {
+      const dCompare = a.department.localeCompare(b.department);
+      if (dCompare !== 0) return dCompare;
+      if (statusWeight[a.status] !== statusWeight[b.status]) {
+        return statusWeight[a.status] - statusWeight[b.status];
+      }
+      return a.item_name.localeCompare(b.item_name);
+    });
+  }, [allReorderItems, selectedIds]);
+
   // Generate Requisition List PDF (Item and Suggested Quantity ONLY)
   const generateRequisitionList = async () => {
-    const selected = allReorderItems.filter((it) => selectedIds.has(it.item_id));
-
-    if (selected.length === 0) {
+    if (selectedItemsSorted.length === 0) {
       alert('Please select at least one item to include in the Requisition List.');
       return;
     }
@@ -316,22 +338,11 @@ export default function PurchaseOrders() {
         14,
         28
       );
-      doc.text(`Total Items Selected: ${selected.length}`, 14, 34);
-
-      // Sort selected items by Department then Status (out first) then Name
-      const statusWeight: Record<string, number> = { out: 0, low: 1, healthy: 2 };
-      const sortedSelected = [...selected].sort((a, b) => {
-        const dCompare = a.department.localeCompare(b.department);
-        if (dCompare !== 0) return dCompare;
-        if (statusWeight[a.status] !== statusWeight[b.status]) {
-          return statusWeight[a.status] - statusWeight[b.status];
-        }
-        return a.item_name.localeCompare(b.item_name);
-      });
+      doc.text(`Total Items Selected: ${selectedItemsSorted.length}`, 14, 34);
 
       const tableColumn = ['#', 'Item', 'Order Quantity'];
 
-      const tableRows = sortedSelected.map((item, idx) => [
+      const tableRows = selectedItemsSorted.map((item, idx) => [
         String(idx + 1),
         item.item_name,
         `${item.suggestedQty} ${item.unit_of_measure || ''}`.trim(),
@@ -360,23 +371,13 @@ export default function PurchaseOrders() {
 
   // Export CSV with Item and Suggested Quantity ONLY
   const generateRequisitionCSV = () => {
-    const selected = allReorderItems.filter((it) => selectedIds.has(it.item_id));
-    if (selected.length === 0) {
+    if (selectedItemsSorted.length === 0) {
       alert('Please select at least one item to export.');
       return;
     }
-    const statusWeight: Record<string, number> = { out: 0, low: 1, healthy: 2 };
-    const sortedSelected = [...selected].sort((a, b) => {
-      const dCompare = a.department.localeCompare(b.department);
-      if (dCompare !== 0) return dCompare;
-      if (statusWeight[a.status] !== statusWeight[b.status]) {
-        return statusWeight[a.status] - statusWeight[b.status];
-      }
-      return a.item_name.localeCompare(b.item_name);
-    });
 
     exportToCSV(
-      sortedSelected.map((item) => ({
+      selectedItemsSorted.map((item) => ({
         item: item.item_name,
         suggested_order_quantity: `${item.suggestedQty} ${item.unit_of_measure || ''}`.trim(),
       })),
@@ -422,6 +423,14 @@ export default function PurchaseOrders() {
             Select All Flagged ({kpis.totalNeedsReorder})
           </Button>
           <Button
+            onClick={() => setIsPreviewOpen(true)}
+            disabled={selectedIds.size === 0}
+            className="gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white shadow-md"
+          >
+            <Eye className="h-4 w-4" />
+            Preview Requisition {selectedIds.size > 0 && `(${selectedIds.size})`}
+          </Button>
+          <Button
             variant="outline"
             size="sm"
             onClick={generateRequisitionCSV}
@@ -429,15 +438,17 @@ export default function PurchaseOrders() {
             className="gap-1.5"
           >
             <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
-            Export CSV {selectedIds.size > 0 && `(${selectedIds.size})`}
+            Export CSV
           </Button>
           <Button
+            variant="outline"
+            size="sm"
             onClick={generateRequisitionList}
             disabled={selectedIds.size === 0}
-            className="gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white shadow-md"
+            className="gap-1.5"
           >
-            <Download className="h-4 w-4" />
-            Export PDF {selectedIds.size > 0 && `(${selectedIds.size})`}
+            <Download className="h-4 w-4 text-indigo-600" />
+            Export PDF
           </Button>
         </div>
       </div>
@@ -475,10 +486,10 @@ export default function PurchaseOrders() {
             <AlertTriangle className="h-4 w-4 text-amber-500" />
           </CardHeader>
           <CardContent className="p-3 sm:p-4 pt-0">
-            <div className="text-2xl sm:text-3xl font-extrabold text-amber-600 dark:text-amber-500">
+            <div className="text-2xl sm:text-3xl font-extrabold text-amber-600 dark:text-amber-400">
               {kpis.low}
             </div>
-            <p className="text-[11px] text-muted-foreground mt-0.5">At or below threshold</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Below reorder threshold</p>
           </CardContent>
         </Card>
 
@@ -490,118 +501,139 @@ export default function PurchaseOrders() {
           onClick={() => setStatusFilter('needs_reorder')}
         >
           <CardHeader className="flex flex-row items-center justify-between p-3 sm:p-4 pb-1 sm:pb-2">
-            <CardTitle className="text-xs sm:text-sm font-medium">Total Attention</CardTitle>
+            <CardTitle className="text-xs sm:text-sm font-medium">Needs Attention</CardTitle>
             <PackageCheck className="h-4 w-4 text-indigo-500" />
           </CardHeader>
           <CardContent className="p-3 sm:p-4 pt-0">
             <div className="text-2xl sm:text-3xl font-extrabold text-indigo-600 dark:text-indigo-400">
               {kpis.totalNeedsReorder}
             </div>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Needs purchasing</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Out + Low stock items</p>
           </CardContent>
         </Card>
 
         <Card
           className={cn(
-            'cursor-pointer transition-all border-l-4 border-l-blue-400',
-            statusFilter === 'all' ? 'ring-2 ring-blue-400 bg-blue-500/5' : 'hover:bg-muted/50'
+            'cursor-pointer transition-all border-l-4 border-l-slate-400',
+            statusFilter === 'all' ? 'ring-2 ring-slate-400 bg-slate-500/5' : 'hover:bg-muted/50'
           )}
           onClick={() => setStatusFilter(statusFilter === 'all' ? 'needs_reorder' : 'all')}
         >
           <CardHeader className="flex flex-row items-center justify-between p-3 sm:p-4 pb-1 sm:pb-2">
-            <CardTitle className="text-xs sm:text-sm font-medium">Catalog Items</CardTitle>
-            <Building2 className="h-4 w-4 text-blue-400" />
+            <CardTitle className="text-xs sm:text-sm font-medium">Catalog Total</CardTitle>
+            <Building2 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="p-3 sm:p-4 pt-0">
-            <div className="text-2xl sm:text-3xl font-extrabold">{kpis.totalCatalog}</div>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
-              {selectedIds.size > 0 ? `${selectedIds.size} selected` : 'Click to view all'}
-            </p>
+            <div className="text-2xl sm:text-3xl font-extrabold">
+              {kpis.totalCatalog}
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-0.5">All monitored items</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Filter & Controls Toolbar */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-            <div className="flex flex-1 items-center gap-2 flex-wrap">
-              <div className="relative w-full sm:w-[220px]">
-                <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Search item or category..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-8 h-9 text-xs sm:text-sm"
-                />
-              </div>
-
+      {/* Filters & Actions Bar */}
+      <Card className="p-3 sm:p-4 shadow-sm">
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-1">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search items..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9 text-sm"
+              />
+            </div>
+            <div className="flex items-center gap-2">
               <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
-                <SelectTrigger className="w-full sm:w-[170px] h-9 text-xs">
-                  <SelectValue placeholder="All Departments" />
+                <SelectTrigger className="w-[140px] text-xs">
+                  <SelectValue placeholder="Department" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Departments</SelectItem>
-                  {DEPARTMENTS.map((d) => (
-                    <SelectItem key={d} value={d}>
-                      {d} Department
+                  {DEPARTMENTS.map((dept) => (
+                    <SelectItem key={dept} value={dept}>
+                      {dept}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
 
-              <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
-                <SelectTrigger className="w-full sm:w-[170px] h-9 text-xs">
-                  <SelectValue placeholder="Filter Status" />
+              <Select
+                value={statusFilter}
+                onValueChange={(v: any) => setStatusFilter(v)}
+              >
+                <SelectTrigger className="w-[140px] text-xs">
+                  <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="needs_reorder">Needs Reorder (Out & Low)</SelectItem>
-                  <SelectItem value="out">Out of Stock Only</SelectItem>
-                  <SelectItem value="low">Low Stock Only</SelectItem>
-                  <SelectItem value="all">All Catalog Items</SelectItem>
+                  <SelectItem value="needs_reorder">Needs Reorder</SelectItem>
+                  <SelectItem value="out">Out of Stock</SelectItem>
+                  <SelectItem value="low">Low Stock</SelectItem>
+                  <SelectItem value="all">All Items</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-
-            <div className="flex items-center gap-2 justify-between sm:justify-end">
-              <span className="text-xs text-muted-foreground">
-                {selectedIds.size} of {filteredItems.length} selected
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={toggleAllFiltered}
-                className="text-xs h-8"
-              >
-                {allFilteredSelected ? 'Deselect All' : 'Select All Shown'}
-              </Button>
-            </div>
           </div>
-        </CardContent>
+
+          <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 md:pt-0 border-t md:border-t-0">
+            <Badge variant="outline" className="text-xs font-semibold py-1">
+              Selected: {selectedIds.size} / {allReorderItems.length}
+            </Badge>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleAllFiltered}
+              className="text-xs gap-1.5"
+            >
+              {allFilteredSelected ? (
+                <>
+                  <CheckSquare className="h-4 w-4 text-primary" /> Deselect Visible
+                </>
+              ) : (
+                <>
+                  <Square className="h-4 w-4 text-muted-foreground" /> Select Visible ({filteredItems.length})
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
       </Card>
 
-      {/* Main Department Sections */}
+      {/* Main Department Grouped View */}
       {isLoading ? (
-        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
-          <RefreshCw className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm">Calculating live departmental stock balances...</p>
-        </div>
-      ) : groupedByDepartment.length === 0 ? (
-        <Card>
-          <CardContent className="py-16 text-center text-muted-foreground space-y-3">
-            <CheckCircle2 className="h-12 w-12 mx-auto text-emerald-500 opacity-60" />
-            <h3 className="text-base font-semibold text-foreground">No Items Need Attention</h3>
-            <p className="text-xs max-w-md mx-auto">
-              {statusFilter === 'needs_reorder'
-                ? 'All items in the selected department(s) are above their minimum low-stock thresholds.'
-                : 'No items match your current filter criteria.'}
+        <Card className="p-8 text-center">
+          <div className="flex flex-col items-center justify-center gap-3">
+            <RefreshCw className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-sm font-medium text-muted-foreground">
+              Loading live stock balances...
             </p>
-            {statusFilter !== 'all' && (
-              <Button variant="outline" size="sm" onClick={() => setStatusFilter('all')}>
-                View All Catalog Items
-              </Button>
-            )}
-          </CardContent>
+          </div>
+        </Card>
+      ) : groupedByDepartment.length === 0 ? (
+        <Card className="p-12 text-center border-dashed">
+          <div className="mx-auto w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-950/40 flex items-center justify-center text-emerald-600 dark:text-emerald-400 mb-3">
+            <CheckCircle2 className="w-6 h-6" />
+          </div>
+          <h3 className="text-lg font-bold">No Items Match Filters</h3>
+          <p className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">
+            {statusFilter === 'needs_reorder'
+              ? 'All items in this view are healthy with sufficient stock.'
+              : 'Try clearing your search or changing department filters.'}
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-4"
+            onClick={() => {
+              setSearchTerm('');
+              setDepartmentFilter('all');
+              setStatusFilter('all');
+            }}
+          >
+            Clear All Filters
+          </Button>
         </Card>
       ) : (
         <div className="space-y-6">
@@ -610,7 +642,6 @@ export default function PurchaseOrders() {
             const deptOutOfStock = items.filter((i) => i.status === 'out').length;
             const deptLowStock = items.filter((i) => i.status === 'low').length;
             const allDeptSelected = items.length > 0 && items.every((i) => selectedIds.has(i.item_id));
-            const someDeptSelected = items.some((i) => selectedIds.has(i.item_id));
 
             return (
               <Card key={dept} className="overflow-hidden border-2 shadow-sm">
@@ -634,33 +665,36 @@ export default function PurchaseOrders() {
                       )}
                     </div>
 
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-2 flex-wrap text-xs">
                       {deptOutOfStock > 0 && (
-                        <Badge variant="destructive" className="text-[11px]">
+                        <Badge variant="destructive" className="text-[10px]">
                           {deptOutOfStock} Out of Stock
                         </Badge>
                       )}
                       {deptLowStock > 0 && (
-                        <Badge variant="outline" className="text-[11px] border-amber-500 text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-950/20">
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] border-amber-500 text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-950/20"
+                        >
                           {deptLowStock} Low Stock
                         </Badge>
                       )}
                       <Button
-                        variant="secondary"
+                        variant="ghost"
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation();
                           toggleDepartment(items);
                         }}
-                        className="text-xs h-7 gap-1"
+                        className="h-7 text-xs gap-1"
                       >
                         {allDeptSelected ? (
                           <>
-                            <Square className="h-3 w-3" /> Deselect Dept
+                            <CheckSquare className="h-3.5 w-3.5 text-primary" /> Deselect Dept
                           </>
                         ) : (
                           <>
-                            <CheckSquare className="h-3 w-3" /> Select All in Dept
+                            <Square className="h-3.5 w-3.5 text-muted-foreground" /> Select All in Dept
                           </>
                         )}
                       </Button>
@@ -673,24 +707,15 @@ export default function PurchaseOrders() {
                     <div className="overflow-x-auto">
                       <Table>
                         <TableHeader>
-                          <TableRow className="bg-muted/10">
-                            <TableHead className="w-10 text-center">
-                              <Checkbox
-                                checked={allDeptSelected}
-                                ref={(el) => {
-                                  if (el)
-                                    (el as HTMLButtonElement & { indeterminate?: boolean }).indeterminate =
-                                      someDeptSelected && !allDeptSelected;
-                                }}
-                                onCheckedChange={() => toggleDepartment(items)}
-                              />
-                            </TableHead>
-                            <TableHead>Item &amp; Category</TableHead>
-                            <TableHead className="text-center">Stock Status</TableHead>
-                            <TableHead className="text-center">Current Balance</TableHead>
-                            <TableHead className="text-center">Low Alert Threshold</TableHead>
-                            <TableHead className="text-center">Suggested Order Qty</TableHead>
-                            <TableHead className="text-right">Est. Unit Cost</TableHead>
+                          <TableRow className="bg-muted/20">
+                            <TableHead className="w-12 text-center">Select</TableHead>
+                            <TableHead className="font-bold text-xs">Item Name</TableHead>
+                            <TableHead className="font-bold text-xs">Category</TableHead>
+                            <TableHead className="text-center font-bold text-xs">Stock Status</TableHead>
+                            <TableHead className="text-center font-bold text-xs">Current Stock</TableHead>
+                            <TableHead className="text-center font-bold text-xs">Threshold</TableHead>
+                            <TableHead className="text-center font-bold text-xs">Suggested Order Qty</TableHead>
+                            <TableHead className="text-right font-bold text-xs">Unit Cost</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -703,27 +728,25 @@ export default function PurchaseOrders() {
                               <TableRow
                                 key={item.item_id}
                                 className={cn(
-                                  'cursor-pointer transition-colors',
-                                  isSelected
-                                    ? 'bg-primary/5 dark:bg-primary/10'
-                                    : 'hover:bg-muted/40',
-                                  isOut
-                                    ? 'border-l-4 border-l-rose-500'
-                                    : isLow
-                                    ? 'border-l-4 border-l-amber-500'
-                                    : 'border-l-4 border-l-transparent'
+                                  'transition-colors cursor-pointer',
+                                  isSelected ? 'bg-primary/5 dark:bg-primary/10' : undefined,
+                                  isOut ? 'hover:bg-rose-500/5' : isLow ? 'hover:bg-amber-500/5' : undefined
                                 )}
                                 onClick={() => toggleOne(item.item_id)}
                               >
-                                <TableCell className="w-10 text-center" onClick={(e) => e.stopPropagation()}>
+                                <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                                   <Checkbox
                                     checked={isSelected}
                                     onCheckedChange={() => toggleOne(item.item_id)}
                                   />
                                 </TableCell>
-                                <TableCell>
-                                  <div className="font-semibold text-sm">{item.item_name}</div>
-                                  <div className="text-xs text-muted-foreground">{item.category}</div>
+                                <TableCell className="font-bold text-sm">
+                                  <div className="flex items-center gap-2">
+                                    <span>{item.item_name}</span>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-xs text-muted-foreground">
+                                  {item.category}
                                 </TableCell>
                                 <TableCell className="text-center">
                                   {isOut ? (
@@ -801,6 +824,115 @@ export default function PurchaseOrders() {
           })}
         </div>
       )}
+
+      {/* Requisition Preview Dialog */}
+      <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl font-bold">
+              <Eye className="h-5 w-5 text-primary" />
+              Purchase Requisition Preview
+            </DialogTitle>
+            <DialogDescription>
+              Review your selected reorder items and adjust quantities before exporting.
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Document Preview Sheet */}
+          <div className="flex-1 overflow-y-auto space-y-4 border rounded-lg p-4 bg-muted/20">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b gap-2">
+              <div>
+                <h3 className="font-extrabold text-lg tracking-tight">Purchase Requisition List</h3>
+                <p className="text-xs text-muted-foreground">
+                  Generated: {format(new Date(), 'dd MMM yyyy, HH:mm')}
+                  {activeBranch && ` | Branch: ${activeBranch.name}`}
+                </p>
+              </div>
+              <Badge variant="secondary" className="w-fit text-xs font-semibold">
+                {selectedItemsSorted.length} item{selectedItemsSorted.length !== 1 ? 's' : ''} selected
+              </Badge>
+            </div>
+
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead className="w-12 text-center font-bold">#</TableHead>
+                  <TableHead className="font-bold">Department</TableHead>
+                  <TableHead className="font-bold">Item Name</TableHead>
+                  <TableHead className="text-center font-bold">Order Quantity</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {selectedItemsSorted.map((item, idx) => (
+                  <TableRow key={item.item_id}>
+                    <TableCell className="text-center font-medium text-xs text-muted-foreground">
+                      {idx + 1}
+                    </TableCell>
+                    <TableCell className="text-xs font-semibold">
+                      <Badge variant="outline" className="text-[11px] font-normal">
+                        {item.department}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="font-bold text-sm">
+                      {item.item_name}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <div className="flex items-center justify-center gap-1.5">
+                        <Input
+                          type="number"
+                          min="0"
+                          className="w-24 h-8 text-center font-bold text-sm bg-background border-input focus-visible:ring-1"
+                          value={item.suggestedQty === 0 ? '' : item.suggestedQty}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            const num = val === '' ? 0 : parseInt(val, 10);
+                            setCustomQuantities((prev) => ({
+                              ...prev,
+                              [item.item_id]: isNaN(num) ? 0 : Math.max(0, num),
+                            }));
+                          }}
+                        />
+                        <span className="text-xs text-muted-foreground min-w-[28px] text-left">
+                          {item.unit_of_measure}
+                        </span>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          <DialogFooter className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-2 border-t">
+            <Button variant="outline" size="sm" onClick={() => setIsPreviewOpen(false)}>
+              Close Preview
+            </Button>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  generateRequisitionCSV();
+                }}
+                className="gap-1.5 flex-1 sm:flex-none"
+              >
+                <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
+                Export CSV
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => {
+                  generateRequisitionList();
+                }}
+                className="gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white flex-1 sm:flex-none"
+              >
+                <Download className="h-4 w-4" />
+                Download PDF
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
