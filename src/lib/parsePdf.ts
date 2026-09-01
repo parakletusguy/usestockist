@@ -52,6 +52,9 @@ export function isTicketItem(name: string): boolean {
     lower.includes('gold') ||
     lower.includes('platinum') ||
     lower.includes('vr game') ||
+    lower.includes('ps5 game') ||
+    lower.includes('ps5') ||
+    lower.includes('game time') ||
     lower.includes('cinema access') ||
     lower.includes('mid week jolly') ||
     lower.includes('admission')

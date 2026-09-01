@@ -163,6 +163,8 @@ describe('Reach POS PDF Parsing — Item Focus', () => {
       expect(isTicketItem('Gold Seat')).toBe(true);
       expect(isTicketItem('Platinum Seat')).toBe(true);
       expect(isTicketItem('VR GAME')).toBe(true);
+      expect(isTicketItem('PS5 GAME TIME(7MINS)')).toBe(true);
+      expect(isTicketItem('PS5 GAME')).toBe(true);
       expect(isTicketItem('BOX-SIGNATR ACCESS (SINGLE)')).toBe(true);
       expect(isTicketItem('BOX-SIGNATR ACCESS(COUPLE SEAT)')).toBe(true);
       expect(isTicketItem('MID WEEK JOLLY')).toBe(true);
