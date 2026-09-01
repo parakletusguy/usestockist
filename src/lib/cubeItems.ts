@@ -23,7 +23,7 @@ export const CUBE_RECIPIENT_GROUPS = ['Guest'] as const;
 
 const normalize = (v: string) => v.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
-const CUBE_KEYS = [...CUBE_ITEM_NAMES, 'Hennessey XO', 'Louise Roederer'].map(normalize);
+const CUBE_KEYS = [...CUBE_ITEM_NAMES, 'Hennessey XO', 'Louise Roederer', 'Castilo Grande'].map(normalize);
 
 /** Loose match so catalog naming variants (e.g. "Hennessey XO 70cl") still resolve. */
 export function isCubeItem(itemName: string | null | undefined): boolean {
