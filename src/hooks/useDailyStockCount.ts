@@ -274,7 +274,6 @@ export function useDailyStockCount(startDate: string, endDate?: string, departme
         .sort((a: DailyStockCountRow, b: DailyStockCountRow) =>
           a.category.localeCompare(b.category) || a.item_name.localeCompare(b.item_name));
     },
-    enabled: options?.enabled ?? true,
   });
 }
 
