@@ -6,6 +6,8 @@ export const DEPARTMENTS = [
   'Bar',
   'Kitchen',
   'Housekeeping',
+  'Bush Bar',
+  'Concessions',
   'PPK',
   'Nox',
 ] as const;

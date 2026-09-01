@@ -87,7 +87,7 @@ describe('ItemManager Dialog QA', () => {
     // Find and click department buttons
     const depts = ['Retail', 'Cube', 'Bar', 'Kitchen', 'Housekeeping', 'PPK', 'Nox'];
     for (const dept of depts) {
-      const deptButton = screen.getByRole('button', { name: new RegExp(dept, 'i') });
+      const deptButton = screen.getByRole('button', { name: new RegExp(`^${dept}$`, 'i') });
       expect(deptButton).toBeInTheDocument();
 
       // Click to toggle department

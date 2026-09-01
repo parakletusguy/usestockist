@@ -95,13 +95,15 @@ describe('Validation Schemas', () => {
   });
 
   describe('Departments Enum', () => {
-    it('contains all 7 expected department options', () => {
+    it('contains expected department options', () => {
       expect(DEPARTMENTS).toEqual([
         'Retail',
         'Cube',
         'Bar',
         'Kitchen',
         'Housekeeping',
+        'Bush Bar',
+        'Concessions',
         'PPK',
         'Nox',
       ]);
