@@ -58,7 +58,7 @@ export interface ReorderItem {
   status: 'out' | 'low' | 'healthy';
 }
 
-const DEPARTMENTS = ['Retail', 'Bar', 'Kitchen', 'Housekeeping', 'Cube', 'Bush Bar', 'Concessions'] as const;
+const DEPARTMENTS = ['Retail', 'Bar', 'Bush Bar', 'Box Signature Bar', 'Housekeeping', 'Kitchen', 'Cube'] as const;
 
 const DEPT_ICONS: Record<string, React.ReactNode> = {
   Retail: <ShoppingBag className="h-4 w-4 text-blue-500" />,
@@ -67,7 +67,7 @@ const DEPT_ICONS: Record<string, React.ReactNode> = {
   Housekeeping: <Sparkles className="h-4 w-4 text-emerald-500" />,
   Cube: <Box className="h-4 w-4 text-indigo-500" />,
   'Bush Bar': <Wine className="h-4 w-4 text-rose-500" />,
-  Concessions: <ShoppingBag className="h-4 w-4 text-teal-500" />,
+  'Box Signature Bar': <Wine className="h-4 w-4 text-violet-500" />,
 };
 
 export default function PurchaseOrders() {

@@ -103,7 +103,7 @@ describe('Validation Schemas', () => {
         'Kitchen',
         'Housekeeping',
         'Bush Bar',
-        'Concessions',
+        'Box Signature Bar',
         'PPK',
         'Nox',
       ]);

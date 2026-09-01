@@ -7,7 +7,7 @@ export const DEPARTMENTS = [
   'Kitchen',
   'Housekeeping',
   'Bush Bar',
-  'Concessions',
+  'Box Signature Bar',
   'PPK',
   'Nox',
 ] as const;
