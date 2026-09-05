@@ -86,6 +86,9 @@ const Transfers = () => {
 
   const handleEditSave = async () => {
     if (!editingEntry) return;
+    const targetBranch = branches.find(
+      (b) => b.name.toLowerCase() === editDest.trim().toLowerCase()
+    );
     await updateTransfer.mutateAsync({
       id: editingEntry.id,
       date: format(editDate, 'yyyy-MM-dd'),
@@ -93,6 +96,8 @@ const Transfers = () => {
       item_id: editItem,
       quantity: Number(editQty),
       reason: editReason || undefined,
+      branchId: activeBranch?.id,
+      destinationBranchId: targetBranch?.id,
     });
     setEditingEntry(null);
   };

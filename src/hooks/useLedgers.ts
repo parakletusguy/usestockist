@@ -114,10 +114,13 @@ export function useCreateIssuance() {
 export function useUpdateIssuance() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, ...input }: Partial<CreateIssuanceInput> & { id: string }) => {
+    mutationFn: async ({ id, branchId, ...input }: Partial<CreateIssuanceInput> & { id: string }) => {
+      const payload: Record<string, any> = { ...input };
+      if (branchId) payload.branch_id = branchId;
+
       const { data, error } = await supabase
         .from('issuance_ledger')
-        .update(input as never)
+        .update(payload as any)
         .eq('id', id)
         .select()
         .single();
@@ -265,10 +268,14 @@ export function useCreateTransfer() {
 export function useUpdateTransfer() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, ...input }: Partial<CreateTransferInput> & { id: string }) => {
+    mutationFn: async ({ id, branchId, destinationBranchId, ...input }: Partial<CreateTransferInput> & { id: string }) => {
+      const payload: Record<string, any> = { ...input };
+      if (branchId) payload.branch_id = branchId;
+      if (destinationBranchId !== undefined) payload.destination_branch_id = destinationBranchId;
+
       const { data, error } = await supabase
         .from('transfer_ledger')
-        .update(input as never)
+        .update(payload as any)
         .eq('id', id)
         .select()
         .single();
@@ -412,10 +419,13 @@ export function useCreateReceived() {
 export function useUpdateReceived() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, ...input }: Partial<CreateReceivedInput> & { id: string }) => {
+    mutationFn: async ({ id, branchId, ...input }: Partial<CreateReceivedInput> & { id: string }) => {
+      const payload: Record<string, any> = { ...input };
+      if (branchId) payload.branch_id = branchId;
+
       const { data, error } = await supabase
         .from('received_ledger')
-        .update(input as never)
+        .update(payload as any)
         .eq('id', id)
         .select()
         .single();

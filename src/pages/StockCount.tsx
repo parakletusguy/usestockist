@@ -595,7 +595,7 @@ export default function StockCount() {
               <span className="sm:hidden">CSV</span>
             </Button>
             {canWriteLedgers ? (
-              <Button size="sm" onClick={handleSave} disabled={dirty.size === 0 || saveStockCount.isPending} className="h-9">
+              <Button size="sm" onClick={handleSave} disabled={dirty.size === 0 || saveStockCount.isPending || !activeBranch?.id} className="h-9">
                 <Save className="mr-1.5 h-4 w-4" />
                 Save ({dirty.size})
               </Button>

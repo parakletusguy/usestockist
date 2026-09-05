@@ -16,6 +16,7 @@ export interface PurchaseOrder {
   days_to_stockout: number | null;
   supplier: string | null;
   department: string | null;
+  branch_id: string | null;
   created_at: string;
   updated_at: string;
   items?: {
@@ -25,19 +26,24 @@ export interface PurchaseOrder {
   } | null;
 }
 
-export function usePredictiveReordering() {
+export function usePredictiveReordering(branchId?: string) {
   const queryClient = useQueryClient();
 
-  // Fetch all non-received purchase orders (the persisted requisition list)
+  // Fetch non-received purchase orders scoped to the active branch
   const purchaseOrdersQuery = useQuery({
-    queryKey: ['purchase_orders'],
+    queryKey: ['purchase_orders', branchId || 'all'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('purchase_orders')
         .select('*, items(name, category, unit_of_measure)')
         .not('status', 'eq', 'received')
         .order('days_to_stockout', { ascending: true });
 
+      if (branchId) {
+        query = query.eq('branch_id', branchId);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       return (data || []) as PurchaseOrder[];
     },
@@ -48,12 +54,13 @@ export function usePredictiveReordering() {
     mutationFn: async (lookbackDays: number = 30) => {
       const { data, error } = await supabase.rpc('calculate_predictive_reorders', {
         p_lookback_days: lookbackDays,
+        ...(branchId ? { p_branch_id: branchId } : {}),
       });
       if (error) throw error;
       return data as Array<{ created_count: number; existing_count: number; analyzed_items_count: number }>;
     },
     onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ['purchase_orders'] });
+      queryClient.invalidateQueries({ queryKey: ['purchase_orders', branchId || 'all'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
 
       const res = Array.isArray(result) && result[0] ? result[0] : null;
@@ -73,16 +80,25 @@ export function usePredictiveReordering() {
     },
   });
 
-  // Clear the list — deletes all draft/approved/ordered/cancelled POs
+  // Clear the list — deletes draft/approved/ordered/cancelled POs for the active branch only
   const clearListMutation = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.rpc('clear_purchase_orders' as never);
+      let query = supabase
+        .from('purchase_orders')
+        .delete()
+        .not('status', 'eq', 'received');
+
+      if (branchId) {
+        query = query.eq('branch_id', branchId);
+      }
+
+      const { error, count } = await query;
       if (error) throw error;
-      return data as { deleted_count: number };
+      return { deleted_count: count ?? 0 };
     },
     onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ['purchase_orders'] });
-      const count = (result as { deleted_count: number })?.deleted_count ?? 0;
+      queryClient.invalidateQueries({ queryKey: ['purchase_orders', branchId || 'all'] });
+      const count = result?.deleted_count ?? 0;
       toast({
         title: 'List Cleared',
         description: `Removed ${count} item${count !== 1 ? 's' : ''} from the requisition list. Run analysis to regenerate.`,

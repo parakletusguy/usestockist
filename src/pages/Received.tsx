@@ -78,6 +78,7 @@ const Received = () => {
       item_id: editItem,
       quantity: Number(editQty),
       invoice_number: editInvoice || undefined,
+      branchId: activeBranch?.id,
     });
     setEditingEntry(null);
   };

@@ -112,7 +112,7 @@ const Dashboard = () => {
   const { data, isLoading } = useDashboardData(activeBranch?.id);
   const { session } = useAuth();
   const { canManageReorders } = useRole(session);
-  const { purchaseOrders } = usePredictiveReordering();
+  const { purchaseOrders } = usePredictiveReordering(activeBranch?.id);
 
   const draftPOs = purchaseOrders.filter((po) => po.status === 'draft');
 

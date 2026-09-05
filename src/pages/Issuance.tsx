@@ -89,6 +89,7 @@ const Issuance = () => {
       recipient_group: editGroup,
       item_id: editItem,
       quantity: Number(editQty),
+      branchId: activeBranch?.id,
     });
     setEditingEntry(null);
   };
