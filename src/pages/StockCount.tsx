@@ -55,6 +55,12 @@ const statusBadge: Record<Status, string> = {
   healthy: 'text-muted-foreground',
 };
 
+const STATUS_PRIORITY: Record<Status, number> = {
+  healthy: 0,
+  low: 1,
+  out: 2,
+};
+
 /** Mobile card for a single stock item */
 function MobileStockCard({
   row,
@@ -296,9 +302,9 @@ export default function StockCount() {
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([cat, items]) => {
         const sortedItems = [...items].sort((a, b) => {
-          const aInStock = a.balance > 0 ? 1 : 0;
-          const bInStock = b.balance > 0 ? 1 : 0;
-          if (aInStock !== bInStock) return bInStock - aInStock;
+          const aPriority = STATUS_PRIORITY[a.status];
+          const bPriority = STATUS_PRIORITY[b.status];
+          if (aPriority !== bPriority) return aPriority - bPriority;
           return a.row.item_name.localeCompare(b.row.item_name);
         });
         return [cat, sortedItems] as [string, typeof items];
@@ -343,9 +349,9 @@ export default function StockCount() {
     const sortedComputed = [...computed].sort((a, b) => {
       const catCompare = a.row.category.localeCompare(b.row.category);
       if (catCompare !== 0) return catCompare;
-      const aInStock = a.balance > 0 ? 1 : 0;
-      const bInStock = b.balance > 0 ? 1 : 0;
-      if (aInStock !== bInStock) return bInStock - aInStock;
+      const aPriority = STATUS_PRIORITY[a.status];
+      const bPriority = STATUS_PRIORITY[b.status];
+      if (aPriority !== bPriority) return aPriority - bPriority;
       return a.row.item_name.localeCompare(b.row.item_name);
     });
     exportToCSV(

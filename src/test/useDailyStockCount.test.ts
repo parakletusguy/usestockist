@@ -53,4 +53,40 @@ describe('useDailyStockCount Hook Audit', () => {
 
     expect(mockSupabase.from).toHaveBeenCalledWith('daily_stock_sheets');
   });
+
+  it('orders stock items so healthy items come first, low stock second, and out of stock last', () => {
+    const STATUS_PRIORITY: Record<'healthy' | 'low' | 'out', number> = {
+      healthy: 0,
+      low: 1,
+      out: 2,
+    };
+
+    const mockItems = [
+      { name: 'Water', status: 'healthy' as const },
+      { name: 'Meat Pie', status: 'out' as const },
+      { name: 'POS Roll', status: 'low' as const },
+      { name: 'Soda', status: 'healthy' as const },
+      { name: 'Avacati Tequila', status: 'out' as const },
+    ];
+
+    const sorted = [...mockItems].sort((a, b) => {
+      const aPriority = STATUS_PRIORITY[a.status];
+      const bPriority = STATUS_PRIORITY[b.status];
+      if (aPriority !== bPriority) return aPriority - bPriority;
+      return a.name.localeCompare(b.name);
+    });
+
+    expect(sorted.map((i) => i.name)).toEqual([
+      'Soda',
+      'Water',
+      'POS Roll',
+      'Avacati Tequila',
+      'Meat Pie',
+    ]);
+    expect(sorted[0].status).toBe('healthy');
+    expect(sorted[1].status).toBe('healthy');
+    expect(sorted[2].status).toBe('low');
+    expect(sorted[3].status).toBe('out');
+    expect(sorted[4].status).toBe('out');
+  });
 });

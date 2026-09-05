@@ -60,9 +60,14 @@ export default function DepartmentView() {
         return matchesSearch && matchesStatus;
       })
       .sort((a, b) => {
-        const aInStock = a.balance > 0 ? 1 : 0;
-        const bInStock = b.balance > 0 ? 1 : 0;
-        if (aInStock !== bInStock) return bInStock - aInStock;
+        const STATUS_PRIORITY: Record<'healthy' | 'low' | 'out', number> = {
+          healthy: 0,
+          low: 1,
+          out: 2,
+        };
+        const aPriority = STATUS_PRIORITY[a.status];
+        const bPriority = STATUS_PRIORITY[b.status];
+        if (aPriority !== bPriority) return aPriority - bPriority;
         return a.item_name.localeCompare(b.item_name);
       });
   }, [computedItems, searchTerm, statusFilter]);
