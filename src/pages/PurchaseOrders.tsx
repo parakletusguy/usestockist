@@ -55,6 +55,7 @@ export interface ReorderItem {
   unit_cost: number;
   low_stock_threshold: number;
   balance: number;
+  storeStock?: number;
   suggestedQty: number;
   status: 'out' | 'low' | 'healthy';
 }
@@ -152,7 +153,16 @@ export default function PurchaseOrders() {
         const isCubeDept = dept === 'Cube';
         const generalBalance =
           row.opening_stock + row.qty_received - row.qty_issued - row.qty_transferred - row.qty_sold - row.damages;
-        const balance = isCubeDept && cubeMap.has(row.item_id) ? cubeMap.get(row.item_id)! : generalBalance;
+        const cubeRoomStock = cubeMap.get(row.item_id) ?? 0;
+        const storeStock = Math.max(0, generalBalance);
+        const isCubeOnly = validDepts.length === 1 && isCubeDept;
+
+        // When evaluating Cube:
+        // - If stock has been physically moved into the Cube room, cubeRoomStock > 0.
+        // - If stock was received into the central store and is awaiting transfer to Cube, storeStock > 0.
+        // For external supplier purchasing, total branch availability prevents false out-of-stock orders.
+        const effectiveCubeStock = cubeRoomStock + (isCubeOnly ? storeStock : (cubeRoomStock === 0 ? storeStock : 0));
+        const balance = isCubeDept && cubeMap.has(row.item_id) ? effectiveCubeStock : generalBalance;
 
         // Check if this item has zero transactions and no initial physical count fed in for this branch
         const isUncountedBranchItem =
@@ -163,18 +173,19 @@ export default function PurchaseOrders() {
           row.qty_transferred === 0 &&
           row.qty_sold === 0;
 
+        const threshold = Number(row.low_stock_threshold) || 10;
+
         let status: 'out' | 'low' | 'healthy' = 'healthy';
         if (isUncountedBranchItem) {
           // Uncounted branch item: don't flag as critical out-of-stock until stock sheet or receipt is logged
           status = 'healthy';
         } else if (balance <= 0) {
           status = 'out';
-        } else if (balance <= row.low_stock_threshold) {
+        } else if (balance <= threshold) {
           status = 'low';
         }
 
-        const threshold = Number(row.low_stock_threshold) || 10;
-        const defaultSuggested = Math.max(1, threshold * 2 - Math.max(0, balance));
+        const defaultSuggested = status === 'healthy' ? 0 : Math.max(1, threshold * 2 - Math.max(0, balance));
         const key = validDepts.length > 1 ? `${row.item_id}__${dept}` : row.item_id;
         const suggestedQty =
           customQuantities[key] !== undefined
@@ -199,6 +210,7 @@ export default function PurchaseOrders() {
           unit_cost: Number(row.unit_cost) || 0,
           low_stock_threshold: threshold,
           balance,
+          storeStock: isCubeDept && storeStock > 0 ? storeStock : undefined,
           suggestedQty,
           status,
         });
@@ -800,6 +812,11 @@ export default function PurchaseOrders() {
                                   <span className="text-xs font-normal text-muted-foreground">
                                     {item.unit_of_measure}
                                   </span>
+                                  {item.storeStock !== undefined && item.storeStock > 0 && (
+                                    <span className="block text-[10px] font-normal text-muted-foreground">
+                                      ({item.storeStock} in store)
+                                    </span>
+                                  )}
                                 </TableCell>
                                 <TableCell className="text-center text-xs text-muted-foreground">
                                   {item.low_stock_threshold} {item.unit_of_measure}
