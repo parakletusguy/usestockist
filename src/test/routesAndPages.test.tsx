@@ -224,6 +224,46 @@ describe('UI Routes & Page Endpoints Audit', () => {
     });
   });
 
+  it('redirects Cube staff away from /ledgers/transfers', async () => {
+    mockSupabase.auth.getSession.mockResolvedValueOnce({
+      data: {
+        session: {
+          user: { id: 'cube-user', email: 'cube@stockist.com', app_metadata: { role: 'cube_staff' } },
+        },
+      },
+      error: null,
+    });
+
+    renderWithProviders(
+      '/ledgers/transfers',
+      <Routes>
+        <Route path="/ledgers/transfers" element={<Transfers />} />
+        <Route path="/ledgers/received" element={<div>Redirected to Received</div>} />
+      </Routes>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Redirected to Received')).toBeInTheDocument();
+    });
+  });
+
+  it('renders Cube Received Ledger with incoming transfers for Cube staff', async () => {
+    mockSupabase.auth.getSession.mockResolvedValueOnce({
+      data: {
+        session: {
+          user: { id: 'cube-user', email: 'cube@stockist.com', app_metadata: { role: 'cube_staff' } },
+        },
+      },
+      error: null,
+    });
+
+    renderWithProviders('/ledgers/received', <Received />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Cube Received Ledger/i)).toBeInTheDocument();
+    });
+  });
+
   it('renders 404 NotFound page for unknown route', async () => {
     renderWithProviders('/unknown-route-123', <NotFound />);
     expect(screen.getAllByText(/404|not found/i)[0]).toBeInTheDocument();

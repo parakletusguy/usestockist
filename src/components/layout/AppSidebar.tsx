@@ -45,10 +45,9 @@ const baseLedgerItems = [
 ];
 
 const cubeLedgerItems = [
-  { title: 'Stock Count', url: '/ledgers/stock-count', icon: Calendar },
   { title: 'Received', url: '/ledgers/received', icon: PackageCheck },
-  { title: 'Transfer', url: '/ledgers/transfers', icon: ArrowLeftRight },
   { title: 'Issuance', url: '/ledgers/issuance', icon: Send },
+  { title: 'Stock Count', url: '/ledgers/stock-count', icon: Calendar },
 ];
 
 const getBranchDepartmentNavItems = (branchName?: string) => {

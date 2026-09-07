@@ -192,8 +192,11 @@ export function useDailyStockCount(startDate: string, endDate?: string, departme
       // Filter catalog items by department if specified
       const filteredCatalogItems = deptParam
         ? catalogItems.filter(item => {
-            const depts = deptMap.get(item.id) || [item.department || 'Retail'];
-            return depts.includes(deptParam) || item.department === deptParam;
+            const depts = deptMap.get(item.id);
+            if (depts && depts.length > 0) {
+              return depts.includes(deptParam);
+            }
+            return (item.department || 'Retail') === deptParam;
           })
         : catalogItems;
 
@@ -308,11 +311,11 @@ export async function fetchCubeStockCount(
     transferInPrior, issuanceInPrior, issuanceOutPrior, sheetsPrior,
   ] = await Promise.all([
     supabase.from('items').select('*').order('name'),
-    withBranch(supabase.from('transfer_ledger').select('item_id, quantity').eq('destination', CUBE_DEPARTMENT).gte('date', startD).lte('date', endD)),
+    withBranch(supabase.from('transfer_ledger').select('item_id, quantity, status').eq('destination', CUBE_DEPARTMENT).gte('date', startD).lte('date', endD)),
     withBranch(supabase.from('issuance_ledger').select('item_id, quantity').eq('recipient_group', CUBE_DEPARTMENT).gte('date', startD).lte('date', endD)),
     withBranch(supabase.from('issuance_ledger').select('item_id, quantity').eq('recipient_group', GUEST_GROUP).gte('date', startD).lte('date', endD)),
     withBranch(supabase.from('daily_stock_sheets').select('item_id, sales_qty, close_qty, remark').eq('retail_team_name', CUBE_DEPARTMENT).gte('date', startD).lte('date', endD)),
-    withBranch(supabase.from('transfer_ledger').select('item_id, quantity').eq('destination', CUBE_DEPARTMENT).gte('date', CUBE_BASELINE_DATE).lt('date', startD)),
+    withBranch(supabase.from('transfer_ledger').select('item_id, quantity, status').eq('destination', CUBE_DEPARTMENT).gte('date', CUBE_BASELINE_DATE).lt('date', startD)),
     withBranch(supabase.from('issuance_ledger').select('item_id, quantity').eq('recipient_group', CUBE_DEPARTMENT).gte('date', CUBE_BASELINE_DATE).lt('date', startD)),
     withBranch(supabase.from('issuance_ledger').select('item_id, quantity').eq('recipient_group', GUEST_GROUP).gte('date', CUBE_BASELINE_DATE).lt('date', startD)),
     withBranch(supabase.from('daily_stock_sheets').select('item_id, sales_qty').eq('retail_team_name', CUBE_DEPARTMENT).gte('date', CUBE_BASELINE_DATE).lt('date', startD)),
@@ -323,18 +326,23 @@ export async function fetchCubeStockCount(
   const sum = (rows: any[] | null, id: string, field = 'quantity') =>
     (rows || []).filter((r) => r.item_id === id).reduce((s, r) => s + Number(r[field] || 0), 0);
 
+  const sumTransfers = (rows: any[] | null, id: string) =>
+    (rows || [])
+      .filter((r) => r.item_id === id && (!r.status || r.status === 'confirmed'))
+      .reduce((s, r) => s + Number(r.quantity || 0), 0);
+
   const cubeItems = ((itemsRes.data as ItemRow[]) || []).filter((i) => isCubeItem(i.name));
 
   return cubeItems
     .map((item): DailyStockCountRow => {
       const priorIn =
-        sum(transferInPrior.data as any[], item.id) + sum(issuanceInPrior.data as any[], item.id);
+        sumTransfers(transferInPrior.data as any[], item.id) + sum(issuanceInPrior.data as any[], item.id);
       const priorOut =
         sum(issuanceOutPrior.data as any[], item.id) +
         sum(sheetsPrior.data as any[], item.id, 'sales_qty');
 
       const currIn =
-        sum(transferInCurr.data as any[], item.id) + sum(issuanceInCurr.data as any[], item.id);
+        sumTransfers(transferInCurr.data as any[], item.id) + sum(issuanceInCurr.data as any[], item.id);
       const currOut = sum(issuanceOutCurr.data as any[], item.id);
       const currSheets = ((sheetsCurr.data as any[]) || []).filter((r) => r.item_id === item.id);
       const sold = currSheets.reduce((s, r) => s + Number(r.sales_qty || 0), 0);

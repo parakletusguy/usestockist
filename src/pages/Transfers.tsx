@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Navigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { useItems } from '@/hooks/useItems';
 import { useAuth } from '@/contexts/AuthContext';
@@ -31,6 +32,11 @@ const DESTINATIONS = ['Nox', 'PPK', 'Cube'] as const;
 
 const Transfers = () => {
   const { canWriteLedgers, isCubeStaff } = useAuth();
+
+  if (isCubeStaff) {
+    return <Navigate to="/ledgers/received" replace />;
+  }
+
   const canWriteTransfers = canWriteLedgers && !isCubeStaff;
   const { activeBranch, branches } = useBranch();
   const [date, setDate] = useState<Date>(new Date());

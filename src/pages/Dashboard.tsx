@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -108,9 +108,14 @@ function useDashboardData(branchId?: string) {
 }
 
 const Dashboard = () => {
+  const { isCubeStaff, session } = useAuth();
+
+  if (isCubeStaff) {
+    return <Navigate to="/departments/cube" replace />;
+  }
+
   const { activeBranch } = useBranch();
   const { data, isLoading } = useDashboardData(activeBranch?.id);
-  const { session } = useAuth();
   const { canManageReorders } = useRole(session);
   const { purchaseOrders } = usePredictiveReordering(activeBranch?.id);
 

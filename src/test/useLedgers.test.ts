@@ -9,6 +9,8 @@ import {
   useTransferLedger,
   useCreateTransfer,
   useDeleteTransfer,
+  useCubeIncomingTransfers,
+  useConfirmTransferReceipt,
   useIssuanceLedger,
   useCreateIssuance,
   useDeleteIssuance,
@@ -95,6 +97,22 @@ describe('useLedgers Hooks & Table Endpoints Audit', () => {
       const { result } = renderHook(() => useDeleteTransfer(), { wrapper: createWrapper() });
 
       await result.current.mutateAsync('trans-1');
+
+      expect(mockSupabase.from).toHaveBeenCalledWith('transfer_ledger');
+    });
+
+    it('fetches cube incoming transfers', async () => {
+      const { result } = renderHook(() => useCubeIncomingTransfers(), { wrapper: createWrapper() });
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+      expect(mockSupabase.from).toHaveBeenCalledWith('transfer_ledger');
+    });
+
+    it('confirms transfer receipt by ID and sets status to confirmed', async () => {
+      const { result } = renderHook(() => useConfirmTransferReceipt(), { wrapper: createWrapper() });
+
+      await result.current.mutateAsync({ id: 'trans-1', confirmedBy: 'cube@stockist.com' });
 
       expect(mockSupabase.from).toHaveBeenCalledWith('transfer_ledger');
     });

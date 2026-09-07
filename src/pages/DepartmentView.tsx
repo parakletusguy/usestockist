@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, Navigate } from 'react-router-dom';
 import { useItems } from '@/hooks/useItems';
 import { useDailyStockCount, useCubeStockCount } from '@/hooks/useDailyStockCount';
+import { useAuth } from '@/contexts/AuthContext';
 import { useBranch } from '@/contexts/BranchContext';
 import { format } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -25,9 +26,15 @@ const DEPARTMENT_MAP: Record<string, string> = {
 
 export default function DepartmentView() {
   const { departmentId } = useParams<{ departmentId: string }>();
+  const { isCubeStaff } = useAuth();
   const { activeBranch } = useBranch();
   const departmentName = DEPARTMENT_MAP[departmentId || ''] || 'Retail';
   const isCube = departmentName === 'Cube';
+
+  if (isCubeStaff && !isCube) {
+    return <Navigate to="/departments/cube" replace />;
+  }
+
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -99,11 +106,13 @@ export default function DepartmentView() {
               <PackageCheck className="mr-1.5 h-4 w-4" /> Stock Count
             </Link>
           </Button>
-          <Button asChild size="sm" className="h-11 sm:h-9 text-base sm:text-xs justify-center">
-            <Link to="/ledgers/transfers">
-              <ArrowRightLeft className="mr-1.5 h-4 w-4" /> Transfer Stock
-            </Link>
-          </Button>
+          {!isCube && !isCubeStaff && (
+            <Button asChild size="sm" className="h-11 sm:h-9 text-base sm:text-xs justify-center">
+              <Link to="/ledgers/transfers">
+                <ArrowRightLeft className="mr-1.5 h-4 w-4" /> Transfer Stock
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
 

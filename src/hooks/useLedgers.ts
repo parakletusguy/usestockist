@@ -168,6 +168,9 @@ export interface TransferLedger {
   department?: string;
   branch_id?: string;
   destination_branch_id?: string | null;
+  status?: string;
+  confirmed_at?: string | null;
+  confirmed_by?: string | null;
   created_at: string;
   items?: { name: string; unit_of_measure: string };
 }
@@ -181,6 +184,7 @@ export interface CreateTransferInput {
   department?: string;
   branchId?: string;
   destinationBranchId?: string;
+  status?: string;
 }
 
 export function useTransferLedger(branchId?: string) {
@@ -205,6 +209,59 @@ export function useTransferLedger(branchId?: string) {
   });
 }
 
+export function useCubeIncomingTransfers(branchId?: string) {
+  return useQuery({
+    queryKey: ['cube_incoming_transfers', branchId || 'all'],
+    queryFn: async () => {
+      let query = supabase
+        .from('transfer_ledger')
+        .select('*, items(name, unit_of_measure)')
+        .eq('destination', 'Cube')
+        .order('date', { ascending: false })
+        .limit(500);
+
+      if (branchId) {
+        query = query.eq('branch_id', branchId);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return (data ?? []) as TransferLedger[];
+    },
+    ...LIST_OPTS,
+  });
+}
+
+export function useConfirmTransferReceipt() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, confirmedBy }: { id: string; confirmedBy: string }) => {
+      const { data, error } = await supabase
+        .from('transfer_ledger')
+        .update({
+          status: 'confirmed',
+          confirmed_at: new Date().toISOString(),
+          confirmed_by: confirmedBy,
+        } as any)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['transfer_ledger'] });
+      qc.invalidateQueries({ queryKey: ['cube_incoming_transfers'] });
+      qc.invalidateQueries({ queryKey: ['received_ledger'] });
+      qc.invalidateQueries({ queryKey: ['stock_count'] });
+      qc.invalidateQueries({ queryKey: ['dashboard'] });
+      toast({ title: 'Receipt Confirmed', description: 'Stock has been confirmed into Cube inventory.' });
+    },
+    onError: (e: Error) => toast({ title: 'Error', description: e.message, variant: 'destructive' }),
+  });
+}
+
 export function useCreateTransfer() {
   const qc = useQueryClient();
   return useMutation({
@@ -215,6 +272,7 @@ export function useCreateTransfer() {
         item_id: input.item_id,
         quantity: input.quantity,
         reason: input.reason,
+        status: input.status || (input.destination === 'Cube' ? 'pending' : 'confirmed'),
       };
       if (input.branchId) payload.branch_id = input.branchId;
       if (input.destinationBranchId) payload.destination_branch_id = input.destinationBranchId;

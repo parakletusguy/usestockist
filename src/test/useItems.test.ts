@@ -43,7 +43,23 @@ describe('useItems Hook & Table Endpoints Audit', () => {
 
     const items = result.current.data || [];
     items.forEach((item) => {
-      expect(item.departments?.includes('Kitchen') || item.department === 'Kitchen').toBe(true);
+      const matches = item.departments && item.departments.length > 0
+        ? item.departments.includes('Kitchen')
+        : (item.department || 'Retail') === 'Kitchen';
+      expect(matches).toBe(true);
+    });
+  });
+
+  it('strictly isolates items assigned to other departments from Retail', async () => {
+    const { result } = renderHook(() => useItems('Retail'), { wrapper: createWrapper() });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    const items = result.current.data || [];
+    items.forEach((item) => {
+      if (item.departments && item.departments.length > 0) {
+        expect(item.departments).toContain('Retail');
+      }
     });
   });
 

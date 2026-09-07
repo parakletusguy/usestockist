@@ -1,12 +1,21 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { format } from 'date-fns';
 import { useItems } from '@/hooks/useItems';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBranch } from '@/contexts/BranchContext';
-import { useReceivedLedger, useCreateReceived, useUpdateReceived, useDeleteReceived, ReceivedLedger } from '@/hooks/useLedgers';
+import { 
+  useReceivedLedger, 
+  useCreateReceived, 
+  useUpdateReceived, 
+  useDeleteReceived, 
+  useCubeIncomingTransfers,
+  useConfirmTransferReceipt,
+  ReceivedLedger,
+} from '@/hooks/useLedgers';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -17,13 +26,13 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { CalendarIcon, Plus, Download, Lock } from 'lucide-react';
+import { CalendarIcon, Plus, Download, Lock, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { exportToCSV } from '@/lib/export';
 import { EditDeleteActions } from '@/components/ledger/EditDeleteActions';
 
 const Received = () => {
-  const { canWriteLedgers } = useAuth();
+  const { user, canWriteLedgers, isCubeStaff } = useAuth();
   const { activeBranch } = useBranch();
   const [date, setDate] = useState<Date>(new Date());
   const [supplier, setSupplier] = useState('');
@@ -38,10 +47,14 @@ const Received = () => {
   const [editInvoice, setEditInvoice] = useState('');
 
   const { data: items } = useItems();
-  const { data: ledger, isLoading } = useReceivedLedger(activeBranch?.id);
+  const { data: standardLedger, isLoading: isLoadingStandard } = useReceivedLedger(activeBranch?.id);
+  const { data: cubeTransfers, isLoading: isLoadingCube } = useCubeIncomingTransfers(activeBranch?.id);
+  const confirmTransferReceipt = useConfirmTransferReceipt();
   const createReceived = useCreateReceived();
   const updateReceived = useUpdateReceived();
   const deleteReceived = useDeleteReceived();
+
+  const isLoading = isCubeStaff ? isLoadingCube : isLoadingStandard;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,9 +97,37 @@ const Received = () => {
   };
 
   const handleExport = () => {
-    if (!ledger) return;
+    if (isCubeStaff) {
+      if (!cubeTransfers) return;
+      exportToCSV(
+        cubeTransfers.map(entry => ({
+          date: format(new Date(entry.date), 'yyyy-MM-dd'),
+          item: entry.items?.name || '',
+          quantity: entry.quantity,
+          unit: entry.items?.unit_of_measure || '',
+          reason: entry.reason || '',
+          status: entry.status || 'confirmed',
+          confirmed_at: entry.confirmed_at ? format(new Date(entry.confirmed_at), 'yyyy-MM-dd HH:mm') : '',
+          confirmed_by: entry.confirmed_by || '',
+        })),
+        'cube_received_transfers',
+        [
+          { key: 'date', header: 'Date' },
+          { key: 'item', header: 'Item' },
+          { key: 'quantity', header: 'Quantity' },
+          { key: 'unit', header: 'Unit' },
+          { key: 'reason', header: 'Reason / Source' },
+          { key: 'status', header: 'Status' },
+          { key: 'confirmed_at', header: 'Confirmed At' },
+          { key: 'confirmed_by', header: 'Confirmed By' },
+        ]
+      );
+      return;
+    }
+
+    if (!standardLedger) return;
     exportToCSV(
-      ledger.map(entry => ({
+      standardLedger.map(entry => ({
         date: format(new Date(entry.date), 'yyyy-MM-dd'),
         supplier: entry.supplier,
         item: entry.items?.name || '',
@@ -116,139 +157,276 @@ const Received = () => {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-bold">Received Ledger</h1>
-        <p className="text-muted-foreground text-xs sm:text-sm">Record items received from suppliers</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold">
+            {isCubeStaff ? 'Cube Received Ledger' : 'Received Ledger'}
+          </h1>
+          <p className="text-muted-foreground text-xs sm:text-sm">
+            {isCubeStaff
+              ? 'Items transferred into Cube — confirm receipt to acknowledge stock'
+              : 'Record items received from suppliers'}
+          </p>
+        </div>
+        <Button variant="outline" size="sm" onClick={handleExport} className="w-full sm:w-auto h-11 sm:h-9 text-base sm:text-xs">
+          <Download className="mr-2 h-4 w-4" /> Export CSV
+        </Button>
       </div>
 
-      {canWriteLedgers ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base sm:text-lg">New Receipt</CardTitle>
-            <CardDescription className="text-xs sm:text-sm">Record items received from a supplier</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5">
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Date</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" className={cn("w-full justify-start text-left font-normal h-11 sm:h-9 text-base sm:text-xs")}>
-                        <CalendarIcon className="mr-2 h-4 w-4" />{format(date, 'PPP')}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar mode="single" selected={date} onSelect={(d) => d && setDate(d)} initialFocus className="pointer-events-auto" />
-                    </PopoverContent>
-                  </Popover>
+      {/* Supplier New Receipt Form — hidden for Cube staff */}
+      {!isCubeStaff && (
+        canWriteLedgers ? (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base sm:text-lg">New Receipt</CardTitle>
+              <CardDescription className="text-xs sm:text-sm">Record items received from a supplier</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Date</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className={cn("w-full justify-start text-left font-normal h-11 sm:h-9 text-base sm:text-xs")}>
+                          <CalendarIcon className="mr-2 h-4 w-4" />{format(date, 'PPP')}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar mode="single" selected={date} onSelect={(d) => d && setDate(d)} initialFocus className="pointer-events-auto" />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Supplier</Label>
+                    <Input value={supplier} onChange={(e) => setSupplier(e.target.value)} placeholder="Supplier name" className="h-11 sm:h-9 text-base sm:text-xs" required />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Item</Label>
+                    <Select value={selectedItem} onValueChange={setSelectedItem}>
+                      <SelectTrigger className="h-11 sm:h-9 text-base sm:text-xs"><SelectValue placeholder="Select item" /></SelectTrigger>
+                      <SelectContent className="bg-background">
+                        {items?.map(item => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Quantity</Label>
+                    <Input type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="0" className="h-11 sm:h-9 text-base sm:text-xs" required />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Invoice # (Optional)</Label>
+                    <Input value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} placeholder="INV-001" className="h-11 sm:h-9 text-base sm:text-xs" />
+                  </div>
                 </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Supplier</Label>
-                  <Input value={supplier} onChange={(e) => setSupplier(e.target.value)} placeholder="Supplier name" className="h-11 sm:h-9 text-base sm:text-xs" required />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Item</Label>
-                  <Select value={selectedItem} onValueChange={setSelectedItem}>
-                    <SelectTrigger className="h-11 sm:h-9 text-base sm:text-xs"><SelectValue placeholder="Select item" /></SelectTrigger>
-                    <SelectContent className="bg-background">
-                      {items?.map(item => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Quantity</Label>
-                  <Input type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="0" className="h-11 sm:h-9 text-base sm:text-xs" required />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Invoice # (Optional)</Label>
-                  <Input value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} placeholder="INV-001" className="h-11 sm:h-9 text-base sm:text-xs" />
-                </div>
-              </div>
-              <Button type="submit" disabled={createReceived.isPending || !selectedItem || !supplier} className="w-full sm:w-auto h-11 sm:h-9 text-base sm:text-xs">
-                <Plus className="mr-2 h-4 w-4" />Record Receipt
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="flex items-center gap-2 p-3 rounded-lg border bg-muted text-xs text-muted-foreground">
-          <Lock className="h-4 w-4" />
-          <span>You have read-only access to this ledger.</span>
-        </div>
+                <Button type="submit" disabled={createReceived.isPending || !selectedItem || !supplier} className="w-full sm:w-auto h-11 sm:h-9 text-base sm:text-xs">
+                  <Plus className="mr-2 h-4 w-4" />Record Receipt
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="flex items-center gap-2 p-3 rounded-lg border bg-muted text-xs text-muted-foreground">
+            <Lock className="h-4 w-4" />
+            <span>You have read-only access to this ledger.</span>
+          </div>
+        )
       )}
 
+      {/* History Card */}
       <Card>
         <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <CardTitle className="text-base sm:text-lg">Receipt History</CardTitle>
-            <CardDescription className="text-xs sm:text-sm">All recorded receipts</CardDescription>
+            <CardTitle className="text-base sm:text-lg">
+              {isCubeStaff ? 'Cube Incoming Transfers' : 'Receipt History'}
+            </CardTitle>
+            <CardDescription className="text-xs sm:text-sm">
+              {isCubeStaff
+                ? 'Stock transferred into Cube. Unconfirmed transfers must be confirmed to reflect in Cube stock.'
+                : 'All recorded supplier receipts'}
+            </CardDescription>
           </div>
-          <Button variant="outline" onClick={handleExport} disabled={!ledger?.length} className="w-full sm:w-auto h-11 sm:h-9 text-base sm:text-xs">
-            <Download className="mr-2 h-4 w-4" />Export
-          </Button>
         </CardHeader>
         <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
-          {/* Mobile card list */}
-          <div className="sm:hidden space-y-2">
-            {!ledger?.length ? (
-              <p className="text-center text-muted-foreground py-8 text-sm">No receipts recorded yet</p>
-            ) : ledger.map(entry => (
-              <div key={entry.id} className="rounded-lg border p-3 space-y-1.5">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-semibold text-sm truncate">{entry.items?.name}</span>
-                  <span className="text-xs font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-full shrink-0">
-                    +{entry.quantity} {entry.items?.unit_of_measure}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>{format(new Date(entry.date), 'PP')} · {entry.supplier}</span>
-                  {entry.invoice_number && <span className="font-mono">{entry.invoice_number}</span>}
-                </div>
-                <div className="flex justify-end pt-1 border-t">
-                  <EditDeleteActions onEdit={() => openEdit(entry)} onDelete={() => deleteReceived.mutate(entry.id)} isDeleting={deleteReceived.isPending} />
-                </div>
+          {/* CUBE STAFF VIEW */}
+          {isCubeStaff ? (
+            <>
+              {/* Mobile card list for Cube */}
+              <div className="sm:hidden space-y-2">
+                {!cubeTransfers?.length ? (
+                  <p className="text-center text-muted-foreground py-8 text-sm">No incoming transfers found for Cube</p>
+                ) : cubeTransfers.map(entry => {
+                  const isConfirmed = !entry.status || entry.status === 'confirmed';
+                  return (
+                    <div key={entry.id} className={cn(
+                      'rounded-lg border p-3 space-y-2',
+                      !isConfirmed && 'border-amber-500/40 bg-amber-500/5'
+                    )}>
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="font-semibold text-sm truncate">{entry.items?.name || 'Item'}</span>
+                        <span className="text-xs font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-full shrink-0">
+                          +{entry.quantity} {entry.items?.unit_of_measure}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>{format(new Date(entry.date), 'PP')} · {entry.reason || 'Transfer into Cube'}</span>
+                        <Badge variant={isConfirmed ? 'default' : 'outline'} className={cn(
+                          'text-[10px] px-1.5 py-0 h-5',
+                          isConfirmed ? 'bg-green-600 hover:bg-green-600 text-white' : 'border-amber-500 text-amber-600 dark:text-amber-500 font-semibold'
+                        )}>
+                          {isConfirmed ? 'Confirmed' : 'Pending'}
+                        </Badge>
+                      </div>
+                      {!isConfirmed && (
+                        <div className="pt-2 border-t flex justify-end">
+                          <Button
+                            size="sm"
+                            className="h-8 text-xs bg-green-600 hover:bg-green-700 text-white"
+                            onClick={() => confirmTransferReceipt.mutate({ id: entry.id, confirmedBy: user?.email || 'Cube Staff' })}
+                            disabled={confirmTransferReceipt.isPending}
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+                            Confirm Receipt
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-            ))}
-          </div>
-          {/* Desktop table */}
-          <div className="hidden sm:block rounded-md border overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="whitespace-nowrap">Date</TableHead>
-                  <TableHead className="whitespace-nowrap">Supplier</TableHead>
-                  <TableHead className="whitespace-nowrap">Item</TableHead>
-                  <TableHead className="whitespace-nowrap">Quantity</TableHead>
-                  <TableHead className="whitespace-nowrap">Invoice #</TableHead>
-                  <TableHead className="w-[80px]">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {ledger?.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">No receipts recorded yet</TableCell>
-                  </TableRow>
-                ) : (
-                  ledger?.map(entry => (
-                    <TableRow key={entry.id}>
-                      <TableCell className="whitespace-nowrap">{format(new Date(entry.date), 'PP')}</TableCell>
-                      <TableCell className="whitespace-nowrap">{entry.supplier}</TableCell>
-                      <TableCell className="font-medium whitespace-nowrap">{entry.items?.name}</TableCell>
-                      <TableCell className="whitespace-nowrap">{entry.quantity} {entry.items?.unit_of_measure}</TableCell>
-                      <TableCell className="whitespace-nowrap">{entry.invoice_number || '-'}</TableCell>
-                      <TableCell>
-                        <EditDeleteActions onEdit={() => openEdit(entry)} onDelete={() => deleteReceived.mutate(entry.id)} isDeleting={deleteReceived.isPending} />
-                      </TableCell>
+
+              {/* Desktop table for Cube */}
+              <div className="hidden sm:block rounded-md border overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="whitespace-nowrap">Date</TableHead>
+                      <TableHead className="whitespace-nowrap">Item</TableHead>
+                      <TableHead className="whitespace-nowrap">Quantity</TableHead>
+                      <TableHead className="whitespace-nowrap">Reason / Source</TableHead>
+                      <TableHead className="whitespace-nowrap">Status</TableHead>
+                      <TableHead className="w-[150px] text-right">Action</TableHead>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                  </TableHeader>
+                  <TableBody>
+                    {cubeTransfers?.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                          No incoming transfers found for Cube
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      cubeTransfers?.map(entry => {
+                        const isConfirmed = !entry.status || entry.status === 'confirmed';
+                        return (
+                          <TableRow key={entry.id} className={cn(!isConfirmed && 'bg-amber-500/5')}>
+                            <TableCell className="whitespace-nowrap">{format(new Date(entry.date), 'PP')}</TableCell>
+                            <TableCell className="font-medium whitespace-nowrap">{entry.items?.name || 'Item'}</TableCell>
+                            <TableCell className="whitespace-nowrap font-semibold text-green-600">
+                              +{entry.quantity} {entry.items?.unit_of_measure}
+                            </TableCell>
+                            <TableCell className="whitespace-nowrap text-muted-foreground">{entry.reason || 'Transfer into Cube'}</TableCell>
+                            <TableCell className="whitespace-nowrap">
+                              <Badge variant={isConfirmed ? 'default' : 'outline'} className={cn(
+                                'text-[10px] px-2 py-0.5',
+                                isConfirmed ? 'bg-green-600 hover:bg-green-600 text-white' : 'border-amber-500 text-amber-600 dark:text-amber-500 font-semibold'
+                              )}>
+                                {isConfirmed ? 'Confirmed' : 'Pending'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {!isConfirmed ? (
+                                <Button
+                                  size="sm"
+                                  className="h-8 text-xs bg-green-600 hover:bg-green-700 text-white"
+                                  onClick={() => confirmTransferReceipt.mutate({ id: entry.id, confirmedBy: user?.email || 'Cube Staff' })}
+                                  disabled={confirmTransferReceipt.isPending}
+                                >
+                                  <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+                                  Confirm Receipt
+                                </Button>
+                              ) : (
+                                <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
+                                  <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+                                  Acknowledged
+                                </span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
+          ) : (
+            /* STANDARD WAREHOUSE / VENDOR RECEIPTS VIEW */
+            <>
+              {/* Mobile card list */}
+              <div className="sm:hidden space-y-2">
+                {!standardLedger?.length ? (
+                  <p className="text-center text-muted-foreground py-8 text-sm">No receipts recorded yet</p>
+                ) : standardLedger.map(entry => (
+                  <div key={entry.id} className="rounded-lg border p-3 space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-semibold text-sm truncate">{entry.items?.name}</span>
+                      <span className="text-xs font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-full shrink-0">
+                        +{entry.quantity} {entry.items?.unit_of_measure}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>{format(new Date(entry.date), 'PP')} · {entry.supplier}</span>
+                      {entry.invoice_number && <span className="font-mono">{entry.invoice_number}</span>}
+                    </div>
+                    <div className="flex justify-end pt-1 border-t">
+                      <EditDeleteActions onEdit={() => openEdit(entry)} onDelete={() => deleteReceived.mutate(entry.id)} isDeleting={deleteReceived.isPending} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop table */}
+              <div className="hidden sm:block rounded-md border overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="whitespace-nowrap">Date</TableHead>
+                      <TableHead className="whitespace-nowrap">Supplier</TableHead>
+                      <TableHead className="whitespace-nowrap">Item</TableHead>
+                      <TableHead className="whitespace-nowrap">Quantity</TableHead>
+                      <TableHead className="whitespace-nowrap">Invoice #</TableHead>
+                      <TableHead className="w-[80px]">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {standardLedger?.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center text-muted-foreground py-8">No receipts recorded yet</TableCell>
+                      </TableRow>
+                    ) : (
+                      standardLedger?.map(entry => (
+                        <TableRow key={entry.id}>
+                          <TableCell className="whitespace-nowrap">{format(new Date(entry.date), 'PP')}</TableCell>
+                          <TableCell className="whitespace-nowrap">{entry.supplier}</TableCell>
+                          <TableCell className="font-medium whitespace-nowrap">{entry.items?.name}</TableCell>
+                          <TableCell className="whitespace-nowrap">{entry.quantity} {entry.items?.unit_of_measure}</TableCell>
+                          <TableCell className="whitespace-nowrap">{entry.invoice_number || '-'}</TableCell>
+                          <TableCell>
+                            <EditDeleteActions onEdit={() => openEdit(entry)} onDelete={() => deleteReceived.mutate(entry.id)} isDeleting={deleteReceived.isPending} />
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 
+      {/* Edit modal (standard receipts) */}
       <Dialog open={!!editingEntry} onOpenChange={(open) => !open && setEditingEntry(null)}>
         <DialogContent className="w-full h-full sm:h-auto sm:max-w-lg rounded-none sm:rounded-lg overflow-y-auto p-4 sm:p-6 flex flex-col justify-between">
           <div>

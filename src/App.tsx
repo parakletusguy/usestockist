@@ -3,7 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { BranchProvider } from "@/contexts/BranchContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -27,6 +27,15 @@ import BranchManager from "./pages/BranchManager";
 
 const queryClient = new QueryClient();
 
+function NonCubeOnlyRoute({ children }: { children: React.ReactNode }) {
+  const { isCubeStaff, loading } = useAuth();
+  if (loading) return null;
+  if (isCubeStaff) {
+    return <Navigate to="/departments/cube" replace />;
+  }
+  return <>{children}</>;
+}
+
 const App = () => (
   <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
@@ -43,26 +52,26 @@ const App = () => (
                 <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
                 
                 <Route element={<AppLayout />}>
-                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/" element={<NonCubeOnlyRoute><Dashboard /></NonCubeOnlyRoute>} />
                   
                   {/* Ledgers Group */}
                   <Route path="/ledgers/received" element={<Received />} />
-                  <Route path="/ledgers/transfers" element={<Transfers />} />
+                  <Route path="/ledgers/transfers" element={<NonCubeOnlyRoute><Transfers /></NonCubeOnlyRoute>} />
                   <Route path="/ledgers/issuance" element={<Issuance />} />
                   <Route path="/ledgers/stock-count" element={<StockCount />} />
-                  <Route path="/ledgers/item-sales" element={<ItemSalesReport />} />
-                  <Route path="/ledgers/items" element={<ItemManager />} />
-                  <Route path="/ledgers/purchase-orders" element={<PurchaseOrders />} />
+                  <Route path="/ledgers/item-sales" element={<NonCubeOnlyRoute><ItemSalesReport /></NonCubeOnlyRoute>} />
+                  <Route path="/ledgers/items" element={<NonCubeOnlyRoute><ItemManager /></NonCubeOnlyRoute>} />
+                  <Route path="/ledgers/purchase-orders" element={<NonCubeOnlyRoute><PurchaseOrders /></NonCubeOnlyRoute>} />
                   
                   {/* Departments Group */}
                   <Route path="/departments/:departmentId" element={<DepartmentView />} />
                   
                   {/* AI Assistant */}
-                  <Route path="/ai-assistant" element={<AIAssistantPage />} />
+                  <Route path="/ai-assistant" element={<NonCubeOnlyRoute><AIAssistantPage /></NonCubeOnlyRoute>} />
 
                   {/* Settings within AppLayout */}
                   <Route path="/settings" element={<Settings />} />
-                  <Route path="/settings/branches" element={<BranchManager />} />
+                  <Route path="/settings/branches" element={<NonCubeOnlyRoute><BranchManager /></NonCubeOnlyRoute>} />
 
                   {/* Backward compatibility redirects */}
                   <Route path="/items" element={<Navigate to="/ledgers/items" replace />} />

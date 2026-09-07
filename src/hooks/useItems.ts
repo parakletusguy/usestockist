@@ -74,9 +74,12 @@ export function useItems(departmentFilter?: string) {
 
       // Filter by department if specified
       if (departmentFilter && departmentFilter !== 'all') {
-        return items.filter(item =>
-          item.departments?.includes(departmentFilter) || item.department === departmentFilter
-        );
+        return items.filter(item => {
+          if (item.departments && item.departments.length > 0) {
+            return item.departments.includes(departmentFilter);
+          }
+          return (item.department || 'Retail') === departmentFilter;
+        });
       }
 
       return items;
