@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { ItemSchema } from '@/lib/validation';
 import { TablesInsert } from '@/integrations/supabase/types';
+import { getDefaultItemDepartments } from '@/lib/itemDepartmentRules';
 
 export interface Item {
   id: string;
@@ -63,9 +64,9 @@ export function useItems(departmentFilter?: string) {
 
       const items = (itemData || []).map((item) => {
         const deptsFromJunction = deptMap.get(item.id);
-        const departments = deptsFromJunction && deptsFromJunction.length > 0
+        const departments = (deptsFromJunction && deptsFromJunction.length > 0)
           ? deptsFromJunction
-          : [item.department || 'Retail'];
+          : getDefaultItemDepartments(item.name, item.category, item.department);
         return {
           ...item,
           departments,
@@ -74,11 +75,12 @@ export function useItems(departmentFilter?: string) {
 
       // Filter by department if specified
       if (departmentFilter && departmentFilter !== 'all') {
+        const targetDept = departmentFilter.toLowerCase();
         return items.filter(item => {
           if (item.departments && item.departments.length > 0) {
-            return item.departments.includes(departmentFilter);
+            return item.departments.some(d => d.toLowerCase() === targetDept);
           }
-          return (item.department || 'Retail') === departmentFilter;
+          return (item.department || 'Retail').toLowerCase() === targetDept;
         });
       }
 

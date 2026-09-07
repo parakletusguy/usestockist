@@ -22,14 +22,21 @@ const DEPARTMENT_MAP: Record<string, string> = {
   housekeeping: 'Housekeeping',
   ppk: 'PPK',
   nox: 'Nox',
+  'bush bar': 'Bush Bar',
+  'bush-bar': 'Bush Bar',
+  'box signature bar': 'Box Signature Bar',
+  'box-signature-bar': 'Box Signature Bar',
 };
 
 export default function DepartmentView() {
   const { departmentId } = useParams<{ departmentId: string }>();
   const { isCubeStaff } = useAuth();
   const { activeBranch } = useBranch();
-  const departmentName = DEPARTMENT_MAP[departmentId || ''] || 'Retail';
-  const isCube = departmentName === 'Cube';
+  
+  const rawDept = departmentId ? decodeURIComponent(departmentId).trim() : '';
+  const normalizedKey = rawDept.toLowerCase();
+  const departmentName = DEPARTMENT_MAP[normalizedKey] || (rawDept ? rawDept.charAt(0).toUpperCase() + rawDept.slice(1) : 'Retail');
+  const isCube = departmentName.toLowerCase() === 'cube';
 
   if (isCubeStaff && !isCube) {
     return <Navigate to="/departments/cube" replace />;

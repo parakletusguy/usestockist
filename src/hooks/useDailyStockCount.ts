@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { isCubeItem, getCubeBaselineStock, CUBE_BASELINE_DATE } from '@/lib/cubeItems';
+import { getDefaultItemDepartments } from '@/lib/itemDepartmentRules';
 
 const CUBE_DEPARTMENT = 'Cube';
 const GUEST_GROUP = 'Guest';
@@ -192,11 +193,9 @@ export function useDailyStockCount(startDate: string, endDate?: string, departme
       // Filter catalog items by department if specified
       const filteredCatalogItems = deptParam
         ? catalogItems.filter(item => {
-            const depts = deptMap.get(item.id);
-            if (depts && depts.length > 0) {
-              return depts.includes(deptParam);
-            }
-            return (item.department || 'Retail') === deptParam;
+            const depts = (deptMap.get(item.id)?.length ? deptMap.get(item.id) : null)
+              || getDefaultItemDepartments(item.name, item.category, item.department);
+            return depts.some(d => d.toLowerCase() === deptParam.toLowerCase());
           })
         : catalogItems;
 
@@ -205,7 +204,8 @@ export function useDailyStockCount(startDate: string, endDate?: string, departme
 
       return filteredCatalogItems
         .map((item): DailyStockCountRow => {
-          const depts = deptMap.get(item.id) || [item.department || 'Retail'];
+          const depts = (deptMap.get(item.id)?.length ? deptMap.get(item.id) : null)
+            || getDefaultItemDepartments(item.name, item.category, item.department);
           const sheets = sheetsByItem.get(item.id) || [];
           const sheetOpening = sheets.reduce((s, r) => s + Number(r.open_qty || 0), 0);
           const qtyIn = sheets.reduce((s, r) => s + Number(r.qty_in || 0), 0);
