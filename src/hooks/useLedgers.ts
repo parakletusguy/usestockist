@@ -126,6 +126,21 @@ export function useUpdateIssuance() {
         .single();
 
       if (error) throw error;
+
+      // Synchronize update to inventory_transactions
+      const txUpdates: Record<string, any> = {};
+      if (input.quantity !== undefined) txUpdates.quantity = input.quantity;
+      if (input.date !== undefined) txUpdates.transaction_date = input.date;
+      if (input.item_id !== undefined) txUpdates.item_id = input.item_id;
+      if (branchId) txUpdates.branch_id = branchId;
+
+      if (Object.keys(txUpdates).length > 0) {
+        await supabase
+          .from('inventory_transactions')
+          .update(txUpdates)
+          .contains('metadata', { ledger_id: id });
+      }
+
       return data;
     },
     onSuccess: () => {
@@ -145,6 +160,12 @@ export function useDeleteIssuance() {
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('issuance_ledger').delete().eq('id', id);
       if (error) throw error;
+
+      // Synchronize deletion to inventory_transactions
+      await supabase
+        .from('inventory_transactions')
+        .delete()
+        .contains('metadata', { ledger_id: id });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['issuance_ledger'] });
@@ -339,6 +360,21 @@ export function useUpdateTransfer() {
         .single();
 
       if (error) throw error;
+
+      // Synchronize update to inventory_transactions
+      const txUpdates: Record<string, any> = {};
+      if (input.quantity !== undefined) txUpdates.quantity = input.quantity;
+      if (input.date !== undefined) txUpdates.transaction_date = input.date;
+      if (input.item_id !== undefined) txUpdates.item_id = input.item_id;
+      if (branchId) txUpdates.branch_id = branchId;
+
+      if (Object.keys(txUpdates).length > 0) {
+        await supabase
+          .from('inventory_transactions')
+          .update(txUpdates)
+          .contains('metadata', { ledger_id: id });
+      }
+
       return data;
     },
     onSuccess: () => {
@@ -358,6 +394,12 @@ export function useDeleteTransfer() {
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('transfer_ledger').delete().eq('id', id);
       if (error) throw error;
+
+      // Synchronize deletion to inventory_transactions
+      await supabase
+        .from('inventory_transactions')
+        .delete()
+        .contains('metadata', { ledger_id: id });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['transfer_ledger'] });
@@ -489,6 +531,21 @@ export function useUpdateReceived() {
         .single();
 
       if (error) throw error;
+
+      // Synchronize update to inventory_transactions
+      const txUpdates: Record<string, any> = {};
+      if (input.quantity !== undefined) txUpdates.quantity = input.quantity;
+      if (input.date !== undefined) txUpdates.transaction_date = input.date;
+      if (input.item_id !== undefined) txUpdates.item_id = input.item_id;
+      if (branchId) txUpdates.branch_id = branchId;
+
+      if (Object.keys(txUpdates).length > 0) {
+        await supabase
+          .from('inventory_transactions')
+          .update(txUpdates)
+          .contains('metadata', { ledger_id: id });
+      }
+
       return data;
     },
     onSuccess: () => {
@@ -508,6 +565,12 @@ export function useDeleteReceived() {
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('received_ledger').delete().eq('id', id);
       if (error) throw error;
+
+      // Synchronize deletion to inventory_transactions
+      await supabase
+        .from('inventory_transactions')
+        .delete()
+        .contains('metadata', { ledger_id: id });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['received_ledger'] });

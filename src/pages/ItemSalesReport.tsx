@@ -5,6 +5,7 @@ import { useReachSalesReports, useUploadReachSales, useReachSalesReportDetails, 
 import { useBranch } from '@/contexts/BranchContext';
 import { parsePdfSalesReport, ParsedPdfRow } from '@/lib/parsePdf';
 import { calculateBarCupDeductions, isPreparedBarDrink, isBarCupConsumingDrink, isPackagedProductOverride } from '@/lib/barCupMapping';
+import { explodePreparedItem } from '@/lib/recipeMapping';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -507,15 +508,47 @@ export default function ItemSalesReport() {
       };
     }) as Array<{ item_name: string; qty_sold: number; unit_price: number; department: string; item_id?: string }>;
 
+    // Auto-append ingredient deductions for prepared cocktails, mocktails, smoothies, and kitchen dishes
+    if (items) {
+      for (const row of parsedRows) {
+        if (!row.itemId || row.isPreparedDrink) {
+          const exploded = explodePreparedItem(row.itemName, row.qtySold, items);
+          for (const ing of exploded) {
+            // Skip Cups if barCupStats will deduct cups to prevent double deduction
+            if (ing.itemName.toLowerCase() === 'cups' && barCupStats.totalCupsToDeduct > 0) {
+              continue;
+            }
+            const existing = saleItems.find(s => s.item_id === ing.itemId);
+            if (existing) {
+              existing.qty_sold = Math.round((existing.qty_sold + ing.qtyToDeduct) * 100) / 100;
+            } else {
+              saleItems.push({
+                item_id: ing.itemId,
+                item_name: ing.itemName,
+                qty_sold: ing.qtyToDeduct,
+                unit_price: ing.unitCost,
+                department: ing.department,
+              });
+            }
+          }
+        }
+      }
+    }
+
     // Auto-append Bar Cups deduction if Bar drinks were sold
     if (barCupStats.totalCupsToDeduct > 0 && barCupsItem) {
-      saleItems.push({
-        item_id: barCupsItem.id,
-        item_name: 'Cups',
-        qty_sold: barCupStats.totalCupsToDeduct,
-        unit_price: barCupsItem.unit_cost || 0,
-        department: 'Bar',
-      });
+      const existingCups = saleItems.find(s => s.item_id === barCupsItem.id);
+      if (existingCups) {
+        existingCups.qty_sold += barCupStats.totalCupsToDeduct;
+      } else {
+        saleItems.push({
+          item_id: barCupsItem.id,
+          item_name: 'Cups',
+          qty_sold: barCupStats.totalCupsToDeduct,
+          unit_price: barCupsItem.unit_cost || 0,
+          department: 'Bar',
+        });
+      }
     }
 
     await uploadSales.mutateAsync({

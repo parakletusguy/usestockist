@@ -141,12 +141,12 @@ export function useDailyStockCount(startDate: string, endDate?: string, departme
         withBranch(supabase.from('transfer_ledger').select('item_id, quantity').lt('date', startD)),
         withBranch(supabase.from('inventory_transactions').select('item_id, type, quantity').lt('transaction_date', startTxD)),
         withBranch(supabase.from('daily_stock_sheets')
-          .select('item_id, close_qty, date')
+          .select('item_id, close_qty, date, created_at')
           .lt('date', startD)
           .order('date', { ascending: false })),
-        // Transactions WITH their dates for gap-filling between last sheet and today
+        // Transactions WITH their dates and created_at for gap-filling between last sheet and today
         withBranch(supabase.from('inventory_transactions')
-          .select('item_id, type, quantity, transaction_date')
+          .select('item_id, type, quantity, transaction_date, created_at')
           .lt('transaction_date', startTxD)),
       ]);
 
@@ -165,26 +165,38 @@ export function useDailyStockCount(startDate: string, endDate?: string, departme
         sheetsByItem.set(s.item_id, arr);
       });
 
-      // Build map of most recent prior closing count AND date by item_id
+      // Build map of most recent prior closing count, date, and created_at by item_id
       const priorCloseByItem = new Map<string, number>();
       const priorCloseDateByItem = new Map<string, string>(); // item_id -> last sheet date
-      ((sheetsPriorRes.data as SheetRow[]) || []).forEach((s) => {
+      const priorCloseCreatedAtByItem = new Map<string, string>();
+      ((sheetsPriorRes.data as (SheetRow & { created_at?: string })[]) || []).forEach((s) => {
         if (!priorCloseByItem.has(s.item_id) && s.close_qty !== null && s.close_qty !== undefined) {
           priorCloseByItem.set(s.item_id, Number(s.close_qty));
           priorCloseDateByItem.set(s.item_id, s.date || '');
+          priorCloseCreatedAtByItem.set(s.item_id, s.created_at || '');
         }
       });
 
       // Build dated prior transactions for gap-filling
-      interface DatedTxRow { item_id: string; type: string; quantity: number; transaction_date: string; }
+      interface DatedTxRow { item_id: string; type: string; quantity: number; transaction_date: string; created_at?: string; }
       const txPriorDated = (txPriorDatedRes.data as DatedTxRow[]) || [];
 
-      // Sum transactions that occurred AFTER the last sheet date and BEFORE startDate
+      // Sum transactions that occurred AFTER the last sheet was taken and BEFORE startDate
       const sumGapTx = (itemId: string, type: string): number => {
         const lastSheetDate = priorCloseDateByItem.get(itemId);
         if (!lastSheetDate) return 0;
+        const lastSheetCreatedAt = priorCloseCreatedAtByItem.get(itemId);
+
         return txPriorDated
-          .filter(r => r.item_id === itemId && r.type === type && r.transaction_date > `${lastSheetDate}T23:59:59`)
+          .filter(r => {
+            if (r.item_id !== itemId || r.type !== type) return false;
+            const txDate = r.transaction_date.slice(0, 10);
+            if (txDate > lastSheetDate) return true;
+            if (txDate === lastSheetDate && lastSheetCreatedAt && r.created_at && r.created_at > lastSheetCreatedAt) {
+              return true;
+            }
+            return false;
+          })
           .reduce((s, r) => s + Number(r.quantity || 0), 0);
       };
 
@@ -415,7 +427,7 @@ export async function saveDailyStockEntries(entries: DailyStockEntryInput[]) {
       item_id: entry.item_id,
       date: entry.date,
       sales_qty: entry.qty_sold ?? 0,
-      close_qty: entry.phy_count ?? 0,
+      close_qty: entry.phy_count !== null && entry.phy_count !== undefined ? Number(entry.phy_count) : null,
       remark: entry.comment || null,
       retail_team_name: entry.department || 'Retail',
     };
