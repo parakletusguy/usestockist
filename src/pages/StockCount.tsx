@@ -6,7 +6,7 @@ import { useOfflineSync } from '@/hooks/useOfflineSync';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBranch } from '@/contexts/BranchContext';
 import { DEPARTMENTS, getBranchDepartments } from '@/lib/validation';
-import { exportToCSV } from '@/lib/export';
+import { exportToCSV, exportStockCountToPDF } from '@/lib/export';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Calendar } from '@/components/ui/calendar';
@@ -14,7 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { CalendarIcon, Download, Save, Search, Wifi, WifiOff, CloudOff, PackageX, AlertTriangle, CheckCircle2, Building2, ChevronDown, ChevronUp, Lock } from 'lucide-react';
+import { CalendarIcon, Download, FileText, Save, Search, Wifi, WifiOff, CloudOff, PackageX, AlertTriangle, CheckCircle2, Building2, ChevronDown, ChevronUp, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type PeriodType = 'daily' | 'weekly' | 'monthly' | 'custom';
@@ -395,6 +395,38 @@ export default function StockCount() {
     );
   };
 
+  const handleExportPDF = () => {
+    if (computed.length === 0) return;
+    exportStockCountToPDF(
+      computed.map(({ row, sold, damages, balance, phyCount, variance, varianceValue, status }) => ({
+        category: row.category,
+        department: row.department,
+        item_name: row.item_name,
+        unit_of_measure: row.unit_of_measure,
+        qty_received: row.qty_received,
+        opening_stock: row.opening_stock,
+        qty_issued: row.qty_issued,
+        qty_transferred: row.qty_transferred,
+        sold,
+        damages,
+        balance,
+        phy_count: phyCount,
+        variance,
+        unit_cost: row.unit_cost,
+        variance_value: varianceValue,
+        comment: row.comment || '',
+        status,
+      })),
+      {
+        dateStart: dateRange.start,
+        dateEnd: dateRange.end,
+        branchName: activeBranch?.name,
+        department: departmentFilter,
+        summary,
+      }
+    );
+  };
+
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Header */}
@@ -593,6 +625,11 @@ export default function StockCount() {
               <Download className="mr-1.5 h-4 w-4" />
               <span className="hidden sm:inline">Export CSV</span>
               <span className="sm:hidden">CSV</span>
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleExportPDF} disabled={computed.length === 0} className="h-9">
+              <FileText className="mr-1.5 h-4 w-4" />
+              <span className="hidden sm:inline">Export PDF</span>
+              <span className="sm:hidden">PDF</span>
             </Button>
             {canWriteLedgers ? (
               <Button size="sm" onClick={handleSave} disabled={dirty.size === 0 || saveStockCount.isPending || !activeBranch?.id} className="h-9">
