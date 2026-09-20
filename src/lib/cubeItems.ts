@@ -16,6 +16,7 @@ export const CUBE_ITEM_NAMES = [
   'Louis Roederer',
   'Bombay',
   'Hennessy XO',
+  'Ice Cream Mix',
 ] as const;
 
 /** Cube issues out to guests only. */
@@ -23,7 +24,7 @@ export const CUBE_RECIPIENT_GROUPS = ['Guest'] as const;
 
 const normalize = (v: string) => v.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
-const CUBE_KEYS = [...CUBE_ITEM_NAMES, 'Hennessey XO', 'Louise Roederer', 'Castilo Grande', 'Loise Roederer'].map(normalize);
+const CUBE_KEYS = [...CUBE_ITEM_NAMES, 'Hennessey XO', 'Louise Roederer', 'Castilo Grande', 'Loise Roederer', 'Icecream Mix'].map(normalize);
 
 /** Loose match so catalog naming variants (e.g. "Hennessey XO 70cl") still resolve. */
 export function isCubeItem(itemName: string | null | undefined): boolean {
@@ -47,11 +48,13 @@ export const CUBE_BASELINE_STOCK: Record<string, number> = {
   'Castilo Grande': 1,
   'Chamdor': 6,
   'Soda': 48,
-  'Water': 29,
+  'Water': 2,
   'Bombay': 2,
   'Hennesy XO': 1,
   'Hennessy XO': 1,
   'Regular Popcorn': 17,
+  'Ice Cream Mix': 15,
+  'Icecream Mix': 15,
   'Serviette': 0,
   'Tissue': 0,
   'Chafing Gel': 0,
