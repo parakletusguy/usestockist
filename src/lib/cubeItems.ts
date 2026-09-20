@@ -36,22 +36,22 @@ export function isCubeItem(itemName: string | null | undefined): boolean {
  * Physically counted Cube stock as of the baseline date.
  * Ledger movements recorded on/after this date are applied on top of these figures.
  */
-export const CUBE_BASELINE_DATE = '2026-09-07';
+export const CUBE_BASELINE_DATE = '2026-09-20';
 
 export const CUBE_BASELINE_STOCK: Record<string, number> = {
   'Louis Roederer': 1,
   'Loise Roederer': 1,
   'Alita': 1,
-  'Lamothe Parrot': 8,
-  'Castillo Grande': 6,
-  'Castilo Grande': 6,
+  'Lamothe Parrot': 7,
+  'Castillo Grande': 1,
+  'Castilo Grande': 1,
   'Chamdor': 6,
-  'Soda': 36,
-  'Water': 42,
+  'Soda': 48,
+  'Water': 29,
   'Bombay': 2,
   'Hennesy XO': 1,
   'Hennessy XO': 1,
-  'Regular Popcorn': 0,
+  'Regular Popcorn': 17,
   'Serviette': 0,
   'Tissue': 0,
   'Chafing Gel': 0,
