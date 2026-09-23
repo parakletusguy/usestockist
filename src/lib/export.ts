@@ -300,7 +300,7 @@ export async function exportStockCountToPDF(
     },
     // Page number footer
     didDrawPage(data) {
-      const pageCount = (doc.internal as { getNumberOfPages(): number }).getNumberOfPages();
+      const pageCount = doc.getNumberOfPages();
       doc.setFontSize(8);
       doc.setTextColor(...GREY);
       doc.setFont('helvetica', 'normal');
