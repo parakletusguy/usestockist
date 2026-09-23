@@ -1,12 +1,15 @@
-Replace all user-facing `$` currency symbols with `₦` (Naira) across the app. Parser/regex/template-literal code that uses `$` for non-currency purposes (regex anchors, `${}` interpolation, CSV escape) is left untouched.
+# Restore mobile rendering
 
-## Files to update
+## Goal
+Make the installed and browser versions of Stockist recover from an outdated mobile app cache instead of showing a blank screen.
 
-- `src/pages/ItemManager.tsx` — 3 spots: `Unit Cost ($)` labels (lines 244, 413) and `${...toFixed(2)}` displays (lines 226, 274).
-- `src/pages/StockCount.tsx` — headers `Unit Cost ($)` / `Variance Val ($)` (606, 607) and inline `${...toFixed(2)}` displays (168, 172).
-- `src/pages/DepartmentView.tsx` — header `Unit Cost ($)` (230) and cost displays (211, 265).
-- `src/pages/ItemSalesReport.tsx` — header `Total ($)` (374) and `$` prefixes on totals (354, 471).
+## Changes
+- Strengthen the app update settings so a newly published version replaces old cached files immediately.
+- Remove obsolete app caches while preserving offline support.
+- Add a safe one-time recovery when the browser reports a stale app-file loading failure.
+- Keep the existing mobile layout and inventory behavior unchanged.
 
-## Not changed
-- `src/lib/parsePdf.ts` and `src/test/pdfParsing.test.ts` — the `$` inside `[₦$N]` char classes is intentional (Reach POS PDF may render `$` as an OCR variant). Leaving in place preserves parser robustness.
-- Any `${...}` template literals and regex `$` anchors.
+## Verification
+- Confirm the app compiles successfully.
+- Open both the preview and published site at a 411 × 726 mobile viewport.
+- Confirm the sign-in screen renders and no failed requests or page errors occur.
