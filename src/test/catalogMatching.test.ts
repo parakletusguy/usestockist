@@ -161,6 +161,7 @@ describe('barCupMapping — packaged product overrides', () => {
 });
 
 import { getDefaultItemDepartments } from '@/lib/itemDepartmentRules';
+import { findRecipe } from '@/lib/recipeMapping';
 
 describe('Retail Shawarma Department Rules', () => {
   it('assigns Retail department to Mixed Grill Shawarma', () => {
@@ -173,9 +174,62 @@ describe('Retail Shawarma Department Rules', () => {
     expect(depts).toContain('Retail');
   });
 
+  it('assigns Retail department to Shawarma (2 Sausages)', () => {
+    const depts = getDefaultItemDepartments('Shawarma (2 Sausages)', 'Food');
+    expect(depts).toContain('Retail');
+  });
+
   it('does not assign Retail department to Shawarma Bread by default', () => {
     const depts = getDefaultItemDepartments('Shawarma Bread', 'Food');
     expect(depts).toContain('Kitchen');
     expect(depts).not.toContain('Retail');
+  });
+});
+
+describe('Shawarma Recipe Mapping', () => {
+  it('Beef Shawarma resolves to Beef Shawarma recipe with Shawarma Bread + Portioned Chicken', () => {
+    const recipe = findRecipe('Beef Shawarma');
+    expect(recipe).not.toBeNull();
+    expect(recipe!.name).toBe('Beef Shawarma');
+    const bread = recipe!.ingredients.find(i => i.catalogItemName === 'Shawarma Bread');
+    const chicken = recipe!.ingredients.find(i => i.catalogItemName === 'Portioned Chicken');
+    expect(bread?.quantityPerServing).toBe(1);
+    expect(chicken?.quantityPerServing).toBe(0.15);
+  });
+
+  it('Mixed Grill Shawarma resolves to Mixed Grill Shawarma recipe with Shawarma Bread + Portioned Chicken', () => {
+    const recipe = findRecipe('Mixed Grill Shawarma');
+    expect(recipe).not.toBeNull();
+    expect(recipe!.name).toBe('Mixed Grill Shawarma');
+    const bread = recipe!.ingredients.find(i => i.catalogItemName === 'Shawarma Bread');
+    const chicken = recipe!.ingredients.find(i => i.catalogItemName === 'Portioned Chicken');
+    expect(bread?.quantityPerServing).toBe(1);
+    expect(chicken?.quantityPerServing).toBe(0.15);
+  });
+
+  it('Shawarma (2 Sausages) resolves to sausage recipe with 2 Hotdog Sausages + 1 Shawarma Bread', () => {
+    const recipe = findRecipe('Shawarma (2 Sausages)');
+    expect(recipe).not.toBeNull();
+    expect(recipe!.name).toBe('Shawarma (2 Sausages)');
+    const bread = recipe!.ingredients.find(i => i.catalogItemName === 'Shawarma Bread');
+    const sausages = recipe!.ingredients.find(i => i.catalogItemName === 'Hotdog Sausages');
+    expect(bread?.quantityPerServing).toBe(1);
+    expect(sausages?.quantityPerServing).toBe(2);
+    // Sausage shawarma should NOT deduct Portioned Chicken
+    const chicken = recipe!.ingredients.find(i => i.catalogItemName === 'Portioned Chicken');
+    expect(chicken).toBeUndefined();
+  });
+
+  it('Shawarma (2 Sausages) does NOT match the generic Shawarma recipe', () => {
+    const recipe = findRecipe('Shawarma (2 Sausages)');
+    expect(recipe!.name).not.toBe('Shawarma');
+  });
+
+  it('plain Shawarma falls back to generic Shawarma recipe with Portioned Chicken', () => {
+    const recipe = findRecipe('Shawarma');
+    expect(recipe).not.toBeNull();
+    expect(recipe!.name).toBe('Shawarma');
+    const chicken = recipe!.ingredients.find(i => i.catalogItemName === 'Portioned Chicken');
+    expect(chicken).toBeDefined();
   });
 });

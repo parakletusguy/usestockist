@@ -106,6 +106,7 @@ def fast_deduplicate():
         'small chops': ['Retail', 'Kitchen'],
         'mixed grill shawarma': ['Retail', 'Kitchen'],
         'beef shawarma': ['Retail', 'Kitchen'],
+        'shawarma (2 sausages)': ['Retail', 'Kitchen'],
         'parfait': ['Retail', 'Nox'],
         'serviette white': ['Retail', 'Bar', 'Kitchen'],
         'straw': ['Retail', 'Bar'],

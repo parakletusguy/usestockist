@@ -85,6 +85,10 @@ export function getDefaultItemDepartments(name: string, category?: string, fallb
     lower.includes('maltina') ||
     lower.includes('mixed grill shawarma') ||
     lower.includes('beef shawarma') ||
+    lower.includes('2 sausages') ||
+    lower.includes('two sausages') ||
+    lower.includes('sausage shawarma') ||
+    lower.includes('shawarma sausage') ||
     category === 'Concessions'
   ) {
     if (!depts.includes('Retail')) depts.push('Retail');

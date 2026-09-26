@@ -44,6 +44,7 @@ ITEMS_CATALOG: List[Dict[str, Any]] = [
     {'name': 'Pepper', 'category': 'Food', 'unit': 'pack', 'departments': ['Kitchen'], 'cost': 0},
     {'name': 'Mixed Grill Shawarma', 'category': 'Food', 'unit': 'pcs', 'departments': ['Retail', 'Kitchen'], 'cost': 0},
     {'name': 'Beef Shawarma', 'category': 'Food', 'unit': 'pcs', 'departments': ['Retail', 'Kitchen'], 'cost': 0},
+    {'name': 'Shawarma (2 Sausages)', 'category': 'Food', 'unit': 'pcs', 'departments': ['Retail', 'Kitchen'], 'cost': 0},
     {'name': 'Shawarma Bread', 'category': 'Food', 'unit': 'pack', 'departments': ['Kitchen'], 'cost': 0},
     {'name': 'Portioned Chicken', 'category': 'Food', 'unit': 'kg', 'departments': ['Kitchen'], 'cost': 0},
     {'name': 'Hotdog Sausages', 'category': 'Food', 'unit': 'pcs', 'departments': ['Kitchen'], 'cost': 0},

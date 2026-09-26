@@ -150,8 +150,38 @@ export const RECIPES: Recipe[] = [
 
   // ── Kitchen Food Items ─────────────────────────────────────────────────────
   {
+    // Sausage shawarma variant: 1 bread + 2 sausages. Must appear BEFORE generic shawarma
+    // so the keyword '2 sausages' / 'sausage shawarma' match this first.
+    name: 'Shawarma (2 Sausages)',
+    keywords: ['2 sausages', 'two sausages', 'sausage shawarma', 'shawarma sausage'],
+    ingredients: [
+      { catalogItemName: 'Shawarma Bread', quantityPerServing: 1 },
+      { catalogItemName: 'Hotdog Sausages', quantityPerServing: 2 },  // 2 sausages per shawarma
+      { catalogItemName: 'Foil', quantityPerServing: 0.05 },
+    ],
+  },
+  {
+    name: 'Beef Shawarma',
+    keywords: ['beef shawarma'],
+    ingredients: [
+      { catalogItemName: 'Shawarma Bread', quantityPerServing: 1 },
+      { catalogItemName: 'Portioned Chicken', quantityPerServing: 0.15 },
+      { catalogItemName: 'Foil', quantityPerServing: 0.05 },
+    ],
+  },
+  {
+    name: 'Mixed Grill Shawarma',
+    keywords: ['mixed grill shawarma'],
+    ingredients: [
+      { catalogItemName: 'Shawarma Bread', quantityPerServing: 1 },
+      { catalogItemName: 'Portioned Chicken', quantityPerServing: 0.15 },
+      { catalogItemName: 'Foil', quantityPerServing: 0.05 },
+    ],
+  },
+  {
+    // Generic fallback — catches plain 'shawarma' and 'chicken shawarma'
     name: 'Shawarma',
-    keywords: ['shawarma', 'chicken shawarma', 'beef shawarma', 'mixed grill shawarma'],
+    keywords: ['shawarma', 'chicken shawarma'],
     ingredients: [
       { catalogItemName: 'Shawarma Bread', quantityPerServing: 1 },
       { catalogItemName: 'Portioned Chicken', quantityPerServing: 0.15 },
