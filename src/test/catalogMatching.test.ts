@@ -159,3 +159,23 @@ describe('barCupMapping — packaged product overrides', () => {
     expect(isBarCupConsumingDrink('Mojito Cocktail')).toBe(true);
   });
 });
+
+import { getDefaultItemDepartments } from '@/lib/itemDepartmentRules';
+
+describe('Retail Shawarma Department Rules', () => {
+  it('assigns Retail department to Mixed Grill Shawarma', () => {
+    const depts = getDefaultItemDepartments('Mixed Grill Shawarma', 'Food');
+    expect(depts).toContain('Retail');
+  });
+
+  it('assigns Retail department to Beef Shawarma', () => {
+    const depts = getDefaultItemDepartments('Beef Shawarma', 'Food');
+    expect(depts).toContain('Retail');
+  });
+
+  it('does not assign Retail department to Shawarma Bread by default', () => {
+    const depts = getDefaultItemDepartments('Shawarma Bread', 'Food');
+    expect(depts).toContain('Kitchen');
+    expect(depts).not.toContain('Retail');
+  });
+});

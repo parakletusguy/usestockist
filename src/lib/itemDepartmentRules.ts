@@ -1,4 +1,4 @@
-﻿import { isCubeItem } from './cubeItems';
+import { isCubeItem } from './cubeItems';
 
 const KITCHEN_KEYWORDS = [
   'kitchen glory', 'raw corn', 'honey', 'maggi', 'sugar', 'vegetable oil',
@@ -75,7 +75,7 @@ export function getDefaultItemDepartments(name: string, category?: string, fallb
     depts.push('Kitchen');
   }
 
-  // Retail specific items: Popcorn, Yoghurt, Parfait, Pringles, Bounty, Concessions, Maltina
+  // Retail specific items: Popcorn, Yoghurt, Parfait, Pringles, Bounty, Concessions, Maltina, Shawarma
   if (
     lower.includes('popcorn') ||
     lower.includes('yoghurt') ||
@@ -83,6 +83,8 @@ export function getDefaultItemDepartments(name: string, category?: string, fallb
     lower.includes('pringles') ||
     lower.includes('bounty') ||
     lower.includes('maltina') ||
+    lower.includes('mixed grill shawarma') ||
+    lower.includes('beef shawarma') ||
     category === 'Concessions'
   ) {
     if (!depts.includes('Retail')) depts.push('Retail');

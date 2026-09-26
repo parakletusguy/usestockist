@@ -151,7 +151,7 @@ export const RECIPES: Recipe[] = [
   // ── Kitchen Food Items ─────────────────────────────────────────────────────
   {
     name: 'Shawarma',
-    keywords: ['shawarma', 'chicken shawarma', 'beef shawarma'],
+    keywords: ['shawarma', 'chicken shawarma', 'beef shawarma', 'mixed grill shawarma'],
     ingredients: [
       { catalogItemName: 'Shawarma Bread', quantityPerServing: 1 },
       { catalogItemName: 'Portioned Chicken', quantityPerServing: 0.15 },

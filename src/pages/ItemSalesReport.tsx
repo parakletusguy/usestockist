@@ -186,6 +186,8 @@ export default function ItemSalesReport() {
 
   /** Determine default department for an item name */
   const detectDepartment = (name: string): string => {
+    const lower = name.toLowerCase();
+    if (lower.includes('mixed grill shawarma') || lower.includes('beef shawarma')) return 'Retail';
     if (isKitchenItemName(name)) return 'Kitchen';
     if (isBarItemName(name)) return 'Bar';
     return 'Retail';

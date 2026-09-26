@@ -104,6 +104,8 @@ def fast_deduplicate():
         'pos roll': ['Retail', 'Cube', 'Bar'],
         'meat pie': ['Retail', 'Kitchen'],
         'small chops': ['Retail', 'Kitchen'],
+        'mixed grill shawarma': ['Retail', 'Kitchen'],
+        'beef shawarma': ['Retail', 'Kitchen'],
         'parfait': ['Retail', 'Nox'],
         'serviette white': ['Retail', 'Bar', 'Kitchen'],
         'straw': ['Retail', 'Bar'],
